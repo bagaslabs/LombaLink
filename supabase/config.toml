@@ -1,0 +1,4 @@
+project_id = "lombalink"
+
+[functions.admin-users]
+verify_jwt = true
