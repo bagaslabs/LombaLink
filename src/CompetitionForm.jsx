@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Camera, Plus, Trash2, Upload, X } from "lucide-react";
+import { ArrowRight, Camera, Plus, Trash2, Upload, X } from "lucide-react";
 import {
   competitionModeOptions,
   competitionTypeOptions,
@@ -9,7 +9,6 @@ import {
   scopeOptions,
 } from "./data.js";
 
-const steps = ["Informasi lomba", "Jadwal & biaya", "Penyelenggara"];
 const emptyBatch = () => ({ label: "", startsAt: "", endsAt: "" });
 const emptyFeeTier = () => ({ label: "", amount: "" });
 
@@ -68,7 +67,6 @@ export default function CompetitionForm({
   onSuccess,
 }) {
   const [form, setForm] = useState(() => toForm(initialCompetition));
-  const [step, setStep] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -97,59 +95,42 @@ export default function CompetitionForm({
     }));
   };
 
-  const validateStep = (currentStep) => {
-    if (currentStep === 0) {
-      if (!form.title.trim() || !form.description.trim() || !form.audience.trim()
-        || !form.education || !form.scope || !form.category.trim()
-        || !form.competitionType || !form.mode
-        || (form.mode !== "Online" && !form.location.trim())) {
-        return "Lengkapi nama, deskripsi, bidang, peserta, cakupan, tipe, dan mode lomba.";
-      }
+  const validateForm = () => {
+    if (!form.title.trim() || !form.description.trim() || !form.audience.trim()
+      || !form.education || !form.scope || !form.category.trim()
+      || !form.competitionType || !form.mode
+      || (form.mode !== "Online" && !form.location.trim())) {
+      return "Lengkapi nama, deskripsi, bidang, peserta, cakupan, tipe, mode, dan lokasi lomba.";
     }
 
-    if (currentStep === 1) {
-      if (!form.registrationBatches.length) return "Tambahkan minimal satu batch pendaftaran.";
-      if (form.registrationBatches.some((batch) => (
-        !batch.label.trim() || !batch.startsAt || !batch.endsAt || batch.endsAt < batch.startsAt
-      ))) {
-        return "Lengkapi nama dan rentang tanggal setiap batch pendaftaran.";
-      }
-      if (form.feeTiers.some((fee) => (
-        !fee.label.trim() || fee.amount === "" || !Number.isFinite(Number(fee.amount)) || Number(fee.amount) < 0
-      ))) {
-        return "Isi kategori dan biaya dengan benar, atau hapus baris biaya yang kosong.";
-      }
-      if (form.eventStartDate && form.eventEndDate && form.eventEndDate < form.eventStartDate) {
-        return "Tanggal akhir pelaksanaan tidak boleh sebelum tanggal mulai.";
-      }
-      if (![form.registrationUrl, form.informationUrl, form.rulebookUrl].every(isValidUrl)) {
-        return "Gunakan tautan yang diawali http:// atau https://.";
-      }
+    if (!form.registrationBatches.length) return "Tambahkan minimal satu batch pendaftaran.";
+    if (form.registrationBatches.some((batch) => (
+      !batch.label.trim() || !batch.startsAt || !batch.endsAt || batch.endsAt < batch.startsAt
+    ))) {
+      return "Lengkapi nama dan rentang tanggal setiap batch pendaftaran.";
     }
-
-    if (currentStep === 2) {
-      if (!form.organizer.trim() || !form.organizerType || !form.organizerLevel || !form.contactPersonName.trim()) {
-        return "Lengkapi nama, jenis, tingkat penyelenggara, dan contact person.";
-      }
-      if (!form.contactPersonEmail.trim() && !form.contactPersonPhone.trim()) {
-        return "Isi minimal email atau nomor telepon contact person.";
-      }
-      if (form.contactPersonEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactPersonEmail.trim())) {
-        return "Format email contact person belum valid.";
-      }
+    if (form.feeTiers.some((fee) => (
+      !fee.label.trim() || fee.amount === "" || !Number.isFinite(Number(fee.amount)) || Number(fee.amount) < 0
+    ))) {
+      return "Isi kategori dan biaya dengan benar, atau hapus baris biaya yang kosong.";
+    }
+    if (form.eventStartDate && form.eventEndDate && form.eventEndDate < form.eventStartDate) {
+      return "Tanggal akhir pelaksanaan tidak boleh sebelum tanggal mulai.";
+    }
+    if (![form.registrationUrl, form.informationUrl, form.rulebookUrl].every(isValidUrl)) {
+      return "Gunakan tautan yang diawali http:// atau https://.";
+    }
+    if (!form.organizer.trim() || !form.organizerType || !form.organizerLevel || !form.contactPersonName.trim()) {
+      return "Lengkapi nama, jenis, tingkat penyelenggara, dan contact person.";
+    }
+    if (!form.contactPersonEmail.trim() && !form.contactPersonPhone.trim()) {
+      return "Isi minimal email atau nomor telepon contact person.";
+    }
+    if (form.contactPersonEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactPersonEmail.trim())) {
+      return "Format email contact person belum valid.";
     }
 
     return "";
-  };
-
-  const goToStep = (nextStep) => {
-    const validationError = validateStep(step);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setError("");
-    setStep(nextStep);
   };
 
   const selectCover = (event) => {
@@ -170,13 +151,12 @@ export default function CompetitionForm({
 
   const submit = async (event) => {
     event.preventDefault();
-    const validationError = validateStep(step);
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       return;
     }
     if (!isValidUrl(form.registrationUrl) || !isValidUrl(form.informationUrl) || !isValidUrl(form.rulebookUrl)) {
-      setStep(1);
       setError("Gunakan tautan yang diawali http:// atau https://.");
       return;
     }
@@ -221,17 +201,12 @@ export default function CompetitionForm({
         )}
       </header>
 
-      <div className="competition-form-steps" aria-label="Tahapan formulir">
-        {steps.map((label, index) => (
-          <div className={`competition-form-step ${index === step ? "active" : index < step ? "complete" : ""}`} key={label}>
-            <span>{index + 1}</span>
-            <strong>{label}</strong>
-          </div>
-        ))}
-      </div>
-
       <form onSubmit={submit} className="competition-form-body">
-        {step === 0 && (
+        <section className="competition-form-section" aria-labelledby="competition-section-information">
+          <div className="competition-form-section-heading">
+            <span>01</span>
+            <div><h3 id="competition-section-information">Informasi lomba</h3><p>Kenalkan lomba dan siapa saja yang bisa mengikuti.</p></div>
+          </div>
           <div className="competition-form-grid">
             <div className="competition-cover-picker">
               <div className="competition-cover-preview">
@@ -291,11 +266,6 @@ export default function CompetitionForm({
                 {scopeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="competition-form-grid">
             <label>Mode lomba <span className="required-mark">*</span>
               <select value={form.mode} onChange={update("mode")} required>
                 <option value="">Pilih mode</option>
@@ -305,6 +275,15 @@ export default function CompetitionForm({
             {form.mode !== "Online" && <label>Lokasi <span className="required-mark">*</span>
               <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />
             </label>}
+          </div>
+        </section>
+
+        <section className="competition-form-section" aria-labelledby="competition-section-schedule">
+          <div className="competition-form-section-heading">
+            <span>02</span>
+            <div><h3 id="competition-section-schedule">Jadwal & biaya</h3><p>Atur pendaftaran, biaya, pelaksanaan, dan tautan informasi.</p></div>
+          </div>
+          <div className="competition-form-grid">
             <div className="competition-repeat-section competition-form-full">
               <div className="competition-repeat-heading">
                 <div><strong>Batch pendaftaran</strong><span>Isi periode pendaftaran; batas akhir diambil dari batch terakhir.</span></div>
@@ -348,9 +327,13 @@ export default function CompetitionForm({
               <input type="url" value={form.rulebookUrl} onChange={update("rulebookUrl")} placeholder="https://" />
             </label>
           </div>
-        )}
+        </section>
 
-        {step === 2 && (
+        <section className="competition-form-section" aria-labelledby="competition-section-organizer">
+          <div className="competition-form-section-heading">
+            <span>03</span>
+            <div><h3 id="competition-section-organizer">Penyelenggara</h3><p>Lengkapi identitas dan kontak penyelenggara serta benefit peserta.</p></div>
+          </div>
           <div className="competition-form-grid">
             <label>Nama penyelenggara <span className="required-mark">*</span>
               <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
@@ -383,19 +366,15 @@ export default function CompetitionForm({
               <textarea rows="3" value={form.benefits} onChange={update("benefits")} maxLength={1000} placeholder="Contoh: sertifikat, mentoring, publikasi karya" />
             </label>
           </div>
-        )}
+        </section>
 
         {error && <p className="form-error competition-form-error" role="alert">{error}</p>}
         <div className="competition-form-actions">
-          {step === 0
-            ? <button className="button button-quiet" type="button" onClick={onCancel}>Batal</button>
-            : <button className="button button-quiet" type="button" onClick={() => { setError(""); setStep((current) => current - 1); }}><ArrowLeft size={15} /> Kembali</button>}
-          {step < steps.length - 1
-            ? <button className="button button-primary" type="button" onClick={() => goToStep(step + 1)}>Lanjut <ArrowRight size={15} /></button>
-            : <button className="button button-primary" type="submit" disabled={busy}>
-              {busy ? "Menyimpan..." : isModerator ? "Terbitkan lomba" : isEditing ? "Kirim perubahan" : "Kirim untuk ditinjau"}
-              {!busy && <ArrowRight size={15} />}
-            </button>}
+          <button className="button button-quiet" type="button" onClick={onCancel}>Batal</button>
+          <button className="button button-primary" type="submit" disabled={busy}>
+            {busy ? "Menyimpan..." : isModerator ? "Terbitkan lomba" : isEditing ? "Kirim perubahan" : "Kirim untuk ditinjau"}
+            {!busy && <ArrowRight size={15} />}
+          </button>
         </div>
       </form>
     </div>

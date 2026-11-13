@@ -75,7 +75,6 @@ export function Header({ account, navigate, onSubmit, onLogout, theme, onToggleT
           <a href="/#rekomendasi" className={activeNav === "rekomendasi" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "rekomendasi")}>Rekomendasi</a>
           <a href="/#tentang" className={activeNav === "tentang" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "tentang")}>Tentang</a>
           {account?.role === "moderator" && <button className={`nav-link ${activeNav === "/admin" ? "is-active" : ""}`} onClick={() => goToPage("/admin")}>Panel Moderator</button>}
-          {account && account.role !== "moderator" && <button className={`nav-link ${activeNav.startsWith("/lomba") ? "is-active" : ""}`} onClick={() => goToPage("/lomba/manajemen")}>Manajemen Lomba</button>}
           {account && <button className={`nav-link ${activeNav === "/personalization" ? "is-active" : ""}`} onClick={() => goToPage("/personalization")}>Personalisasi</button>}
           {account && <button className={`nav-link ${activeNav === "/profile" ? "is-active" : ""}`} onClick={() => goToPage("/profile")}>Profil</button>}
           {account && <button className={`nav-link ${activeNav === "/settings" ? "is-active" : ""}`} onClick={() => goToPage("/settings")}>Pengaturan</button>}
@@ -85,7 +84,7 @@ export function Header({ account, navigate, onSubmit, onLogout, theme, onToggleT
           <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
           {account ? (
             <>
-              {account.role !== "moderator" && <button className="button button-outline button-small" onClick={onSubmit}><Plus size={16} /> Tambahkan Lomba</button>}
+              {account.role !== "moderator" && <button className="button button-outline button-small" onClick={onSubmit}><Plus size={16} /> Tambah Lomba</button>}
               <button className="profile-chip" aria-label="Buka profil" onClick={() => goToPage("/profile")}>
                 <span className="avatar">{account.avatarUrl ? <img src={account.avatarUrl} alt="" /> : account.name.slice(0, 1).toUpperCase()}</span>
                 <span className="profile-name">{account.name.split(" ")[0]}</span>

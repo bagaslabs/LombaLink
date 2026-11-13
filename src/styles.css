@@ -467,14 +467,13 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-form-heading h2 { margin: 0; color: #29364f; font: 800 24px Manrope,sans-serif; letter-spacing: -.6px; }
 .competition-form-heading p { max-width: 660px; margin: 0; color: #7d899d; font-size: 11px; line-height: 1.6; }
 .competition-form-review-note { padding: 9px 11px; border: 1px solid #f1e2bd; border-radius: 8px; color: #8d6a2c !important; background: #fffaf0; }
-.competition-form-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
-.competition-form-step { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 9px 10px; border-bottom: 2px solid #e7ebf3; color: #929db0; }
-.competition-form-step span { display: grid; place-items: center; width: 23px; height: 23px; flex: 0 0 23px; border: 1px solid #dfe5ef; border-radius: 50%; font-size: 10px; font-weight: 700; }
-.competition-form-step strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.competition-form-step.active { border-color: #5c76e7; color: #445fcf; }
-.competition-form-step.active span,.competition-form-step.complete span { border-color: #5c76e7; color: #fff; background: #5c76e7; }
-.competition-form-step.complete { border-color: #a7b5ee; color: #6478cd; }
 .competition-form-body { display: grid; gap: 17px; }
+.competition-form-section { display: grid; gap: 13px; padding-bottom: 18px; border-bottom: 1px solid #edf0f5; }
+.competition-form-section-heading { display: flex; align-items: center; gap: 10px; }
+.competition-form-section-heading>span { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 8px; color: #4e66d3; background: #eef1ff; font-size: 10px; font-weight: 800; }
+.competition-form-section-heading div { display: grid; gap: 3px; }
+.competition-form-section-heading h3 { margin: 0; color: #34415b; font-size: 13px; font-weight: 800; }
+.competition-form-section-heading p { margin: 0; color: #8793a7; font-size: 10px; line-height: 1.5; }
 .competition-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; align-items: start; }
 .competition-form-grid label { display: grid; gap: 6px; min-width: 0; color: #526079; font-size: 10px; font-weight: 700; }
 .competition-form-grid input,.competition-form-grid select,.competition-form-grid textarea { width: 100%; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid #e2e8f2; border-radius: 8px; outline: none; color: #34415b; background: #fff; font: inherit; font-size: 11px; font-weight: 400; }
@@ -604,9 +603,9 @@ html[data-theme="dark"] .organizer-sidebar-account strong { color: #c3cee0; }
 html[data-theme="dark"] .competition-form-grid :is(input,select,textarea),
 html[data-theme="dark"] .organizer-search { border-color: #2b3a56; color: #d3dcec; background: #0c1525; }
 html[data-theme="dark"] .competition-form-review-note { border-color: #554727; color: #e7c68c !important; background: #282216; }
-html[data-theme="dark"] .competition-form-step { border-color: #293650; color: #9eabc0; }
-html[data-theme="dark"] .competition-form-step.active,
-html[data-theme="dark"] .competition-form-step.complete { color: #aebeff; }
+html[data-theme="dark"] .competition-form-section { border-color: #293650; }
+html[data-theme="dark"] .competition-form-section-heading>span { color: #aebeff; background: #202c49; }
+html[data-theme="dark"] .competition-form-section-heading h3 { color: #d3dcec; }
 html[data-theme="dark"] .competition-repeat-section,
 html[data-theme="dark"] .competition-cover-picker { border-color: #293650; background: #111b2d; }
 html[data-theme="dark"] .competition-repeat-heading strong,
@@ -664,8 +663,6 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
 @media (max-width: 540px) {
   .competition-form-grid { grid-template-columns: 1fr; gap: 12px; }
   .competition-form-full,.competition-cover-picker { grid-column: auto; }
-  .competition-form-step { justify-content: center; padding-inline: 4px; }
-  .competition-form-step strong { display: none; }
   .competition-repeat-row,.competition-repeat-row.fee-row { grid-template-columns: 1fr 1fr; }
   .competition-repeat-row label:first-child { grid-column: 1 / -1; }
   .competition-repeat-remove { justify-self: end; }

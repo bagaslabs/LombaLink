@@ -119,7 +119,7 @@ export default function LandingPage({ account, navigate, onSubmit, onRequireAcco
         <section className="community-banner content-width" id="tentang">
           <div className="banner-art"><div className="banner-ring"></div><div className="banner-star">✦</div><Trophy size={58} /></div>
           <div className="banner-copy"><span className="eyebrow">KAMU PUNYA INFORMASI?</span><h2>Satu informasi bisa<br />membuka banyak jalan.</h2><p>Bagikan lomba yang kamu tahu. Bantu lebih banyak orang menemukan kesempatan terbaiknya.</p>
-            <button className="button button-white" onClick={() => account ? onSubmit() : onRequireAccount(true)}>Tambahkan Lomba <ArrowRight size={16} /></button>
+            <button className="button button-white" onClick={() => account ? onSubmit() : onRequireAccount(true)}>Tambah Lomba <ArrowRight size={16} /></button>
           </div>
         </section>
 

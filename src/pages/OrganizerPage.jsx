@@ -265,7 +265,7 @@ export default function OrganizerPage({
       <aside className="organizer-sidebar">
         <Brand onClick={() => navigate("/")} />
         <span className="organizer-sidebar-label">WORKSPACE</span>
-        <button className={`organizer-nav-item ${currentPage === "/lomba/tambahkan" ? "active" : ""}`} onClick={() => navigate("/lomba/tambahkan")}><Plus size={17} /> Tambahkan Lomba</button>
+        <button className={`organizer-nav-item ${currentPage === "/lomba/tambahkan" ? "active" : ""}`} onClick={() => navigate("/lomba/tambahkan")}><Plus size={17} /> Tambah Lomba</button>
         <button className={`organizer-nav-item ${currentPage === "/lomba/manajemen" ? "active" : ""}`} onClick={() => navigate("/lomba/manajemen")}><LayoutDashboard size={17} /> Manajemen Lomba</button>
         <button className={`organizer-nav-item ${currentPage === "/lomba/analisis" ? "active" : ""}`} onClick={() => navigate("/lomba/analisis")}><BarChart3 size={17} /> Analisis</button>
         <div className="organizer-sidebar-spacer" />
@@ -300,7 +300,7 @@ export default function OrganizerPage({
             <>
               <div className="organizer-page-heading">
                 <div><span className="eyebrow">{pageDetails[currentPage].eyebrow}</span><h1>Kelola semua lombamu</h1><p>Pantau proses verifikasi, perbarui informasi, atau arsipkan lomba kapan saja.</p></div>
-                <button className="button button-primary" onClick={() => navigate("/lomba/tambahkan")}><Plus size={16} /> Tambahkan Lomba</button>
+                <button className="button button-primary" onClick={() => navigate("/lomba/tambahkan")}><Plus size={16} /> Tambah Lomba</button>
               </div>
               <div className="organizer-summary-grid">
                 <div><span><FileText size={17} /></span><small>Total lomba</small><strong>{competitions.length}</strong></div>
@@ -341,7 +341,7 @@ export default function OrganizerPage({
                       </article>;
                     })}
                   </div>
-                    : <div className="organizer-empty"><FileText size={22} /><strong>Belum ada lomba pada bagian ini</strong><p>Tambahkan informasi lomba untuk mulai mengelola status dan statistiknya.</p><button className="button button-primary" onClick={() => navigate("/lomba/tambahkan")}><Plus size={15} /> Tambahkan Lomba</button></div>}
+                    : <div className="organizer-empty"><FileText size={22} /><strong>Belum ada lomba pada bagian ini</strong><p>Tambahkan informasi lomba untuk mulai mengelola status dan statistiknya.</p><button className="button button-primary" onClick={() => navigate("/lomba/tambahkan")}><Plus size={15} /> Tambah Lomba</button></div>}
               </div>
             </>
           )}
