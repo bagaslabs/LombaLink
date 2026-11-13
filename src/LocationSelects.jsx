@@ -1,0 +1,157 @@
+import React, { useEffect, useState } from "react";
+
+const regionsApi = "https://www.emsifa.com/api-wilayah-indonesia/v2";
+
+async function fetchPlaces(path, signal) {
+  const response = await fetch(`${regionsApi}/${path}`, { signal });
+  if (!response.ok) throw new Error(`Layanan data wilayah merespons ${response.status}.`);
+  const result = await response.json();
+  if (!Array.isArray(result?.data) || result.data.some((place) => typeof place?.id !== "string" || typeof place?.name !== "string")) {
+    throw new Error("Format data wilayah tidak valid.");
+  }
+  if (!result.data.length) throw new Error("Daftar wilayah kosong.");
+  return [...result.data].sort((left, right) => left.name.localeCompare(right.name, "id"));
+}
+
+function sameName(left, right) {
+  return typeof left === "string" && typeof right === "string"
+    && left.trim().toLocaleLowerCase("id-ID") === right.trim().toLocaleLowerCase("id-ID");
+}
+
+export default function LocationSelects({
+  province,
+  city,
+  onProvinceChange,
+  onCityChange,
+  onValidityChange,
+  className = "",
+}) {
+  const [provinces, setProvinces] = useState([]);
+  const [regencies, setRegencies] = useState([]);
+  const [manualLocation, setManualLocation] = useState(false);
+  const [provincesLoading, setProvincesLoading] = useState(true);
+  const [regenciesLoading, setRegenciesLoading] = useState(false);
+  const [provincesError, setProvincesError] = useState("");
+  const [regenciesError, setRegenciesError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setProvincesLoading(true);
+    setProvincesError("");
+
+    fetchPlaces("provinces.json", controller.signal)
+      .then((data) => {
+        setProvinces(data);
+        if (province.trim() && !data.some((item) => sameName(item.name, province))) {
+          setManualLocation(true);
+        }
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setProvincesError(error instanceof Error ? error.message : "Daftar provinsi gagal dimuat.");
+          setManualLocation(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProvincesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [retryKey]);
+
+  const selectedProvince = provinces.find((item) => sameName(item.name, province));
+  const selectedRegency = regencies.find((item) => sameName(item.name, city));
+
+  useEffect(() => {
+    if (manualLocation || !selectedProvince) {
+      setRegencies([]);
+      setRegenciesError("");
+      setRegenciesLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setRegencies([]);
+    setRegenciesLoading(true);
+    setRegenciesError("");
+
+    fetchPlaces(`regencies/${encodeURIComponent(selectedProvince.id)}.json`, controller.signal)
+      .then(setRegencies)
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setRegenciesError(error instanceof Error ? error.message : "Daftar kota/kabupaten gagal dimuat.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRegenciesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [manualLocation, retryKey, selectedProvince?.id]);
+
+  const error = provincesError || (!manualLocation && regenciesError);
+  const isValid = manualLocation
+    ? Boolean(province.trim() && city.trim())
+    : Boolean(selectedProvince && selectedRegency && !provincesLoading && !regenciesLoading && !error);
+
+  useEffect(() => {
+    onValidityChange?.(isValid);
+  }, [isValid, onValidityChange]);
+
+  const retry = () => setRetryKey((current) => current + 1);
+
+  return (
+    <div className={`location-selects ${className}`.trim()}>
+      <label>
+        Provinsi <span className="required-mark">*</span>
+        {manualLocation
+          ? <input autoComplete="address-level1" value={province} onChange={(event) => onProvinceChange(event.target.value)} maxLength={120} required />
+          : <select
+            autoComplete="address-level1"
+            value={selectedProvince?.id || ""}
+            onChange={(event) => {
+              const nextProvince = provinces.find((item) => item.id === event.target.value);
+              onProvinceChange(nextProvince?.name || "");
+              onCityChange("");
+              onValidityChange?.(false);
+            }}
+            disabled={provincesLoading || Boolean(provincesError)}
+            required
+          >
+            <option value="">{provincesLoading ? "Memuat provinsi..." : "Pilih provinsi"}</option>
+            {provinces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>}
+      </label>
+      <label>
+        Kota/Kabupaten <span className="required-mark">*</span>
+        {manualLocation
+          ? <input autoComplete="address-level2" value={city} onChange={(event) => onCityChange(event.target.value)} maxLength={120} required />
+          : <select
+            autoComplete="address-level2"
+            value={selectedRegency?.id || ""}
+            onChange={(event) => {
+              const nextRegency = regencies.find((item) => item.id === event.target.value);
+              onCityChange(nextRegency?.name || "");
+            }}
+            disabled={!selectedProvince || regenciesLoading || Boolean(error)}
+            required
+          >
+            <option value="">{regenciesLoading ? "Memuat kota/kabupaten..." : "Pilih kota/kabupaten"}</option>
+            {regencies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>}
+      </label>
+      <button
+        className="location-select-mode-button"
+        type="button"
+        onClick={() => {
+          setManualLocation((current) => !current);
+          onValidityChange?.(false);
+        }}
+      >
+        {manualLocation ? "Pilih lokasi dari daftar" : "Provinsi/kabupaten tidak ditemukan? Isi manual"}
+      </button>
+      {error && <p className="location-select-error" role="alert">{error}<button type="button" onClick={retry}>Coba lagi</button></p>}
+    </div>
+  );
+}

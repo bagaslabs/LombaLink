@@ -1,6 +1,13 @@
 export const educationOptions = ["SMP", "SMA", "Kuliah", "Umum"];
 export const scopeOptions = ["Daerah", "Provinsi", "Nasional", "Internasional"];
 export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "Komunitas"];
+export const competitionModeOptions = ["Online", "Offline", "Hybrid"];
+export const competitionTypeOptions = ["Esai", "Olimpiade", "Tes kemampuan", "Hackathon", "Debat", "Desain", "Karya tulis", "Video", "Pitching", "Lainnya"];
+export const organizerLevelOptions = ["Sekolah", "Universitas", "Institut", "Lembaga", "Komunitas", "Kementerian", "Pemerintah", "Swasta", "Lainnya"];
+export const birthYearOptions = Array.from(
+  { length: new Date().getFullYear() - 1899 },
+  (_, index) => String(1900 + index),
+);
 export const defaultPreferences = {
   category: "",
   education: "",
@@ -21,6 +28,7 @@ export function accountFromUser(user) {
   const preferences = savedPreferences && typeof savedPreferences === "object" ? savedPreferences : {};
   const province = user.user_metadata?.province || "";
   const city = user.user_metadata?.city || "";
+  const birthYear = user.user_metadata?.birth_year;
   return {
     id: user.id,
     name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "Pengguna",
@@ -31,7 +39,7 @@ export function accountFromUser(user) {
     province,
     city,
     region: province && city ? `${city}, ${province}` : user.user_metadata?.region || "",
-    birthDate: user.user_metadata?.birth_date || "",
+    birthYear: typeof birthYear === "number" || typeof birthYear === "string" ? String(birthYear) : "",
     education: user.user_metadata?.education || "",
     institution: user.user_metadata?.institution || "",
     avatarUrl: user.user_metadata?.avatar_url || "",
@@ -62,12 +70,83 @@ export function competitionFromRow(row) {
     mode: row.mode,
     description: row.description,
     registrationUrl: row.registration_url,
+    informationUrl: row.information_url || "",
+    rulebookUrl: row.rulebook_url || "",
+    coverPath: row.cover_path || "",
+    tagline: row.tagline || "",
+    audience: row.audience || "",
+    keywords: Array.isArray(row.keywords) ? row.keywords : [],
+    feeTiers: Array.isArray(row.fee_tiers) ? row.fee_tiers : [],
+    registrationBatches: Array.isArray(row.registration_batches) ? row.registration_batches : [],
+    eventStartDate: row.event_start_date || "",
+    eventEndDate: row.event_end_date || "",
+    competitionType: row.competition_type || "",
+    organizerLevel: row.organizer_level || "",
+    contactPersonName: row.contact_person_name || "",
+    contactPersonEmail: row.contact_person_email || "",
+    contactPersonPhone: row.contact_person_phone || "",
+    benefits: row.benefits || "",
+    archivedAt: row.archived_at || null,
     featured: row.featured,
     status: row.status,
     submittedBy: row.submitted_by,
     submittedAt: row.submitted_at,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
+  };
+}
+
+export function getCompetitionCoverUrl(supabaseClient, coverPath) {
+  if (!coverPath) return "";
+  return supabaseClient.storage.from("lombalink-competition-covers").getPublicUrl(coverPath).data.publicUrl;
+}
+
+export function getAnalyticsVisitorId() {
+  const key = "lombalink.analytics-visitor";
+  try {
+    let visitorId = sessionStorage.getItem(key);
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      sessionStorage.setItem(key, visitorId);
+    }
+    return visitorId;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+export function competitionFieldsFromForm(form) {
+  return {
+    title: form.title.trim(),
+    tagline: form.tagline.trim(),
+    description: form.description.trim(),
+    organizer: form.organizer.trim(),
+    organizer_type: form.organizerType,
+    organizer_level: form.organizerLevel,
+    contact_person_name: form.contactPersonName.trim(),
+    contact_person_email: form.contactPersonEmail.trim() || null,
+    contact_person_phone: form.contactPersonPhone.trim() || null,
+    audience: form.audience.trim(),
+    education: form.education,
+    scope: form.scope,
+    category: form.category.trim(),
+    keywords: form.keywords,
+    competition_type: form.competitionType,
+    mode: form.mode,
+    location: form.mode === "Online" ? "Online" : form.location.trim(),
+    fee_tiers: form.feeTiers,
+    prize: form.prize.trim() || "Informasi hadiah belum ditambahkan",
+    registration_batches: form.registrationBatches,
+    deadline: form.registrationBatches.reduce(
+      (latest, batch) => batch.endsAt > latest ? batch.endsAt : latest,
+      "",
+    ),
+    event_start_date: form.eventStartDate || null,
+    event_end_date: form.eventEndDate || null,
+    registration_url: form.registrationUrl.trim() || null,
+    information_url: form.informationUrl.trim() || null,
+    rulebook_url: form.rulebookUrl.trim() || null,
+    benefits: form.benefits.trim(),
   };
 }
 
@@ -110,13 +189,16 @@ export function googleOAuthErrorMessage(error) {
 }
 
 export function isProfileComplete(account) {
+  const birthYear = Number(account?.birthYear);
   return Boolean(
     account?.username?.trim()
     && account?.fullName?.trim()
     && account?.phone?.trim()
     && account?.province?.trim()
     && account?.city?.trim()
-    && account?.birthDate
+    && Number.isInteger(birthYear)
+    && birthYear >= 1900
+    && birthYear <= new Date().getFullYear()
     && account?.education,
   );
 }

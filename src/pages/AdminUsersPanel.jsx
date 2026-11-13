@@ -18,7 +18,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { educationOptions } from "../data.js";
+import { birthYearOptions, educationOptions } from "../data.js";
+import LocationSelects from "../LocationSelects.jsx";
 
 const sanctionReasons = [
   "Spam atau promosi berulang",
@@ -70,7 +71,8 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
   const [notice, setNotice] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
-  const [profile, setProfile] = useState({ username: "", fullName: "", phone: "", province: "", city: "", birthDate: "", education: "", institution: "" });
+  const [profile, setProfile] = useState({ username: "", fullName: "", phone: "", province: "", city: "", birthYear: "", education: "", institution: "" });
+  const [locationValid, setLocationValid] = useState(false);
   const [formError, setFormError] = useState("");
   const [sanctionReason, setSanctionReason] = useState("");
   const [customReason, setCustomReason] = useState("");
@@ -115,10 +117,11 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
       phone: user.phone || "",
       province: user.province || "",
       city: user.city || "",
-      birthDate: user.birthDate || "",
+      birthYear: user.birthYear || "",
       education: user.education || "",
       institution: user.institution || "",
     });
+    setLocationValid(false);
     setFormError("");
   };
 
@@ -133,8 +136,13 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
 
   const saveProfile = async (event) => {
     event.preventDefault();
-    if (!profile.username.trim() || !profile.fullName.trim() || !profile.phone.trim() || !profile.province.trim() || !profile.city.trim() || !profile.birthDate || !profile.education) {
+    const birthYear = Number(profile.birthYear);
+    if (!profile.username.trim() || !profile.fullName.trim() || !profile.phone.trim() || !profile.province.trim() || !profile.city.trim() || !profile.birthYear || !profile.education) {
       setFormError("Lengkapi semua data profil wajib terlebih dahulu.");
+      return;
+    }
+    if (!locationValid || !Number.isInteger(birthYear) || birthYear < 1900 || birthYear > new Date().getFullYear()) {
+      setFormError("Pastikan provinsi dan kota/kabupaten terisi, serta isi tahun lahir yang valid.");
       return;
     }
     setSaving(true);
@@ -288,9 +296,20 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
             <label>Nama lengkap <input value={profile.fullName} onChange={(event) => setProfile({ ...profile, fullName: event.target.value })} maxLength={120} required /></label>
             <label>Nomor HP <input type="tel" value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} maxLength={40} required /></label>
             <label>Email <input type="email" value={editingUser.email} readOnly aria-readonly="true" /></label>
-            <label>Provinsi <input value={profile.province} onChange={(event) => setProfile({ ...profile, province: event.target.value })} maxLength={120} required /></label>
-            <label>Kota <input value={profile.city} onChange={(event) => setProfile({ ...profile, city: event.target.value })} maxLength={120} required /></label>
-            <label>Tanggal lahir <input type="date" value={profile.birthDate} onChange={(event) => setProfile({ ...profile, birthDate: event.target.value })} max={new Date().toISOString().slice(0, 10)} required /></label>
+            <LocationSelects
+              className="admin-user-locations"
+              province={profile.province}
+              city={profile.city}
+              onProvinceChange={(value) => { setLocationValid(false); setProfile((current) => ({ ...current, province: value, city: "" })); }}
+              onCityChange={(value) => setProfile((current) => ({ ...current, city: value }))}
+              onValidityChange={setLocationValid}
+            />
+            <label>Tahun lahir
+              <select value={profile.birthYear} onChange={(event) => setProfile({ ...profile, birthYear: event.target.value })} required>
+                <option value="">Pilih tahun lahir</option>
+                {birthYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            </label>
             <label>Jenjang
               <select value={profile.education} onChange={(event) => setProfile({ ...profile, education: event.target.value })} required>
                 <option value="">Pilih jenjang</option>

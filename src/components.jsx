@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
   Building2,
@@ -7,7 +7,8 @@ import {
   ChevronDown,
   GraduationCap,
   Globe2,
-  LoaderCircle,
+  ExternalLink,
+  FileText,
   LogOut,
   MapPin,
   Menu,
@@ -74,6 +75,7 @@ export function Header({ account, navigate, onSubmit, onLogout, theme, onToggleT
           <a href="/#rekomendasi" className={activeNav === "rekomendasi" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "rekomendasi")}>Rekomendasi</a>
           <a href="/#tentang" className={activeNav === "tentang" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "tentang")}>Tentang</a>
           {account?.role === "moderator" && <button className={`nav-link ${activeNav === "/admin" ? "is-active" : ""}`} onClick={() => goToPage("/admin")}>Panel Moderator</button>}
+          {account && account.role !== "moderator" && <button className={`nav-link ${activeNav.startsWith("/lomba") ? "is-active" : ""}`} onClick={() => goToPage("/lomba/manajemen")}>Manajemen Lomba</button>}
           {account && <button className={`nav-link ${activeNav === "/personalization" ? "is-active" : ""}`} onClick={() => goToPage("/personalization")}>Personalisasi</button>}
           {account && <button className={`nav-link ${activeNav === "/profile" ? "is-active" : ""}`} onClick={() => goToPage("/profile")}>Profil</button>}
           {account && <button className={`nav-link ${activeNav === "/settings" ? "is-active" : ""}`} onClick={() => goToPage("/settings")}>Pengaturan</button>}
@@ -83,7 +85,7 @@ export function Header({ account, navigate, onSubmit, onLogout, theme, onToggleT
           <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
           {account ? (
             <>
-              {account.role !== "moderator" && <button className="button button-outline button-small" onClick={onSubmit}><Plus size={16} /> Pasang Lomba</button>}
+              {account.role !== "moderator" && <button className="button button-outline button-small" onClick={onSubmit}><Plus size={16} /> Tambahkan Lomba</button>}
               <button className="profile-chip" aria-label="Buka profil" onClick={() => goToPage("/profile")}>
                 <span className="avatar">{account.avatarUrl ? <img src={account.avatarUrl} alt="" /> : account.name.slice(0, 1).toUpperCase()}</span>
                 <span className="profile-name">{account.name.split(" ")[0]}</span>
@@ -110,6 +112,7 @@ export function CompetitionCard({ item, onDetails }) {
   return (
     <article className="competition-card">
       <div className={`card-art ${item.color || "blue"}`}>
+        {item.coverUrl && <img className="card-cover-image" src={item.coverUrl} alt="" />}
         <span className="card-category">{item.category}</span>
         <span className="card-art-icon"><Trophy size={25} /></span>
         {item.scope === "Internasional" && <span className="international-tag"><Globe2 size={12} /> Internasional</span>}
@@ -117,6 +120,7 @@ export function CompetitionCard({ item, onDetails }) {
       <div className="card-content">
         <div className="organizer-line"><Building2 size={14} /> {item.organizer}</div>
         <h3>{item.title}</h3>
+        {item.tagline && <p className="competition-card-tagline">{item.tagline}</p>}
         <div className="tag-row">
           <span className="soft-tag">{item.education}</span>
           <span className="soft-tag">{item.scope}</span>
@@ -135,25 +139,71 @@ export function CompetitionCard({ item, onDetails }) {
   );
 }
 
-export function CompetitionModal({ item, onClose }) {
+export function CompetitionModal({ item, onClose, onTrackEvent, moderationActions }) {
+  const [trackingError, setTrackingError] = useState("");
+
+  useEffect(() => {
+    setTrackingError("");
+    if (!item || !onTrackEvent) return undefined;
+
+    let active = true;
+    onTrackEvent(item.id, "view").then((message) => {
+      if (active && message) setTrackingError(message);
+    });
+    return () => { active = false; };
+  }, [item?.id, onTrackEvent]);
+
   if (!item) return null;
+  const fees = Array.isArray(item.feeTiers) ? item.feeTiers : [];
+  const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
+  const trackRegistration = () => {
+    if (!onTrackEvent) return;
+    onTrackEvent(item.id, "registration_click").then((message) => {
+      if (message) setTrackingError(message);
+    });
+  };
+
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal-card detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <section className="modal-card detail-modal competition-detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
         <button className="modal-close" onClick={onClose} aria-label="Tutup"><X size={19} /></button>
         <span className="eyebrow"><Trophy size={14} /> INFORMASI LOMBA</span>
+        {item.coverUrl && <img className="competition-detail-cover" src={item.coverUrl} alt={`Gambar ${item.title}`} />}
         <h2 id="detail-title">{item.title}</h2>
+        {item.tagline && <p className="competition-detail-tagline">{item.tagline}</p>}
         <p className="detail-organizer"><Building2 size={16} /> {item.organizer}</p>
+        {item.description && <p className="competition-detail-description">{item.description}</p>}
         <div className="detail-grid">
           <div><span>Jenjang</span><strong>{item.education}</strong></div>
+          {item.audience && <div><span>Peserta</span><strong>{item.audience}</strong></div>}
           <div><span>Cakupan</span><strong>{item.scope}</strong></div>
           <div><span>Lokasi</span><strong>{item.location}</strong></div>
           <div><span>Batas pendaftaran</span><strong>{formatDate(item.deadline)}</strong></div>
           <div><span>Kategori</span><strong>{item.category}</strong></div>
-          <div><span>Hadiah</span><strong>{item.prize}</strong></div>
+          {item.competitionType && <div><span>Tipe lomba</span><strong>{item.competitionType}</strong></div>}
+          {item.organizerLevel && <div><span>Tingkat penyelenggara</span><strong>{item.organizerLevel}</strong></div>}
+          {item.eventStartDate && <div><span>Pelaksanaan</span><strong>{formatDate(item.eventStartDate)}{item.eventEndDate && ` - ${formatDate(item.eventEndDate)}`}</strong></div>}
+        </div>
+        {batches.length > 0 && <section className="competition-detail-section"><h3>Jadwal pendaftaran</h3><ul>{batches.map((batch, index) => <li key={`${batch.label}-${index}`}><strong>{batch.label}</strong><span>{formatDate(batch.startsAt)} – {formatDate(batch.endsAt)}</span></li>)}</ul></section>}
+        {fees.length > 0 && <section className="competition-detail-section"><h3>Biaya pendaftaran</h3><ul>{fees.map((fee, index) => <li key={`${fee.label}-${index}`}><strong>{fee.label}</strong><span>Rp {Number(fee.amount).toLocaleString("id-ID")}</span></li>)}</ul></section>}
+        {item.prize && item.prize !== "Informasi hadiah belum ditambahkan" && <section className="competition-detail-section"><h3>Hadiah</h3><p>{item.prize}</p></section>}
+        {item.benefits && <section className="competition-detail-section"><h3>Benefit peserta</h3><p>{item.benefits}</p></section>}
+        {item.keywords?.length > 0 && <div className="competition-detail-keywords">{item.keywords.map((keyword) => <span className="soft-tag" key={keyword}>{keyword}</span>)}</div>}
+        {(item.contactPersonName || item.contactPersonEmail || item.contactPersonPhone) && <section className="competition-detail-section"><h3>Contact person</h3><p>{item.contactPersonName}</p>{item.contactPersonEmail && <a href={`mailto:${item.contactPersonEmail}`}>{item.contactPersonEmail}</a>}{item.contactPersonPhone && <a href={`tel:${item.contactPersonPhone}`}>{item.contactPersonPhone}</a>}</section>}
+        <div className="competition-detail-links">
+          {item.informationUrl && <a className="button button-outline" href={item.informationUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Info lomba</a>}
+          {item.rulebookUrl && <a className="button button-outline" href={item.rulebookUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Guidebook</a>}
         </div>
         <p className="detail-note">Pastikan kamu memeriksa informasi dan persyaratan resmi dari penyelenggara sebelum mendaftar.</p>
-        <button className="button button-primary button-wide" onClick={onClose}>Mengerti <Check size={16} /></button>
+        {trackingError && <p className="form-error" role="status">{trackingError}</p>}
+        {moderationActions && item.status === "pending"
+          ? <div className="competition-moderation-actions">
+            <button className="button button-outline" type="button" disabled={moderationActions.busy} onClick={moderationActions.onReject}>Tolak</button>
+            <button className="button button-primary" type="button" disabled={moderationActions.busy} onClick={moderationActions.onApprove}>Setujui & terbitkan</button>
+          </div>
+          : item.registrationUrl
+            ? <a className="button button-primary button-wide" href={item.registrationUrl} target="_blank" rel="noreferrer" onClick={trackRegistration}>Daftar lomba <ExternalLink size={15} /></a>
+            : <button className="button button-primary button-wide" onClick={onClose}>Mengerti <Check size={16} /></button>}
       </section>
     </div>
   );
@@ -196,60 +246,6 @@ export function SearchPanel({ filters, setFilters, onSearch, isLoggedIn, categor
   );
 }
 
-export function SubmissionModal({ onClose, onSubmit }) {
-  const [form, setForm] = useState({ title: "", organizer: "", education: "", scope: "", category: "", deadline: "", link: "", description: "" });
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const update = (key) => (event) => setForm({ ...form, [key]: event.target.value });
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!form.title.trim() || !form.organizer.trim() || !form.education || !form.scope || !form.category.trim() || !form.deadline) {
-      setError("Lengkapi semua informasi wajib sebelum mengirim.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      const message = await onSubmit(form);
-      if (message) {
-        setError(message);
-        return;
-      }
-      onClose();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Pengajuan lomba gagal dikirim.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}>
-      <section className="modal-card submission-modal" role="dialog" aria-modal="true" aria-labelledby="submission-title">
-        <button className="modal-close" onClick={onClose} disabled={busy} aria-label="Tutup"><X size={19} /></button>
-        <span className="eyebrow"><Plus size={14} /> BERBAGI KESEMPATAN</span>
-        <h2 id="submission-title">Pasang informasi lomba</h2>
-        <p className="modal-intro">Lomba yang kamu bagikan akan ditinjau moderator sebelum tampil untuk semua orang.</p>
-        <form onSubmit={handleSubmit} className="submission-form">
-          <label>Nama lomba <input value={form.title} onChange={update("title")} placeholder="Contoh: Kompetisi Inovasi Pelajar" /></label>
-          <label>Penyelenggara <input value={form.organizer} onChange={update("organizer")} placeholder="Nama organisasi atau institusi" /></label>
-          <div className="form-two-col">
-            <label>Jenjang peserta <select value={form.education} onChange={update("education")}><option value="">Pilih jenjang</option>{educationOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label>Cakupan <select value={form.scope} onChange={update("scope")}><option value="">Pilih cakupan</option>{scopeOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
-          </div>
-          <div className="form-two-col">
-            <label>Kategori <input value={form.category} onChange={update("category")} placeholder="Mis. Sains, Seni" /></label>
-            <label>Batas pendaftaran <input type="date" value={form.deadline} onChange={update("deadline")} /></label>
-          </div>
-          <label>Tautan resmi (opsional) <input type="url" value={form.link} onChange={update("link")} placeholder="https://" /></label>
-          <label>Deskripsi singkat (opsional) <textarea rows="3" value={form.description} onChange={update("description")} placeholder="Jelaskan lomba dan cara mengikutinya" /></label>
-          {error && <p className="form-error">{error}</p>}
-          <button className="button button-primary button-wide" type="submit" disabled={busy}>{busy ? <LoaderCircle size={16} className="loading-icon" /> : <ArrowRight size={16} />}{busy ? "Mengirim..." : "Kirim untuk ditinjau"}</button>
-        </form>
-      </section>
-    </div>
-  );
-}
-
 export function AccountPrompt({ onClose, navigate, encourageShare, required }) {
   return (
     <div className="modal-backdrop" onMouseDown={(event) => !required && event.target === event.currentTarget && onClose()}>
@@ -258,7 +254,7 @@ export function AccountPrompt({ onClose, navigate, encourageShare, required }) {
         <span className="prompt-icon"><Sparkles size={23} /></span>
         <span className="eyebrow">{required ? "AKSES ANGGOTA" : encourageShare ? "BERBAGI PELUANG" : "LANJUTKAN PERJALANANMU"}</span>
         <h2 id="prompt-title">{required ? "Masuk untuk mencari lomba" : encourageShare ? "Punya akun LombaLink?" : "Pencarian gratis sudah habis"}</h2>
-        <p>{required ? "Masuk atau daftar gratis untuk menggunakan pencarian dan menjelajahi informasi lomba." : encourageShare ? "Masuk atau daftar sebagai anggota untuk mengirim informasi lomba dan membantu komunitas." : "Buat akun gratis untuk mencari lomba tanpa batas dan menyimpan kesempatan favoritmu."}</p>
+        <p>{required ? "Masuk atau daftar gratis untuk menggunakan pencarian dan menjelajahi informasi lomba." : encourageShare ? "Masuk atau daftar sebagai anggota untuk menambahkan lomba dan membantu komunitas." : "Buat akun gratis untuk mencari lomba tanpa batas dan menyimpan kesempatan favoritmu."}</p>
         <button className="button button-primary button-wide" onClick={() => navigate(required ? "/login" : "/register")}>{required ? "Masuk dengan Google" : encourageShare ? "Daftar untuk berbagi" : "Buat akun gratis"} <ArrowRight size={16} /></button>
         <button className="prompt-login" onClick={() => navigate(required ? "/register" : "/login")}>{required ? "Belum punya akun?" : "Sudah punya akun?"} <strong>{required ? "Daftar gratis" : "Masuk"}</strong></button>
       </section>

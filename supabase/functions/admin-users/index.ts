@@ -82,7 +82,7 @@ function toManagedUser(user: AuthUserRecord) {
     region: asString(metadata.region),
     province: asString(metadata.province),
     city: asString(metadata.city),
-    birthDate: asString(metadata.birth_date),
+    birthYear: typeof metadata.birth_year === "number" || typeof metadata.birth_year === "string" ? String(metadata.birth_year) : "",
     education: asString(metadata.education),
     institution: asString(metadata.institution),
     avatarUrl: asString(metadata.avatar_url),
@@ -167,7 +167,7 @@ Deno.serve(async (request) => {
       || typeof profile.phone !== "string"
       || typeof profile.province !== "string"
       || typeof profile.city !== "string"
-      || typeof profile.birthDate !== "string"
+      || typeof profile.birthYear !== "string"
       || typeof profile.education !== "string"
       || typeof profile.institution !== "string"
     ) {
@@ -180,7 +180,7 @@ Deno.serve(async (request) => {
       phone: profile.phone.trim(),
       province: profile.province.trim(),
       city: profile.city.trim(),
-      birth_date: profile.birthDate.trim(),
+      birth_year: profile.birthYear.trim(),
       education: profile.education.trim(),
       institution: profile.institution.trim(),
     };
@@ -190,22 +190,17 @@ Deno.serve(async (request) => {
       || !normalized.phone
       || !normalized.province
       || !normalized.city
-      || !normalized.birth_date
+      || !normalized.birth_year
       || !normalized.education
     ) {
-      return jsonResponse({ error: "Username, nama, nomor HP, provinsi, kota, tanggal lahir, dan jenjang wajib diisi." }, 400);
+      return jsonResponse({ error: "Username, nama, nomor HP, provinsi, kota, tahun lahir, dan jenjang wajib diisi." }, 400);
     }
     if (!/^[a-z0-9._]{3,30}$/.test(normalized.username)) {
       return jsonResponse({ error: "Username harus 3–30 karakter dan hanya boleh berisi huruf, angka, titik, atau garis bawah." }, 400);
     }
-    const birthDate = new Date(`${normalized.birth_date}T00:00:00.000Z`);
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(normalized.birth_date)
-      || Number.isNaN(birthDate.getTime())
-      || birthDate.toISOString().slice(0, 10) !== normalized.birth_date
-      || normalized.birth_date > new Date().toISOString().slice(0, 10)
-    ) {
-      return jsonResponse({ error: "Tanggal lahir tidak valid." }, 400);
+    const birthYear = Number(normalized.birth_year);
+    if (!/^\d{4}$/.test(normalized.birth_year) || !Number.isInteger(birthYear) || birthYear < 1900 || birthYear > new Date().getFullYear()) {
+      return jsonResponse({ error: "Tahun lahir tidak valid." }, 400);
     }
     if (!["SMP", "SMA", "Kuliah", "Umum"].includes(normalized.education)) {
       return jsonResponse({ error: "Jenjang tidak valid." }, 400);
@@ -214,15 +209,17 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Ada data profil yang melebihi batas panjang." }, 400);
     }
     const region = `${normalized.city}, ${normalized.province}`;
+    const normalizedProfile = { ...normalized, birth_year: birthYear };
 
+    const userMetadata = { ...(user.user_metadata ?? {}), ...normalizedProfile, region, birth_date: null };
     const { data, error } = await adminClient.auth.admin.updateUserById(userId, {
-      user_metadata: { ...(user.user_metadata ?? {}), ...normalized, region },
+      user_metadata: userMetadata,
     });
     if (error) return jsonResponse({ error: error.message }, 400);
     if (!data.user) return jsonResponse({ error: "Profil pengguna tidak ditemukan setelah diperbarui." }, 404);
     const { error: profileError } = await adminClient.from("lombalink_profiles").upsert({
       id: userId,
-      ...normalized,
+      ...normalizedProfile,
       region,
     });
     if (profileError) {

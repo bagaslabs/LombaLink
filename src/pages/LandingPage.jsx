@@ -15,7 +15,7 @@ import {
 import { Brand, CompetitionCard, CompetitionModal, SearchPanel } from "../components.jsx";
 import { defaultPreferences } from "../data.js";
 
-export default function LandingPage({ account, navigate, onSubmit, onRequireAccount, competitions, competitionsLoading, competitionsError }) {
+export default function LandingPage({ account, navigate, onSubmit, onRequireAccount, onTrackEvent, competitions, competitionsLoading, competitionsError }) {
   const [filters, setFilters] = useState({ keyword: "", education: "", category: "", scope: "", organizerType: "", location: "" });
   const [hasSearched, setHasSearched] = useState(false);
   const [detail, setDetail] = useState(null);
@@ -23,7 +23,7 @@ export default function LandingPage({ account, navigate, onSubmit, onRequireAcco
   const preferences = account?.preferences || defaultPreferences;
   const hasPreferences = Object.values(preferences).some((value) => value.trim());
   const filtered = useMemo(() => competitions.filter((item) => {
-    const searchText = `${item.title} ${item.organizer} ${item.category} ${item.location}`.toLowerCase();
+    const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.location} ${item.keywords.join(" ")}`.toLowerCase();
     return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
       && (!filters.education || item.education === filters.education)
       && (!filters.category || item.category === filters.category)
@@ -119,7 +119,7 @@ export default function LandingPage({ account, navigate, onSubmit, onRequireAcco
         <section className="community-banner content-width" id="tentang">
           <div className="banner-art"><div className="banner-ring"></div><div className="banner-star">✦</div><Trophy size={58} /></div>
           <div className="banner-copy"><span className="eyebrow">KAMU PUNYA INFORMASI?</span><h2>Satu informasi bisa<br />membuka banyak jalan.</h2><p>Bagikan lomba yang kamu tahu. Bantu lebih banyak orang menemukan kesempatan terbaiknya.</p>
-            <button className="button button-white" onClick={() => account ? onSubmit() : onRequireAccount(true)}>Bagikan informasi lomba <ArrowRight size={16} /></button>
+            <button className="button button-white" onClick={() => account ? onSubmit() : onRequireAccount(true)}>Tambahkan Lomba <ArrowRight size={16} /></button>
           </div>
         </section>
 
@@ -131,7 +131,7 @@ export default function LandingPage({ account, navigate, onSubmit, onRequireAcco
         </section>
       </main>
       <footer className="site-footer content-width"><Brand onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} /><span>© 2026 LombaLink. Tumbuh bersama kesempatan.</span><div><button onClick={() => navigate("/login")}>Masuk</button><button onClick={() => navigate("/register")}>Bergabung</button></div></footer>
-      <CompetitionModal item={detail} onClose={() => setDetail(null)} />
+      <CompetitionModal item={detail} onClose={() => setDetail(null)} onTrackEvent={onTrackEvent} />
     </>
   );
 }

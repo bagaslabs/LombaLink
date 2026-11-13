@@ -5,9 +5,11 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  Eye,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  Plus,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -15,11 +17,13 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { Brand, ThemeToggle } from "../components.jsx";
-import { competitionFromRow } from "../data.js";
+import { Brand, CompetitionModal, ThemeToggle } from "../components.jsx";
+import CompetitionForm from "../CompetitionForm.jsx";
+import { competitionFieldsFromForm, competitionFromRow, getCompetitionCoverUrl } from "../data.js";
+import { removeCompetitionCover, uploadCompetitionCover } from "../competitionService.js";
 import AdminUsersPanel from "./AdminUsersPanel.jsx";
 
-export default function AdminPage({ account, supabaseClient, navigate, onLogout, theme, onToggleTheme }) {
+export default function AdminPage({ account, supabaseClient, navigate, onLogout, onCompetitionsChanged, theme, onToggleTheme }) {
   const [tab, setTab] = useState("pending");
   const [section, setSection] = useState("overview");
   const [competitions, setCompetitions] = useState([]);
@@ -29,6 +33,9 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
   const [actionError, setActionError] = useState("");
   const [actionId, setActionId] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createNotice, setCreateNotice] = useState("");
+  const [reviewItem, setReviewItem] = useState(null);
   const moderatorName = account?.name || "Moderator";
   const pending = useMemo(() => competitions.filter((item) => item.status === "pending"), [competitions]);
   const visible = useMemo(() => competitions.filter((item) => tab === "all" || item.status === tab), [competitions, tab]);
@@ -64,7 +71,8 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
       const profileNames = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile.full_name]));
       setCompetitions((competitionResult.data ?? []).map((row) => ({
         ...competitionFromRow(row),
-        submittedBy: profileNames.get(row.submitted_by) || `ID ${row.submitted_by}`,
+        coverUrl: getCompetitionCoverUrl(supabaseClient, row.cover_path),
+        submittedBy: profileNames.get(row.submitted_by) || (row.submitted_by === account.id ? moderatorName : `ID ${row.submitted_by}`),
       })));
       setStats({
         total: totalResult.count ?? 0,
@@ -83,7 +91,7 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
     });
 
     return () => { active = false; };
-  }, [reloadKey, supabaseClient]);
+  }, [account.id, moderatorName, reloadKey, supabaseClient]);
 
   const updateStatus = async (id, status) => {
     setActionId(id);
@@ -95,13 +103,54 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
         .eq("id", id);
       if (updateError) {
         setActionError(`Status pengajuan gagal diperbarui: ${updateError.message}`);
-        return;
+        return false;
       }
+      setReviewItem(null);
       setReloadKey((current) => current + 1);
+      return true;
     } catch (updateError) {
       setActionError(updateError instanceof Error ? updateError.message : "Status pengajuan gagal diperbarui.");
+      return false;
     } finally {
       setActionId("");
+    }
+  };
+
+  const publishCompetition = async (form) => {
+    if (!supabaseClient || !account?.id) return "Sesi moderator tidak tersedia. Silakan masuk kembali.";
+    let coverPath = null;
+    try {
+      const competitionId = crypto.randomUUID();
+      if (form.coverFile) {
+        const upload = await uploadCompetitionCover(supabaseClient, account.id, competitionId, form.coverFile);
+        if (upload.error) return upload.error;
+        coverPath = upload.path;
+      }
+
+      const reviewedAt = new Date().toISOString();
+      const { error: insertError } = await supabaseClient.from("lombalink_competitions").insert({
+        ...competitionFieldsFromForm(form),
+        id: competitionId,
+        cover_path: coverPath,
+        status: "approved",
+        submitted_by: account.id,
+        reviewed_by: account.id,
+        reviewed_at: reviewedAt,
+      });
+      if (insertError) {
+        const cleanupError = coverPath ? await removeCompetitionCover(supabaseClient, coverPath) : "";
+        return `Lomba gagal diterbitkan: ${insertError.message}${cleanupError ? ` ${cleanupError}` : ""}`;
+      }
+
+      setCreateNotice("Lomba berhasil diterbitkan dan sekarang tampil untuk publik.");
+      setTab("approved");
+      setReloadKey((current) => current + 1);
+      onCompetitionsChanged?.();
+      return "";
+    } catch (insertError) {
+      const cleanupError = coverPath ? await removeCompetitionCover(supabaseClient, coverPath) : "";
+      const message = insertError instanceof Error ? insertError.message : "kesalahan tidak diketahui.";
+      return `Lomba gagal diterbitkan: ${message}${cleanupError ? ` ${cleanupError}` : ""}`;
     }
   };
 
@@ -122,7 +171,8 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
         <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{section === "users" ? "Pengguna" : "Ringkasan"}</strong></div><button className="admin-mobile-section" onClick={() => setSection(section === "users" ? "overview" : "users")}>{section === "users" ? <LayoutDashboard size={15} /> : <UsersRound size={15} />}{section === "users" ? "Ringkasan" : "Pengguna"}</button><div className="admin-top-actions"><ThemeToggle theme={theme} onToggleTheme={onToggleTheme} /><span className="admin-user-pill"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span> {moderatorName}</span><button className="icon-button" title="Keluar dari panel moderator" aria-label="Keluar" onClick={onLogout}><LogOut size={17} /></button></div></div>
         <div className="admin-content">
           {section === "users" ? <AdminUsersPanel supabaseClient={supabaseClient} moderatorId={account.id} /> : <>
-          <div className="admin-welcome"><div><span className="eyebrow">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date()).toLocaleUpperCase("id-ID")}</span><h1>Ruang kendali moderator</h1><p>Tinjau informasi baru dan bantu komunitas menemukan peluang yang terpercaya.</p></div><button className="button button-primary" onClick={() => navigate("/")}><ArrowLeft size={16} /> Lihat situs</button></div>
+          <div className="admin-welcome"><div><span className="eyebrow">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date()).toLocaleUpperCase("id-ID")}</span><h1>Ruang kendali moderator</h1><p>Tinjau informasi baru dan bantu komunitas menemukan peluang yang terpercaya.</p></div><div className="admin-welcome-actions"><button className="button button-outline" onClick={() => navigate("/")}><ArrowLeft size={16} /> Lihat situs</button><button className="button button-primary" onClick={() => { setCreateNotice(""); setCreateModalOpen(true); }}><Plus size={16} /> Tambahkan Lomba</button></div></div>
+          {createNotice && <div className="admin-users-notice admin-publish-notice" role="status"><CheckCircle2 size={16} /> {createNotice}<button onClick={() => setCreateNotice("")} aria-label="Tutup pemberitahuan"><X size={15} /></button></div>}
           {error && <div className="admin-users-error" role="alert">{error}<button onClick={() => setReloadKey((current) => current + 1)}>Coba lagi</button></div>}
           <div className="admin-stats grid grid-cols-2 gap-2 md:gap-3 lg:grid-cols-4">
             <div className="admin-stat"><span className="stat-icon stat-purple"><Trophy size={19} /></span><span className="stat-label">Total lomba</span><strong>{stats ? stats.total.toLocaleString("id-ID") : "—"}</strong><small>Data dari database</small></div>
@@ -137,7 +187,7 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
             <div className="submission-list">
               {loading ? <div className="admin-empty"><LoaderCircle size={20} className="loading-icon" /><strong>Memuat data lomba...</strong></div> : visible.length ? visible.map((item) => <article className="submission-row" key={item.id}>
                 <span className="submission-logo"><Trophy size={20} /></span>
-                <div className="submission-info"><strong>{item.title}</strong><span>{item.organizer} <i>·</i> {item.category} <i>·</i> {item.education}</span><small>Diajukan oleh {item.submittedBy} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.submittedAt))}</small></div>
+                <div className="submission-info"><button className="submission-title-button" onClick={() => setReviewItem(item)}>{item.title}</button><span>{item.organizer} <i>·</i> {item.category} <i>·</i> {item.education}</span><small>Diajukan oleh {item.submittedBy} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.submittedAt))}</small></div>
                 <span className={`status-pill status-${item.status}`}>{item.status === "pending" ? <><i></i> Menunggu</> : item.status === "approved" ? <><Check size={12} /> Disetujui</> : "Ditolak"}</span>
                 {item.status === "pending" ? <div className="submission-actions"><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><Check size={16} /></button></div> : <span className="reviewed-label">Ditinjau</span>}
               </article>) : <div className="admin-empty"><CheckCircle2 size={22} /><strong>Tidak ada pengajuan di sini</strong><span>Tidak ada lomba dengan status ini di database.</span></div>}
@@ -148,6 +198,21 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
           </>}
         </div>
       </section>
+      {createModalOpen && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setCreateModalOpen(false)}>
+        <section className="modal-card competition-admin-modal" role="dialog" aria-modal="true" aria-labelledby="create-competition-title">
+          <button className="modal-close" onClick={() => setCreateModalOpen(false)} aria-label="Tutup"><X size={19} /></button>
+          <CompetitionForm mode="moderator" onSubmit={publishCompetition} onCancel={() => setCreateModalOpen(false)} onSuccess={() => setCreateModalOpen(false)} />
+        </section>
+      </div>}
+      <CompetitionModal
+        item={reviewItem}
+        onClose={() => setReviewItem(null)}
+        moderationActions={{
+          busy: actionId === reviewItem?.id,
+          onApprove: () => updateStatus(reviewItem.id, "approved"),
+          onReject: () => updateStatus(reviewItem.id, "rejected"),
+        }}
+      />
     </main>
   );
 }

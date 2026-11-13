@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { AccountPrompt, Header, SubmissionModal } from "./components.jsx";
+import { AccountPrompt, Header } from "./components.jsx";
 import {
   accountFromUser,
   authErrorMessage,
   competitionFromRow,
+  getAnalyticsVisitorId,
+  getCompetitionCoverUrl,
   googleOAuthErrorMessage,
   isProfileComplete,
 } from "./data.js";
@@ -16,31 +18,36 @@ import LandingPage from "./pages/LandingPage.jsx";
 import PersonalizationPage from "./pages/PersonalizationPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import OrganizerPage from "./pages/OrganizerPage.jsx";
 
 const profilePhotoBucket = "lombalink-profile-photos";
 
 function useRoute() {
-  const [route, setRoute] = useState(window.location.pathname);
+  const getCurrentRoute = () => `${window.location.pathname}${window.location.search}`;
+  const [route, setRoute] = useState(getCurrentRoute);
 
   useEffect(() => {
-    const handlePopState = () => setRoute(window.location.pathname);
+    const handlePopState = () => setRoute(getCurrentRoute());
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigate = (nextRoute) => {
-    if (window.location.pathname !== nextRoute) {
-      window.history.pushState({}, "", nextRoute);
-      setRoute(nextRoute);
+  const navigate = useCallback((nextRoute) => {
+    const nextUrl = new URL(nextRoute, window.location.origin);
+    const normalizedRoute = `${nextUrl.pathname}${nextUrl.search}`;
+    if (getCurrentRoute() !== normalizedRoute) {
+      window.history.pushState({}, "", normalizedRoute);
+      setRoute(normalizedRoute);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  };
+  }, []);
 
   return [route, navigate];
 }
 
 export default function App() {
   const [route, navigate] = useRoute();
+  const routePath = route.split("?")[0];
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem("lombalink.theme");
     if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
@@ -54,14 +61,13 @@ export default function App() {
   const [competitionsLoading, setCompetitionsLoading] = useState(true);
   const [competitionsError, setCompetitionsError] = useState("");
   const [competitionReloadKey, setCompetitionReloadKey] = useState(0);
-  const [submissionOpen, setSubmissionOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptRequired, setPromptRequired] = useState(false);
   const [encourageShare, setEncourageShare] = useState(false);
   const [postAfterProfile, setPostAfterProfile] = useState(false);
 
   useEffect(() => {
-    if (!authReady || account || route !== "/" || promptOpen) return undefined;
+    if (!authReady || account || routePath !== "/" || promptOpen) return undefined;
 
     const showRequiredPrompt = () => {
       setEncourageShare(false);
@@ -82,7 +88,7 @@ export default function App() {
       document.removeEventListener("click", blockGuestClick, true);
       window.removeEventListener("scroll", promptOnScroll);
     };
-  }, [account, authReady, promptOpen, route]);
+  }, [account, authReady, promptOpen, routePath]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -164,7 +170,10 @@ export default function App() {
           setCompetitionsError(`Data lomba gagal dimuat: ${error.message}`);
           return;
         }
-        setCompetitions((data ?? []).map(competitionFromRow));
+        setCompetitions((data ?? []).map((row) => {
+          const item = competitionFromRow(row);
+          return { ...item, coverUrl: getCompetitionCoverUrl(supabaseClient, item.coverPath) };
+        }));
       })
       .catch((error) => {
         if (!active) return;
@@ -179,10 +188,32 @@ export default function App() {
   }, [competitionReloadKey, supabaseClient]);
 
   useEffect(() => {
-    if (authReady && route === "/admin" && account?.role !== "moderator") {
+    if (authReady && routePath === "/admin" && account?.role !== "moderator") {
       navigate("/admin/login");
     }
-  }, [account, authReady, route]);
+  }, [account, authReady, navigate, routePath]);
+
+  useEffect(() => {
+    if (authReady && account && routePath === "/lomba/tambahkan"
+      && account.role !== "moderator" && !isProfileComplete(account)) {
+      setPostAfterProfile(true);
+      navigate("/profile");
+    }
+  }, [account, authReady, navigate, routePath]);
+
+  const trackCompetitionEvent = useCallback(async (competitionId, eventType) => {
+    if (!supabaseClient) return "Analitik belum siap. Coba muat ulang halaman.";
+    try {
+      const { error } = await supabaseClient.rpc("lombalink_track_competition_event", {
+        p_competition_id: competitionId,
+        p_event_type: eventType,
+        p_visitor_id: getAnalyticsVisitorId(),
+      });
+      return error ? `Analitik lomba gagal dicatat: ${error.message}` : "";
+    } catch (error) {
+      return error instanceof Error ? `Analitik lomba gagal dicatat: ${error.message}` : "Analitik lomba gagal dicatat.";
+    }
+  }, [supabaseClient]);
 
   const signInWithGoogle = async () => {
     if (!supabaseClient) return "Google sign-in belum siap. Periksa konfigurasi Supabase.";
@@ -287,7 +318,7 @@ export default function App() {
         province: profile.province,
         city: profile.city,
         region,
-        birth_date: profile.birthDate,
+        birth_year: Number(profile.birthYear),
         education: profile.education,
         institution: profile.institution,
         avatar_url: avatarUrl || null,
@@ -312,6 +343,7 @@ export default function App() {
       const { data, error } = await supabaseClient.auth.updateUser({
         data: {
           ...profileFields,
+          birth_date: null,
           preferences: account.preferences,
         },
       });
@@ -324,7 +356,7 @@ export default function App() {
           province: account.province || "",
           city: account.city || "",
           region: account.region || "",
-          birth_date: account.birthDate || null,
+          birth_year: account.birthYear ? Number(account.birthYear) : null,
           education: account.education || null,
           institution: account.institution || "",
           avatar_url: account.avatarUrl || null,
@@ -347,8 +379,7 @@ export default function App() {
       }
       if (postAfterProfile) {
         setPostAfterProfile(false);
-        navigate("/");
-        setSubmissionOpen(true);
+        navigate("/lomba/tambahkan");
       } else {
         navigate("/");
       }
@@ -399,29 +430,7 @@ export default function App() {
       navigate("/profile");
       return;
     }
-    setSubmissionOpen(true);
-  };
-
-  const submitCompetition = async (form) => {
-    if (!supabaseClient || !account) return "Sesi login tidak tersedia. Silakan masuk kembali.";
-    try {
-      const { error } = await supabaseClient.from("lombalink_competitions").insert({
-        title: form.title.trim(),
-        organizer: form.organizer.trim(),
-        education: form.education,
-        scope: form.scope,
-        category: form.category.trim(),
-        deadline: form.deadline,
-        registration_url: form.link.trim() || null,
-        description: form.description.trim(),
-        submitted_by: account.id,
-      });
-      if (error) return error.message;
-      setCompetitionReloadKey((current) => current + 1);
-      return null;
-    } catch (error) {
-      return error instanceof Error ? error.message : "Pengajuan lomba gagal dikirim.";
-    }
+    navigate("/lomba/tambahkan");
   };
 
   const categoryOptions = useMemo(
@@ -433,41 +442,55 @@ export default function App() {
     return <main className="auth-loading" role="status"><LoaderCircle size={20} className="loading-icon" /> Memuat sesi akun...</main>;
   }
 
-  if (route === "/login" || route === "/register") {
-    return <AuthPage mode={route.slice(1)} navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError={authError} theme={theme} onToggleTheme={toggleTheme} />;
+  if (routePath === "/login" || routePath === "/register") {
+    return <AuthPage mode={routePath.slice(1)} navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError={authError} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (route === "/admin/login") {
+  if (routePath === "/admin/login") {
     return <AdminLoginPage navigate={navigate} onLogin={signInAsModerator} authConfigured={Boolean(supabaseClient)} authError={authError} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (route === "/profile") {
+  if (routePath === "/profile") {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk mengatur profil." theme={theme} onToggleTheme={toggleTheme} />;
     }
     return <ProfilePage account={account} onSave={saveProfile} onCancel={() => { setPostAfterProfile(false); navigate("/"); }} pendingPost={postAfterProfile} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (route === "/personalization") {
+  if (routePath === "/personalization") {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk mengatur personalisasi." theme={theme} onToggleTheme={toggleTheme} />;
     }
     return <PersonalizationPage account={account} categoryOptions={categoryOptions} onSave={savePersonalization} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (route === "/settings") {
+  if (routePath === "/settings") {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk membuka pengaturan." theme={theme} onToggleTheme={toggleTheme} />;
     }
     return <SettingsPage account={account} onLogout={logout} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (route === "/admin") {
+  if (routePath === "/admin") {
     if (account?.role !== "moderator") return null;
-    return <AdminPage account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />;
+    return <AdminPage account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)} theme={theme} onToggleTheme={toggleTheme} />;
+  }
+  if (routePath.startsWith("/lomba/")) {
+    if (!account) {
+      return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk untuk menambahkan dan mengelola lomba." theme={theme} onToggleTheme={toggleTheme} />;
+    }
+    return <OrganizerPage
+      account={account}
+      supabaseClient={supabaseClient}
+      route={route}
+      navigate={navigate}
+      onLogout={logout}
+      onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+    />;
   }
 
   return (
     <>
       <Header account={account} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
       {authError && <div className="auth-error-banner" role="alert">{authError}<button onClick={() => setAuthError("")}>Tutup</button></div>}
-      <LandingPage account={account} navigate={navigate} onSubmit={requestSubmission} onRequireAccount={openAccountPrompt} competitions={competitions} competitionsLoading={competitionsLoading} competitionsError={competitionsError} />
-      {submissionOpen && <SubmissionModal onClose={() => setSubmissionOpen(false)} onSubmit={submitCompetition} />}
+      <LandingPage account={account} navigate={navigate} onSubmit={requestSubmission} onRequireAccount={openAccountPrompt} onTrackEvent={trackCompetitionEvent} competitions={competitions} competitionsLoading={competitionsLoading} competitionsError={competitionsError} />
       {promptOpen && <AccountPrompt onClose={() => { setPromptRequired(false); setPromptOpen(false); }} navigate={navigate} encourageShare={encourageShare} required={promptRequired} />}
     </>
   );

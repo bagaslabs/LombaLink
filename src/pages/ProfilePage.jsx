@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Camera, LoaderCircle, Mail, ShieldCheck, UserRound, X } from "lucide-react";
 import { ThemeToggle } from "../components.jsx";
-import { educationOptions } from "../data.js";
+import { birthYearOptions, educationOptions } from "../data.js";
+import LocationSelects from "../LocationSelects.jsx";
 
 export default function ProfilePage({ account, onSave, onCancel, pendingPost, theme, onToggleTheme }) {
   const [form, setForm] = useState({
@@ -10,7 +11,7 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
     phone: account.phone || "",
     province: account.province || "",
     city: account.city || "",
-    birthDate: account.birthDate || "",
+    birthYear: account.birthYear || "",
     education: account.education || "",
     institution: account.institution || "",
   });
@@ -19,6 +20,7 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
   const [avatarFile, setAvatarFile] = useState(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [locationValid, setLocationValid] = useState(false);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -53,8 +55,13 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
 
   const submit = async (event) => {
     event.preventDefault();
-    if (!form.username.trim() || !form.fullName.trim() || !form.phone.trim() || !form.province.trim() || !form.city.trim() || !form.birthDate || !form.education) {
+    if (!form.username.trim() || !form.fullName.trim() || !form.phone.trim() || !form.province.trim() || !form.city.trim() || !form.birthYear || !form.education) {
       setError("Lengkapi semua data profil wajib terlebih dahulu.");
+      return;
+    }
+    const birthYear = Number(form.birthYear);
+    if (!locationValid || !Number.isInteger(birthYear) || birthYear < 1900 || birthYear > new Date().getFullYear()) {
+      setError("Pastikan provinsi dan kota/kabupaten terisi, serta isi tahun lahir yang valid.");
       return;
     }
     if (!/^[a-z0-9._]{3,30}$/.test(form.username.trim())) {
@@ -69,7 +76,7 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
       phone: form.phone.trim(),
       province: form.province.trim(),
       city: form.city.trim(),
-      birthDate: form.birthDate,
+      birthYear,
       education: form.education,
       institution: form.institution.trim(),
       avatarFile,
@@ -113,9 +120,20 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
           <label>Nama Lengkap <span className="required-mark">*</span><input autoComplete="name" value={form.fullName} onChange={update("fullName")} placeholder="Nama sesuai identitas" maxLength={120} required /></label>
           <label>Nomor HP <span className="required-mark">*</span><input type="tel" autoComplete="tel" value={form.phone} onChange={update("phone")} placeholder="Contoh: 081234567890" maxLength={40} required /></label>
           <label>Email<input type="email" value={account.email} readOnly aria-readonly="true" /></label>
-          <label>Provinsi <span className="required-mark">*</span><input autoComplete="address-level1" value={form.province} onChange={update("province")} placeholder="Nama provinsi" maxLength={120} required /></label>
-          <label>Kota <span className="required-mark">*</span><input autoComplete="address-level2" value={form.city} onChange={update("city")} placeholder="Nama kota/kabupaten" maxLength={120} required /></label>
-          <label>Tanggal Lahir <span className="required-mark">*</span><input type="date" autoComplete="bday" value={form.birthDate} onChange={update("birthDate")} max={new Date().toISOString().slice(0, 10)} required /></label>
+          <LocationSelects
+            className="sm:col-span-2"
+            province={form.province}
+            city={form.city}
+            onProvinceChange={(value) => { setLocationValid(false); setForm((current) => ({ ...current, province: value, city: "" })); }}
+            onCityChange={(value) => setForm((current) => ({ ...current, city: value }))}
+            onValidityChange={setLocationValid}
+          />
+          <label>Tahun Lahir <span className="required-mark">*</span>
+            <select value={form.birthYear} onChange={update("birthYear")} required>
+              <option value="">Pilih tahun lahir</option>
+              {birthYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </label>
           <label>Jenjang <span className="required-mark">*</span>
             <select value={form.education} onChange={update("education")} required>
               <option value="">Pilih jenjang</option>
