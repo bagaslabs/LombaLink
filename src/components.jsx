@@ -9,13 +9,9 @@ import {
   Globe2,
   ExternalLink,
   FileText,
-  LogOut,
   MapPin,
-  Menu,
   Moon,
-  Plus,
   Search,
-  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Sun,
@@ -26,10 +22,23 @@ import { educationOptions, formatDate, organizerOptions, scopeOptions } from "./
 
 export function Brand({ onClick }) {
   return (
-    <button className="brand" type="button" onClick={onClick} aria-label="LombaLink, beranda">
+    <button className="brand" type="button" data-guest-access onClick={onClick} aria-label="LombaLink, beranda">
       <span className="brand-mark"><Trophy size={18} strokeWidth={2.5} /></span>
       <span>Lomba<span className="brand-link">Link</span></span>
     </button>
+  );
+}
+
+export function SiteFooter({ navigate }) {
+  return (
+    <footer className="site-footer content-width">
+      <Brand onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+      <span>© 2026 LombaLink. Tumbuh bersama kesempatan.</span>
+      <div>
+        <button data-guest-access onClick={() => navigate("/login")}>Masuk</button>
+        <button data-guest-access onClick={() => navigate("/register")}>Bergabung</button>
+      </div>
+    </footer>
   );
 }
 
@@ -46,64 +55,6 @@ export function ThemeToggle({ theme, onToggleTheme }) {
     >
       {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
     </button>
-  );
-}
-
-export function Header({ account, navigate, onSubmit, onLogout, theme, onToggleTheme }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState("");
-
-  const scrollToSection = (event, id) => {
-    event.preventDefault();
-    setActiveNav(id);
-    navigate("/");
-    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }));
-    setMenuOpen(false);
-  };
-  const goToPage = (path) => {
-    setActiveNav(path);
-    navigate(path);
-    setMenuOpen(false);
-  };
-
-  return (
-    <header className="site-header">
-      <div className="header-inner">
-        <Brand onClick={() => navigate("/")} />
-        <nav className={`main-nav ${menuOpen ? "is-open" : ""}`} aria-label="Navigasi utama">
-          <a href="/#cari" className={activeNav === "cari" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "cari")}>Cari Lomba</a>
-          <a href="/#rekomendasi" className={activeNav === "rekomendasi" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "rekomendasi")}>Rekomendasi</a>
-          <a href="/#tentang" className={activeNav === "tentang" ? "is-active" : ""} onClick={(event) => scrollToSection(event, "tentang")}>Tentang</a>
-          {account?.role === "moderator" && <button className={`nav-link ${activeNav === "/admin" ? "is-active" : ""}`} onClick={() => goToPage("/admin")}>Panel Moderator</button>}
-          {account && <button className={`nav-link ${activeNav === "/personalization" ? "is-active" : ""}`} onClick={() => goToPage("/personalization")}>Personalisasi</button>}
-          {account && <button className={`nav-link ${activeNav === "/profile" ? "is-active" : ""}`} onClick={() => goToPage("/profile")}>Profil</button>}
-          {account && <button className={`nav-link ${activeNav === "/settings" ? "is-active" : ""}`} onClick={() => goToPage("/settings")}>Pengaturan</button>}
-          {account && <button className="nav-link mobile-logout" onClick={() => { onLogout(); setMenuOpen(false); }}>Keluar</button>}
-        </nav>
-        <div className="header-actions">
-          <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
-          {account ? (
-            <>
-              {account.role !== "moderator" && <button className="button button-outline button-small" onClick={onSubmit}><Plus size={16} /> Tambah Lomba</button>}
-              <button className="profile-chip" aria-label="Buka profil" onClick={() => goToPage("/profile")}>
-                <span className="avatar">{account.avatarUrl ? <img src={account.avatarUrl} alt="" /> : account.name.slice(0, 1).toUpperCase()}</span>
-                <span className="profile-name">{account.name.split(" ")[0]}</span>
-                {account.role === "moderator" && <ShieldCheck size={15} className="profile-shield" />}
-              </button>
-              <button className="icon-button logout-button" title="Keluar" onClick={onLogout}><LogOut size={17} /></button>
-            </>
-          ) : (
-            <>
-              <button className="button button-quiet button-small login-nav" data-guest-access onClick={() => navigate("/login")}>Masuk</button>
-              <button className="button button-primary button-small" data-guest-access onClick={() => navigate("/register")}>Daftar gratis <ArrowRight size={15} /></button>
-            </>
-          )}
-        </div>
-        <button className="mobile-menu" data-guest-access onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Tutup menu" : "Buka menu"}>
-          {menuOpen ? <X size={21} /> : <Menu size={21} />}
-        </button>
-      </div>
-    </header>
   );
 }
 

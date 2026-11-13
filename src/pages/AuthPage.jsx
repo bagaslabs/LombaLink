@@ -1,16 +1,36 @@
 import React, { useState } from "react";
-import { ArrowLeft, ArrowRight, LoaderCircle, ShieldCheck, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, LoaderCircle, Search, ShieldCheck, Trophy } from "lucide-react";
 import { Brand, ThemeToggle } from "../components.jsx";
+
+const accountTypes = [
+  {
+    value: "participant",
+    title: "Peserta lomba",
+    description: "Cari peluang dan simpan lomba yang menarik.",
+    icon: Search,
+  },
+  {
+    value: "organizer",
+    title: "Penyelenggara lomba",
+    description: "Bagikan lomba dan kelola pengajuannya.",
+    icon: Building2,
+  },
+];
 
 export default function AuthPage({ mode, navigate, onGoogleSignIn, authConfigured, authError, theme, onToggleTheme }) {
   const isRegister = mode === "register";
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [accountType, setAccountType] = useState("");
 
   const startGoogleSignIn = async () => {
+    if (!accountType) {
+      setError("Pilih dulu jenis akun yang ingin digunakan.");
+      return;
+    }
     setError("");
     setBusy(true);
-    const message = await onGoogleSignIn();
+    const message = await onGoogleSignIn(accountType);
     if (message) {
       setError(message);
       setBusy(false);
@@ -36,7 +56,25 @@ export default function AuthPage({ mode, navigate, onGoogleSignIn, authConfigure
             <h2>{isRegister ? "Daftar dengan Google" : "Masuk dengan Google"}</h2>
             <p className="auth-subtitle">{isRegister ? "Gunakan akun Google untuk bergabung dengan komunitas LombaLink." : "Masuk dengan akun Google untuk melanjutkan perjalananmu."}</p>
             <div className="auth-form grid gap-4">
-              <button className="button google-auth-button button-wide" onClick={startGoogleSignIn} disabled={!authConfigured || busy}>
+              <div className="auth-account-type">
+                <span className="auth-account-type-label">Saya adalah</span>
+                <div className="role-choice-grid" role="group" aria-label="Pilih jenis akun">
+                  {accountTypes.map(({ value, title, description, icon: Icon }) => (
+                    <button
+                      className={`role-choice ${accountType === value ? "selected" : ""}`}
+                      type="button"
+                      key={value}
+                      aria-pressed={accountType === value}
+                      onClick={() => setAccountType(value)}
+                    >
+                      <span className="role-choice-icon"><Icon size={20} /></span>
+                      <span className="role-choice-copy"><strong>{title}</strong><small>{description}</small></span>
+                    </button>
+                  ))}
+                </div>
+                <p className="auth-account-type-note">Satu akun Google bisa memakai kedua role. Pilihan ini mengaktifkan role yang dipakai sekarang.</p>
+              </div>
+              <button className="button google-auth-button button-wide" onClick={startGoogleSignIn} disabled={!authConfigured || !accountType || busy}>
                 {busy ? <LoaderCircle size={18} className="loading-icon" /> : <span className="google-mark" aria-hidden="true">G</span>}
                 {busy ? "Menghubungkan ke Google..." : "Lanjutkan dengan Google"}
                 {!busy && <ArrowRight size={16} />}

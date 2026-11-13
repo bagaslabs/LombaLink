@@ -4,6 +4,43 @@ export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "K
 export const competitionModeOptions = ["Online", "Offline", "Hybrid"];
 export const competitionTypeOptions = ["Esai", "Olimpiade", "Tes kemampuan", "Hackathon", "Debat", "Desain", "Karya tulis", "Video", "Pitching", "Lainnya"];
 export const organizerLevelOptions = ["Sekolah", "Universitas", "Institut", "Lembaga", "Komunitas", "Kementerian", "Pemerintah", "Swasta", "Lainnya"];
+const validAccountTypes = ["participant", "organizer"];
+
+export function mergeAccountTypes(accountTypes, accountType) {
+  const savedTypes = Array.isArray(accountTypes)
+    ? accountTypes.filter((type) => validAccountTypes.includes(type))
+    : [];
+  return [...new Set([
+    ...savedTypes,
+    ...(validAccountTypes.includes(accountType) ? [accountType] : []),
+  ])];
+}
+
+export const phoneCountryCodes = [
+  { country: "ID", name: "Indonesia", callingCode: "+62" },
+  { country: "MY", name: "Malaysia", callingCode: "+60" },
+  { country: "SG", name: "Singapura", callingCode: "+65" },
+  { country: "BN", name: "Brunei", callingCode: "+673" },
+  { country: "PH", name: "Filipina", callingCode: "+63" },
+  { country: "TH", name: "Thailand", callingCode: "+66" },
+  { country: "VN", name: "Vietnam", callingCode: "+84" },
+  { country: "JP", name: "Jepang", callingCode: "+81" },
+  { country: "KR", name: "Korea Selatan", callingCode: "+82" },
+  { country: "CN", name: "Tiongkok", callingCode: "+86" },
+  { country: "HK", name: "Hong Kong", callingCode: "+852" },
+  { country: "TW", name: "Taiwan", callingCode: "+886" },
+  { country: "IN", name: "India", callingCode: "+91" },
+  { country: "AU", name: "Australia", callingCode: "+61" },
+  { country: "NZ", name: "Selandia Baru", callingCode: "+64" },
+  { country: "US", name: "Amerika Serikat", callingCode: "+1" },
+  { country: "CA", name: "Kanada", callingCode: "+1" },
+  { country: "GB", name: "Britania Raya", callingCode: "+44" },
+  { country: "DE", name: "Jerman", callingCode: "+49" },
+  { country: "FR", name: "Prancis", callingCode: "+33" },
+  { country: "NL", name: "Belanda", callingCode: "+31" },
+  { country: "SA", name: "Arab Saudi", callingCode: "+966" },
+  { country: "AE", name: "Uni Emirat Arab", callingCode: "+971" },
+];
 export const birthYearOptions = Array.from(
   { length: new Date().getFullYear() - 1899 },
   (_, index) => String(1900 + index),
@@ -16,6 +53,25 @@ export const defaultPreferences = {
   location: "",
 };
 
+export function normalizePhoneNumber(phone, callingCode = "+62") {
+  const value = String(phone || "").trim();
+  let digits = value.replace(/\D/g, "");
+  if (value.startsWith("+")) {
+    const internationalNumber = `+${digits}`;
+    return /^\+[1-9]\d{7,14}$/.test(internationalNumber) ? internationalNumber : "";
+  }
+
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  const countryDigits = callingCode.replace(/\D/g, "");
+  if (digits.startsWith(countryDigits) && digits.length - countryDigits.length >= 7) {
+    digits = digits.slice(countryDigits.length);
+  }
+  if (digits.startsWith("0")) digits = digits.slice(1);
+
+  const internationalNumber = `+${countryDigits}${digits}`;
+  return /^\+[1-9]\d{7,14}$/.test(internationalNumber) ? internationalNumber : "";
+}
+
 export function getInitialTheme() {
   const savedTheme = localStorage.getItem("lombalink.theme");
   if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
@@ -24,6 +80,13 @@ export function getInitialTheme() {
 
 export function accountFromUser(user) {
   if (!user) return null;
+  const storedAccountType = typeof user.user_metadata?.account_type === "string"
+    ? user.user_metadata.account_type
+    : "";
+  const accountTypes = mergeAccountTypes(user.user_metadata?.account_types, storedAccountType);
+  const accountType = validAccountTypes.includes(storedAccountType)
+    ? storedAccountType
+    : accountTypes[0] || "";
   const savedPreferences = user.user_metadata?.preferences;
   const preferences = savedPreferences && typeof savedPreferences === "object" ? savedPreferences : {};
   const province = user.user_metadata?.province || "";
@@ -51,7 +114,10 @@ export function accountFromUser(user) {
       organizerType: typeof preferences.organizerType === "string" ? preferences.organizerType : "",
       location: typeof preferences.location === "string" ? preferences.location : "",
     },
-    role: user.app_metadata?.role === "moderator" ? "moderator" : "user",
+    accountType,
+    accountTypes,
+    storedAccountType,
+    role: user.app_metadata?.role === "moderator" ? "moderator" : accountType || "unselected",
   };
 }
 
@@ -193,7 +259,7 @@ export function isProfileComplete(account) {
   return Boolean(
     account?.username?.trim()
     && account?.fullName?.trim()
-    && account?.phone?.trim()
+    && normalizePhoneNumber(account?.phone)
     && account?.province?.trim()
     && account?.city?.trim()
     && Number.isInteger(birthYear)

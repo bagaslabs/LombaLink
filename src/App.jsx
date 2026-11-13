@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { AccountPrompt, Header } from "./components.jsx";
+import { AccountPrompt, SiteFooter } from "./components.jsx";
+import Navbar from "./Navbar.jsx";
 import {
   accountFromUser,
   authErrorMessage,
@@ -9,6 +10,7 @@ import {
   getCompetitionCoverUrl,
   googleOAuthErrorMessage,
   isProfileComplete,
+  mergeAccountTypes,
 } from "./data.js";
 import { getSupabaseClient } from "./supabase.js";
 import AdminLoginPage from "./pages/AdminLoginPage.jsx";
@@ -19,8 +21,10 @@ import PersonalizationPage from "./pages/PersonalizationPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
+import RoleSelectionPage from "./pages/RoleSelectionPage.jsx";
 
 const profilePhotoBucket = "lombalink-profile-photos";
+const pendingAccountTypeKey = "lombalink.pending_account_type";
 
 function useRoute() {
   const getCurrentRoute = () => `${window.location.pathname}${window.location.search}`;
@@ -65,30 +69,7 @@ export default function App() {
   const [promptRequired, setPromptRequired] = useState(false);
   const [encourageShare, setEncourageShare] = useState(false);
   const [postAfterProfile, setPostAfterProfile] = useState(false);
-
-  useEffect(() => {
-    if (!authReady || account || routePath !== "/" || promptOpen) return undefined;
-
-    const showRequiredPrompt = () => {
-      setEncourageShare(false);
-      setPromptRequired(true);
-      setPromptOpen(true);
-    };
-    const blockGuestClick = (event) => {
-      if (event.target instanceof Element && event.target.closest("[data-guest-access]")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      showRequiredPrompt();
-    };
-    const promptOnScroll = () => showRequiredPrompt();
-
-    document.addEventListener("click", blockGuestClick, true);
-    window.addEventListener("scroll", promptOnScroll, { passive: true });
-    return () => {
-      document.removeEventListener("click", blockGuestClick, true);
-      window.removeEventListener("scroll", promptOnScroll);
-    };
-  }, [account, authReady, promptOpen, routePath]);
+  const pendingAccountTypeRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -194,8 +175,87 @@ export default function App() {
   }, [account, authReady, navigate, routePath]);
 
   useEffect(() => {
-    if (authReady && account && routePath === "/lomba/tambahkan"
-      && account.role !== "moderator" && !isProfileComplete(account)) {
+    if (!authReady || !account) return undefined;
+    const requestedType = localStorage.getItem(pendingAccountTypeKey);
+    if (!requestedType) return undefined;
+    if (requestedType !== "participant" && requestedType !== "organizer") {
+      localStorage.removeItem(pendingAccountTypeKey);
+      setAuthError("Pilihan jenis akun tidak valid. Data akun yang sudah tersimpan tidak diubah.");
+      return undefined;
+    }
+
+    if (account.role === "moderator") {
+      localStorage.removeItem(pendingAccountTypeKey);
+      return undefined;
+    }
+
+    if (account.storedAccountType && !account.accountType) {
+      localStorage.removeItem(pendingAccountTypeKey);
+      setAuthError("Jenis akun yang tersimpan tidak dikenali. Data tidak diubah; silakan hubungi admin.");
+      return undefined;
+    }
+
+    const updatedAccountTypes = mergeAccountTypes(account.accountTypes, requestedType);
+    if (
+      account.accountType === requestedType
+      && account.storedAccountType === requestedType
+      && account.accountTypes.includes(requestedType)
+    ) {
+      localStorage.removeItem(pendingAccountTypeKey);
+      return undefined;
+    }
+    if (!supabaseClient) return undefined;
+
+    pendingAccountTypeRef.current = true;
+    let active = true;
+    supabaseClient.auth.updateUser({
+      data: { account_type: requestedType, account_types: updatedAccountTypes },
+    })
+      .then(({ data, error }) => {
+        if (!active) return;
+        localStorage.removeItem(pendingAccountTypeKey);
+        pendingAccountTypeRef.current = false;
+        if (error) {
+          setAuthError(`Pilihan jenis akun gagal disimpan: ${error.message}`);
+          navigate("/role");
+          return;
+        }
+        if (!data.user) {
+          setAuthError("Pilihan jenis akun tersimpan, tetapi akun tidak dapat dimuat kembali.");
+          navigate("/role");
+          return;
+        }
+        setAccount(accountFromUser(data.user));
+        setAuthError("");
+        navigate(requestedType === "organizer" ? "/lomba/manajemen" : "/");
+      })
+      .catch((error) => {
+        if (!active) return;
+        localStorage.removeItem(pendingAccountTypeKey);
+        pendingAccountTypeRef.current = false;
+        setAuthError(error instanceof Error ? `Pilihan jenis akun gagal disimpan: ${error.message}` : "Pilihan jenis akun gagal disimpan.");
+        navigate("/role");
+      });
+
+    return () => { active = false; };
+  }, [account, authReady, navigate, supabaseClient]);
+
+  useEffect(() => {
+    if (!authReady || !account) return;
+    if (account.role === "moderator" && routePath === "/role") {
+      navigate("/admin");
+      return;
+    }
+    if (account.role === "unselected" && routePath.startsWith("/lomba/")) {
+      if (pendingAccountTypeRef.current) return;
+      navigate("/role");
+      return;
+    }
+    if (account.role === "participant" && routePath.startsWith("/lomba/")) {
+      navigate("/");
+      return;
+    }
+    if (routePath === "/lomba/tambahkan" && account.role === "organizer" && !isProfileComplete(account)) {
       setPostAfterProfile(true);
       navigate("/profile");
     }
@@ -215,9 +275,13 @@ export default function App() {
     }
   }, [supabaseClient]);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (accountType) => {
     if (!supabaseClient) return "Google sign-in belum siap. Periksa konfigurasi Supabase.";
+    if (accountType !== "participant" && accountType !== "organizer") {
+      return "Pilih jenis akun sebelum melanjutkan.";
+    }
     try {
+      localStorage.setItem(pendingAccountTypeKey, accountType);
       const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -226,10 +290,17 @@ export default function App() {
           queryParams: { prompt: "select_account" },
         },
       });
-      if (error) return googleOAuthErrorMessage(error);
-      if (!data.url) return "Supabase tidak memberikan URL untuk memulai login Google.";
+      if (error) {
+        localStorage.removeItem(pendingAccountTypeKey);
+        return googleOAuthErrorMessage(error);
+      }
+      if (!data.url) {
+        localStorage.removeItem(pendingAccountTypeKey);
+        return "Supabase tidak memberikan URL untuk memulai login Google.";
+      }
       const response = await fetch(data.url, { redirect: "manual" });
       if (response.status >= 400) {
+        localStorage.removeItem(pendingAccountTypeKey);
         const body = await response.text();
         let providerMessage = "";
         try {
@@ -244,6 +315,7 @@ export default function App() {
       window.location.assign(data.url);
       return null;
     } catch (error) {
+      localStorage.removeItem(pendingAccountTypeKey);
       return authErrorMessage(error, "Gagal menghubungkan ke Google.");
     }
   };
@@ -280,6 +352,28 @@ export default function App() {
       navigate("/");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Gagal keluar dari akun.");
+    }
+  };
+
+  const saveAccountType = async (accountType) => {
+    if (!supabaseClient || !account) return "Sesi login tidak tersedia. Silakan masuk kembali.";
+    if (accountType !== "participant" && accountType !== "organizer") {
+      return "Pilihan jenis akun tidak valid. Pilih salah satu opsi yang tersedia.";
+    }
+    try {
+      const accountTypes = mergeAccountTypes(account.accountTypes, accountType);
+      const { data, error } = await supabaseClient.auth.updateUser({
+        data: { account_type: accountType, account_types: accountTypes },
+      });
+      if (error) return `Pilihan jenis akun gagal disimpan: ${error.message}`;
+      if (!data.user) return "Pilihan tersimpan, tetapi akun tidak dapat dimuat kembali.";
+
+      setAccount(accountFromUser(data.user));
+      setAuthError("");
+      navigate(accountType === "organizer" ? "/lomba/manajemen" : "/");
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Pilihan jenis akun gagal disimpan.";
     }
   };
 
@@ -345,6 +439,10 @@ export default function App() {
           ...profileFields,
           birth_date: null,
           preferences: account.preferences,
+          ...(account.accountType ? {
+            account_type: account.accountType,
+            account_types: account.accountTypes,
+          } : {}),
         },
       });
       if (error || !data.user) {
@@ -380,8 +478,6 @@ export default function App() {
       if (postAfterProfile) {
         setPostAfterProfile(false);
         navigate("/lomba/tambahkan");
-      } else {
-        navigate("/");
       }
       return null;
     } catch (error) {
@@ -399,6 +495,10 @@ export default function App() {
           region: account.region,
           institution: account.institution,
           preferences,
+          ...(account.accountType ? {
+            account_type: account.accountType,
+            account_types: account.accountTypes,
+          } : {}),
         },
       });
       if (error) return error.message;
@@ -406,7 +506,7 @@ export default function App() {
 
       setAccount(accountFromUser(data.user));
       setAuthError("");
-      navigate("/");
+      navigate(routePath === "/rekomendasi" ? "/rekomendasi" : "/");
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : "Personalisasi gagal disimpan.";
@@ -423,6 +523,10 @@ export default function App() {
   const requestSubmission = () => {
     if (!account) {
       openAccountPrompt(true);
+      return;
+    }
+    if (account.role !== "organizer" && account.role !== "moderator") {
+      navigate("/role");
       return;
     }
     if (!isProfileComplete(account)) {
@@ -454,6 +558,13 @@ export default function App() {
     }
     return <ProfilePage account={account} onSave={saveProfile} onCancel={() => { setPostAfterProfile(false); navigate("/"); }} pendingPost={postAfterProfile} theme={theme} onToggleTheme={toggleTheme} />;
   }
+  if (routePath === "/role") {
+    if (!account) {
+      return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk memilih jenis akun." theme={theme} onToggleTheme={toggleTheme} />;
+    }
+    if (account.role === "moderator") return null;
+    return <RoleSelectionPage account={account} onSave={saveAccountType} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} authError={authError} />;
+  }
   if (routePath === "/personalization") {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk mengatur personalisasi." theme={theme} onToggleTheme={toggleTheme} />;
@@ -464,7 +575,7 @@ export default function App() {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk membuka pengaturan." theme={theme} onToggleTheme={toggleTheme} />;
     }
-    return <SettingsPage account={account} onLogout={logout} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
+    return <SettingsPage account={account} onLogout={logout} onCancel={() => navigate("/")} onChangeAccountType={() => navigate("/role")} theme={theme} onToggleTheme={toggleTheme} />;
   }
   if (routePath === "/admin") {
     if (account?.role !== "moderator") return null;
@@ -474,6 +585,7 @@ export default function App() {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk untuk menambahkan dan mengelola lomba." theme={theme} onToggleTheme={toggleTheme} />;
     }
+    if (account.role !== "organizer" && account.role !== "moderator") return null;
     return <OrganizerPage
       account={account}
       supabaseClient={supabaseClient}
@@ -486,11 +598,28 @@ export default function App() {
     />;
   }
 
+  const initialSection = routePath === "/cari"
+    ? "cari"
+    : routePath === "/rekomendasi" ? "rekomendasi" : "";
+  const publicPage = <LandingPage
+    account={account}
+    navigate={navigate}
+    onSubmit={requestSubmission}
+    onRequireAccount={openAccountPrompt}
+    onTrackEvent={trackCompetitionEvent}
+    competitions={competitions}
+    competitionsLoading={competitionsLoading}
+    competitionsError={competitionsError}
+    categoryOptions={categoryOptions}
+    initialSection={initialSection}
+  />;
+
   return (
     <>
-      <Header account={account} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
+      <Navbar account={account} route={route} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
       {authError && <div className="auth-error-banner" role="alert">{authError}<button onClick={() => setAuthError("")}>Tutup</button></div>}
-      <LandingPage account={account} navigate={navigate} onSubmit={requestSubmission} onRequireAccount={openAccountPrompt} onTrackEvent={trackCompetitionEvent} competitions={competitions} competitionsLoading={competitionsLoading} competitionsError={competitionsError} />
+      {publicPage}
+      <SiteFooter navigate={navigate} />
       {promptOpen && <AccountPrompt onClose={() => { setPromptRequired(false); setPromptOpen(false); }} navigate={navigate} encourageShare={encourageShare} required={promptRequired} />}
     </>
   );
