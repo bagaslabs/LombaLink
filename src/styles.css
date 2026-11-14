@@ -575,7 +575,12 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-form-heading p { max-width: 660px; margin: 0; color: #7d899d; font-size: 11px; line-height: 1.6; }
 .competition-form-review-note { padding: 9px 11px; border: 1px solid #f1e2bd; border-radius: 8px; color: #8d6a2c !important; background: #fffaf0; }
 .competition-form-body { display: grid; min-width: 0; gap: 17px; }
+.competition-form-nav { position: sticky; top: 0; z-index: 6; display: flex; gap: 5px; min-width: 0; overflow-x: auto; padding: 7px; border: 1px solid #e6eaf2; border-radius: 11px; background: #fff; box-shadow: 0 5px 16px #23385a0d; }
+.competition-form-nav button { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 7px 10px; border: 0; border-radius: 8px; color: #748099; background: transparent; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.competition-form-nav button:hover,.competition-form-nav button[aria-current="location"] { color: #4e66d3; background: #eef1ff; }
+.competition-form-nav button span { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 6px; color: #7185d5; background: #f0f3ff; font-size: 8px; }
 .competition-form-section { display: grid; min-width: 0; gap: 13px; padding-bottom: 18px; border-bottom: 1px solid #edf0f5; }
+.competition-form-section[data-form-section] { scroll-margin-top: 82px; }
 .competition-form-section-heading { display: flex; align-items: center; gap: 10px; }
 .competition-form-section-heading>span { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; border-radius: 8px; color: #4e66d3; background: #eef1ff; font-size: 10px; font-weight: 800; }
 .competition-form-section-heading div { display: grid; gap: 3px; }
@@ -599,6 +604,7 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-repeat-heading div { display: grid; gap: 3px; }
 .competition-repeat-heading strong { color: #404d66; font-size: 11px; }
 .competition-repeat-heading span,.competition-form-muted { color: #8793a7; font-size: 9px; line-height: 1.5; }
+.competition-form-helper { margin: -4px 0 0; color: #8793a7; font-size: 9px; line-height: 1.5; }
 .competition-repeat-row { display: grid; grid-template-columns: minmax(0,1.3fr) repeat(2,minmax(0,1fr)) 32px; align-items: end; gap: 8px; }
 .competition-repeat-row.fee-row { grid-template-columns: minmax(0,1fr) minmax(0,.65fr) 32px; }
 .competition-repeat-remove { margin-bottom: 1px; }
@@ -711,6 +717,11 @@ html[data-theme="dark"] .organizer-sidebar-account strong { color: #c3cee0; }
 html[data-theme="dark"] .competition-form-grid :is(input,select,textarea),
 html[data-theme="dark"] .organizer-search { border-color: #2b3a56; color: #d3dcec; background: #0c1525; }
 html[data-theme="dark"] .competition-form-review-note { border-color: #554727; color: #e7c68c !important; background: #282216; }
+html[data-theme="dark"] .competition-form-nav { border-color: #293650; background: #111b2d; }
+html[data-theme="dark"] .competition-form-nav button { color: #9eabc0; }
+html[data-theme="dark"] .competition-form-nav button:hover,
+html[data-theme="dark"] .competition-form-nav button[aria-current="location"] { color: #c3ceff; background: #202c49; }
+html[data-theme="dark"] .competition-form-nav button span { color: #aebeff; background: #202c49; }
 html[data-theme="dark"] .competition-form-section { border-color: #293650; }
 html[data-theme="dark"] .competition-form-section-heading>span { color: #aebeff; background: #202c49; }
 html[data-theme="dark"] .competition-form-section-heading h3 { color: #d3dcec; }
@@ -721,6 +732,7 @@ html[data-theme="dark"] .organizer-breadcrumb strong,
 html[data-theme="dark"] .organizer-list-heading h2,
 html[data-theme="dark"] .organizer-competition-title h3,
 html[data-theme="dark"] .organizer-analytics-list article>div strong { color: #d3dcec; }
+html[data-theme="dark"] .competition-form-helper { color: #9eabc0; }
 html[data-theme="dark"] .organizer-page { color: #d3dcec; background: #0c1525; }
 html[data-theme="dark"] .organizer-sidebar,
 html[data-theme="dark"] .organizer-topbar,

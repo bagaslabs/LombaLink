@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, Camera, Plus, Trash2, Upload, X } from "lucide-react";
 import {
   competitionModeOptions,
@@ -11,6 +11,11 @@ import {
 
 const emptyBatch = () => ({ label: "", startsAt: "", endsAt: "" });
 const emptyFeeTier = () => ({ label: "", amount: "" });
+const formSections = [
+  { id: "competition-section-information", label: "Informasi Lomba" },
+  { id: "competition-section-schedule", label: "Jadwal & Biaya" },
+  { id: "competition-section-organizer", label: "Penyelenggara" },
+];
 
 function toForm(competition) {
   return {
@@ -70,6 +75,8 @@ export default function CompetitionForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [activeSection, setActiveSection] = useState(formSections[0].id);
+  const formRef = useRef(null);
   const isModerator = mode === "moderator";
   const isEditing = Boolean(initialCompetition?.id);
 
@@ -82,6 +89,27 @@ export default function CompetitionForm({
     setPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [form.coverFile]);
+
+  useEffect(() => {
+    const formElement = formRef.current;
+    if (!formElement || typeof IntersectionObserver === "undefined") return undefined;
+
+    const observer = new IntersectionObserver((entries) => {
+      const visibleSections = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
+      if (visibleSections[0]) setActiveSection(visibleSections[0].target.id);
+    }, { rootMargin: "-15% 0px -70% 0px" });
+
+    formElement.querySelectorAll("[data-form-section]").forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = (sectionId) => {
+    const section = formRef.current?.querySelector(`[data-form-section="${sectionId}"]`);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveSection(sectionId);
+  };
 
   const update = (key) => (event) => {
     const value = event.target.value;
@@ -201,11 +229,26 @@ export default function CompetitionForm({
         )}
       </header>
 
-      <form onSubmit={submit} className="competition-form-body">
-        <section className="competition-form-section" aria-labelledby="competition-section-information">
+      <form ref={formRef} onSubmit={submit} className="competition-form-body">
+        <nav className="competition-form-nav" aria-label="Bagian formulir lomba">
+          {formSections.map(({ id, label }, index) => (
+            <button
+              type="button"
+              key={id}
+              aria-controls={id}
+              aria-current={activeSection === id ? "location" : undefined}
+              onClick={() => scrollToSection(id)}
+            >
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <section id="competition-section-information" data-form-section className="competition-form-section" aria-labelledby="competition-section-information-heading">
           <div className="competition-form-section-heading">
             <span>01</span>
-            <div><h3 id="competition-section-information">Informasi lomba</h3><p>Kenalkan lomba dan siapa saja yang bisa mengikuti.</p></div>
+            <div><h3 id="competition-section-information-heading">Informasi lomba</h3><p>Kenalkan lomba dan siapa saja yang bisa mengikuti.</p></div>
           </div>
           <div className="competition-form-grid">
             <div className="competition-cover-picker">
@@ -278,22 +321,22 @@ export default function CompetitionForm({
           </div>
         </section>
 
-        <section className="competition-form-section" aria-labelledby="competition-section-schedule">
+        <section id="competition-section-schedule" data-form-section className="competition-form-section" aria-labelledby="competition-section-schedule-heading">
           <div className="competition-form-section-heading">
             <span>02</span>
-            <div><h3 id="competition-section-schedule">Jadwal & biaya</h3><p>Atur pendaftaran, biaya, pelaksanaan, dan tautan informasi.</p></div>
+            <div><h3 id="competition-section-schedule-heading">Jadwal & biaya</h3><p>Atur pendaftaran, biaya, pelaksanaan, dan tautan informasi.</p></div>
           </div>
           <div className="competition-form-grid">
             <div className="competition-repeat-section competition-form-full">
               <div className="competition-repeat-heading">
-                <div><strong>Batch pendaftaran</strong><span>Isi periode pendaftaran; batas akhir diambil dari batch terakhir.</span></div>
+                <div><strong>Batch pendaftaran <span className="required-mark">*</span></strong><span>Wajib minimal satu batch; batas akhir lomba mengikuti batch terakhir.</span></div>
                 <button className="button button-outline button-small" type="button" onClick={() => setForm((current) => ({ ...current, registrationBatches: [...current.registrationBatches, emptyBatch()] }))}><Plus size={14} /> Tambah batch</button>
               </div>
               {form.registrationBatches.map((batch, index) => (
                 <div className="competition-repeat-row" key={`batch-${index}`}>
-                  <label>Nama batch <input value={batch.label} onChange={(event) => updateRow("registrationBatches", index, "label", event.target.value)} placeholder={`Batch ${index + 1}`} /></label>
-                  <label>Mulai <input type="date" value={batch.startsAt} onChange={(event) => updateRow("registrationBatches", index, "startsAt", event.target.value)} /></label>
-                  <label>Akhir <input type="date" value={batch.endsAt} onChange={(event) => updateRow("registrationBatches", index, "endsAt", event.target.value)} /></label>
+                  <label>Nama batch <span className="required-mark">*</span><input value={batch.label} onChange={(event) => updateRow("registrationBatches", index, "label", event.target.value)} placeholder={`Batch ${index + 1}`} required /></label>
+                  <label>Mulai <span className="required-mark">*</span><input type="date" value={batch.startsAt} onChange={(event) => updateRow("registrationBatches", index, "startsAt", event.target.value)} required /></label>
+                  <label>Akhir <span className="required-mark">*</span><input type="date" value={batch.endsAt} onChange={(event) => updateRow("registrationBatches", index, "endsAt", event.target.value)} required /></label>
                   {form.registrationBatches.length > 1 && <button className="competition-repeat-remove" type="button" aria-label={`Hapus batch ${index + 1}`} onClick={() => setForm((current) => ({ ...current, registrationBatches: current.registrationBatches.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>}
                 </div>
               ))}
@@ -329,10 +372,10 @@ export default function CompetitionForm({
           </div>
         </section>
 
-        <section className="competition-form-section" aria-labelledby="competition-section-organizer">
+        <section id="competition-section-organizer" data-form-section className="competition-form-section" aria-labelledby="competition-section-organizer-heading">
           <div className="competition-form-section-heading">
             <span>03</span>
-            <div><h3 id="competition-section-organizer">Penyelenggara</h3><p>Lengkapi identitas dan kontak penyelenggara serta benefit peserta.</p></div>
+            <div><h3 id="competition-section-organizer-heading">Penyelenggara</h3><p>Lengkapi identitas dan kontak penyelenggara serta benefit peserta.</p></div>
           </div>
           <div className="competition-form-grid">
             <label>Nama penyelenggara <span className="required-mark">*</span>
@@ -353,12 +396,13 @@ export default function CompetitionForm({
             <label>Contact person <span className="required-mark">*</span>
               <input value={form.contactPersonName} onChange={update("contactPersonName")} maxLength={120} required />
             </label>
-            <label>Email contact person <span className="optional-mark">(isi minimal satu kontak)</span>
+            <label>Email contact person <span className="optional-mark">(opsional)</span>
               <input type="email" value={form.contactPersonEmail} onChange={update("contactPersonEmail")} maxLength={160} />
             </label>
-            <label>Telepon / WhatsApp
+            <label>Telepon / WhatsApp <span className="optional-mark">(opsional)</span>
               <input type="tel" value={form.contactPersonPhone} onChange={update("contactPersonPhone")} maxLength={40} />
             </label>
+            <p className="competition-form-helper competition-form-full">Wajib isi minimal satu kontak: email atau nomor telepon / WhatsApp.</p>
             <label className="competition-form-full">Hadiah <span className="optional-mark">(opsional)</span>
               <textarea rows="3" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
             </label>
