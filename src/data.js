@@ -188,7 +188,7 @@ export function competitionFieldsFromForm(form) {
     deadline: form.registrationBatches.reduce(
       (latest, batch) => batch.endsAt > latest ? batch.endsAt : latest,
       "",
-    ),
+    ) || null,
     event_start_date: form.eventStartDate || null,
     event_end_date: form.eventEndDate || null,
     registration_url: form.registrationUrl.trim() || null,

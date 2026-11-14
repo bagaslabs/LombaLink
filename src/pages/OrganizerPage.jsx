@@ -33,6 +33,7 @@ const pageDetails = {
 
 function statusLabel(item) {
   if (item.archivedAt) return "Diarsipkan";
+  if (item.status === "draft") return "Draft";
   if (item.status === "approved") return "Tayang";
   if (item.status === "rejected") return "Perlu perbaikan";
   return "Menunggu verifikasi";
@@ -133,7 +134,8 @@ export default function OrganizerPage({
     const query = search.trim().toLocaleLowerCase("id-ID");
     return competitions.filter((item) => {
       if (filter === "archived" ? !item.archivedAt : item.archivedAt) return false;
-      if (filter === "active" && item.status === "rejected") return false;
+      if (filter === "drafts" && item.status !== "draft") return false;
+      if (filter === "active" && (item.status === "rejected" || item.status === "draft")) return false;
       if (filter === "needs-update" && item.status !== "rejected") return false;
       return !query || `${item.title} ${item.organizer} ${item.category} ${item.keywords.join(" ")}`.toLocaleLowerCase("id-ID").includes(query);
     });
@@ -157,10 +159,21 @@ export default function OrganizerPage({
       uploadedCoverPath = upload.path;
     }
 
+    const saveAction = form.saveAction || "submit";
     const values = {
       ...competitionFieldsFromForm(form),
       cover_path: coverPath,
+      archived_at: saveAction === "archive"
+        ? new Date().toISOString()
+        : saveAction === "submit" && existing?.status === "draft"
+          ? null
+          : existing?.archivedAt || null,
     };
+    if (existing?.status === "draft" && saveAction === "submit") {
+      values.status = "pending";
+      values.reviewed_by = null;
+      values.reviewed_at = null;
+    }
     let result;
     try {
       result = existing
@@ -173,7 +186,11 @@ export default function OrganizerPage({
           .single()
         : await supabaseClient
           .from("lombalink_competitions")
-          .insert({ ...values, status: "pending", submitted_by: account.id })
+          .insert({
+            ...values,
+            status: saveAction === "submit" ? "pending" : "draft",
+            submitted_by: account.id,
+          })
           .select("id")
           .single();
     } catch (error) {
@@ -184,7 +201,12 @@ export default function OrganizerPage({
 
     if (result.error) {
       const cleanupError = uploadedCoverPath ? await removeCompetitionCover(supabaseClient, uploadedCoverPath) : "";
-      return `Lomba gagal disimpan: ${result.error.message}${cleanupError ? ` ${cleanupError}` : ""}`;
+      const isRowPolicyError = result.error.code === "42501"
+        || result.error.message?.toLowerCase().includes("row-level security policy");
+      const message = isRowPolicyError
+        ? "Akses penyimpanan ditolak. Simpan ulang profil agar data profil tersinkron ke database, lalu coba lagi. Jika masih gagal, terapkan migrasi Supabase terbaru (20261114200700_lombalink_competition_drafts.sql)."
+        : result.error.message;
+      return `Lomba gagal disimpan: ${message}${cleanupError ? ` ${cleanupError}` : ""}`;
     }
 
     if (existing?.coverPath && existing.coverPath !== coverPath) {
@@ -197,7 +219,19 @@ export default function OrganizerPage({
     return "";
   };
 
-  const saveSucceeded = () => {
+  const saveSucceeded = (saveAction) => {
+    if (saveAction === "draft") {
+      setNotice("Draft lomba berhasil disimpan dan bisa dilanjutkan nanti.");
+      setFilter("drafts");
+      navigate("/lomba/manajemen");
+      return;
+    }
+    if (saveAction === "archive") {
+      setNotice("Lomba berhasil disimpan ke arsip.");
+      setFilter("archived");
+      navigate("/lomba/manajemen");
+      return;
+    }
     if (editId) {
       setNotice("Perubahan lomba dikirim untuk ditinjau.");
       navigate("/lomba/manajemen");
@@ -223,6 +257,7 @@ export default function OrganizerPage({
       } else {
         setNotice(item.archivedAt ? "Lomba dikembalikan dari arsip." : "Lomba berhasil diarsipkan.");
         setReloadKey((current) => current + 1);
+        onCompetitionsChanged?.();
       }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Status arsip gagal diperbarui.");
@@ -315,6 +350,7 @@ export default function OrganizerPage({
                 </div>
                 <div className="organizer-tabs">
                   <button className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")}>Aktif</button>
+                  <button className={filter === "drafts" ? "active" : ""} onClick={() => setFilter("drafts")}>Draft</button>
                   <button className={filter === "needs-update" ? "active" : ""} onClick={() => setFilter("needs-update")}>Perlu perbaikan</button>
                   <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Semua</button>
                   <button className={filter === "archived" ? "active" : ""} onClick={() => setFilter("archived")}>Arsip</button>

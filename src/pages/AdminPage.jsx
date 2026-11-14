@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -40,12 +41,17 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
   const [createNotice, setCreateNotice] = useState("");
   const [reviewItem, setReviewItem] = useState(null);
   const moderatorName = account?.name || "Moderator";
-  const visible = useMemo(() => competitions.filter((item) => tab === "all" || item.status === tab), [competitions, tab]);
+  const visible = useMemo(() => competitions.filter((item) => (
+    tab === "all"
+      || (tab === "archived" ? Boolean(item.archivedAt) : !item.archivedAt && item.status === tab)
+  )), [competitions, tab]);
   const sectionLabel = section === "users"
     ? "Pengguna"
     : section === "reports"
       ? "Laporan"
       : ({
+        archived: "Arsip",
+        draft: "Draft",
         pending: "Verifikasi",
         approved: "Lomba terbit",
         rejected: "Lomba ditolak",
@@ -66,8 +72,8 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
       supabaseClient.from("lombalink_competitions").select("*").order("submitted_at", { ascending: false }).limit(1000),
       supabaseClient.from("lombalink_profiles").select("id, full_name"),
       supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }),
-      supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).eq("status", "approved"),
+      supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).eq("status", "pending").is("archived_at", null),
+      supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).eq("status", "approved").is("archived_at", null),
       supabaseClient.from("lombalink_profiles").select("id", { count: "exact", head: true }),
     ]).then(([competitionResult, profileResult, totalResult, pendingResult, approvedResult, profileCountResult]) => {
       if (!active) return;
@@ -127,23 +133,50 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
     }
   };
 
+  const toggleArchive = async (item) => {
+    setActionId(item.id);
+    setActionError("");
+    try {
+      const { error: archiveError } = await supabaseClient
+        .from("lombalink_competitions")
+        .update({ archived_at: item.archivedAt ? null : new Date().toISOString() })
+        .eq("id", item.id)
+        .select("id")
+        .single();
+      if (archiveError) {
+        setActionError(`Status arsip gagal diperbarui: ${archiveError.message}`);
+        return;
+      }
+      setCreateNotice(item.archivedAt ? "Lomba dikembalikan dari arsip." : "Lomba berhasil diarsipkan.");
+      setTab(item.archivedAt ? item.status : "archived");
+      setReloadKey((current) => current + 1);
+      onCompetitionsChanged?.();
+    } catch (archiveError) {
+      setActionError(archiveError instanceof Error ? archiveError.message : "Status arsip gagal diperbarui.");
+    } finally {
+      setActionId("");
+    }
+  };
+
   const publishCompetition = async (form) => {
     if (!supabaseClient || !account?.id) return "Sesi moderator tidak tersedia. Silakan masuk kembali.";
     let coverPath = null;
     try {
       const competitionId = crypto.randomUUID();
+      const saveAction = form.saveAction || "submit";
+      const reviewedAt = new Date().toISOString();
       if (form.coverFile) {
         const upload = await uploadCompetitionCover(supabaseClient, account.id, competitionId, form.coverFile);
         if (upload.error) return upload.error;
         coverPath = upload.path;
       }
 
-      const reviewedAt = new Date().toISOString();
       const { error: insertError } = await supabaseClient.from("lombalink_competitions").insert({
         ...competitionFieldsFromForm(form),
         id: competitionId,
         cover_path: coverPath,
         status: "approved",
+        archived_at: saveAction === "archive" ? reviewedAt : null,
         submitted_by: account.id,
         reviewed_by: account.id,
         reviewed_at: reviewedAt,
@@ -153,8 +186,10 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
         return `Lomba gagal diterbitkan: ${insertError.message}${cleanupError ? ` ${cleanupError}` : ""}`;
       }
 
-      setCreateNotice("Lomba berhasil diterbitkan dan sekarang tampil untuk publik.");
-      setTab("approved");
+      setCreateNotice(saveAction === "archive"
+        ? "Lomba berhasil disimpan ke arsip."
+        : "Lomba berhasil diterbitkan dan sekarang tampil untuk publik.");
+      setTab(saveAction === "archive" ? "archived" : "approved");
       setReloadKey((current) => current + 1);
       onCompetitionsChanged?.();
       return "";
@@ -190,12 +225,14 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
           }
         }}>
           <option value="all">Ringkasan</option>
+          <option value="archived">Arsip</option>
+          <option value="draft">Draft</option>
           <option value="pending">Verifikasi</option>
           <option value="approved">Lomba terbit</option>
           <option value="rejected">Lomba ditolak</option>
           <option value="users">Pengguna</option>
           <option value="reports">Laporan</option>
-        </select><div className="admin-top-actions"><ThemeToggle theme={theme} onToggleTheme={toggleTheme} /><span className="admin-user-pill"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span> {moderatorName}</span><button className="icon-button" title="Keluar dari panel moderator" aria-label="Keluar" onClick={onLogout}><LogOut size={17} /></button></div></div>
+        </select><div className="admin-top-actions"><ThemeToggle theme={theme} onToggleTheme={onToggleTheme} /><span className="admin-user-pill"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span> {moderatorName}</span><button className="icon-button" title="Keluar dari panel moderator" aria-label="Keluar" onClick={onLogout}><LogOut size={17} /></button></div></div>
         <div className="admin-content">
           {section === "users"
             ? <AdminUsersPanel supabaseClient={supabaseClient} moderatorId={account.id} />
@@ -213,14 +250,17 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
           </div>
           <div className="admin-table-card">
             <div className="table-heading"><div><h2>Pengajuan lomba</h2><p>Periksa kelengkapan informasi sebelum dipublikasikan.</p></div><button className="button button-outline button-small" onClick={() => setTab("all")}><SlidersHorizontal size={15} /> Semua</button></div>
-            <div className="table-tabs"><button className={tab === "pending" ? "selected" : ""} onClick={() => setTab("pending")}>Menunggu <span>{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button><button className={tab === "approved" ? "selected" : ""} onClick={() => setTab("approved")}>Disetujui</button><button className={tab === "rejected" ? "selected" : ""} onClick={() => setTab("rejected")}>Ditolak</button><button className={tab === "all" ? "selected" : ""} onClick={() => setTab("all")}>Semua</button></div>
+            <div className="table-tabs"><button className={tab === "pending" ? "selected" : ""} onClick={() => setTab("pending")}>Menunggu <span>{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button><button className={tab === "approved" ? "selected" : ""} onClick={() => setTab("approved")}>Disetujui</button><button className={tab === "rejected" ? "selected" : ""} onClick={() => setTab("rejected")}>Ditolak</button><button className={tab === "draft" ? "selected" : ""} onClick={() => setTab("draft")}>Draft</button><button className={tab === "archived" ? "selected" : ""} onClick={() => setTab("archived")}>Arsip</button><button className={tab === "all" ? "selected" : ""} onClick={() => setTab("all")}>Semua</button></div>
             {actionError && <div className="admin-users-error" role="alert">{actionError}<button onClick={() => setActionError("")}>Tutup</button></div>}
             <div className="submission-list">
               {loading ? <div className="admin-empty"><LoaderCircle size={20} className="loading-icon" /><strong>Memuat data lomba...</strong></div> : visible.length ? visible.map((item) => <article className="submission-row" key={item.id}>
                 <span className="submission-logo"><Trophy size={20} /></span>
                 <div className="submission-info"><button className="submission-title-button" onClick={() => setReviewItem(item)}>{item.title}</button><span>{item.organizer} <i>·</i> {item.category} <i>·</i> {item.education}</span><small>Diajukan oleh {item.submittedBy} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.submittedAt))}</small></div>
-                <span className={`status-pill status-${item.status}`}>{item.status === "pending" ? <><i></i> Menunggu</> : item.status === "approved" ? <><Check size={12} /> Disetujui</> : "Ditolak"}</span>
-                {item.status === "pending" ? <div className="submission-actions"><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><Check size={16} /></button></div> : <span className="reviewed-label">Ditinjau</span>}
+                <span className={`status-pill ${item.archivedAt ? "status-archived" : `status-${item.status}`}`}>{item.archivedAt ? "Diarsipkan" : item.status === "draft" ? "Draft" : item.status === "pending" ? <><i></i> Menunggu</> : item.status === "approved" ? <><Check size={12} /> Disetujui</> : "Ditolak"}</span>
+                <div className="submission-actions">
+                  <button title={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} className="archive-action" disabled={actionId === item.id} onClick={() => toggleArchive(item)}><span className="sr-only">{item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"}</span><Archive size={16} /></button>
+                  {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : <span className="reviewed-label">{item.status === "draft" ? "Belum dikirim" : "Ditinjau"}</span>}
+                </div>
               </article>) : <div className="admin-empty"><CheckCircle2 size={22} /><strong>Tidak ada pengajuan di sini</strong><span>Tidak ada lomba dengan status ini di database.</span></div>}
             </div>
             <div className="table-footer"><span>{loading ? "Memuat pengajuan..." : `Menampilkan ${visible.length} pengajuan`}</span><button onClick={() => setTab("all")}>Lihat semua pengajuan <ArrowRight size={14} /></button></div>

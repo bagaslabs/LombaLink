@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowRight, Camera, Plus, Trash2, Upload, X } from "lucide-react";
+import { Archive, ArrowRight, Camera, Plus, Save, Trash2, Upload, X } from "lucide-react";
 import {
   competitionModeOptions,
   competitionTypeOptions,
@@ -77,8 +77,12 @@ export default function CompetitionForm({
   const [previewUrl, setPreviewUrl] = useState("");
   const [activeSection, setActiveSection] = useState(formSections[0].id);
   const formRef = useRef(null);
+  const submitButtonRef = useRef(null);
+  const saveActionRef = useRef("submit");
   const isModerator = mode === "moderator";
   const isEditing = Boolean(initialCompetition?.id);
+  const canSaveAsDraft = !isModerator && (!isEditing || initialCompetition.status === "draft");
+  const canArchiveFromForm = !isEditing || initialCompetition.status === "draft";
 
   useEffect(() => {
     if (!form.coverFile) {
@@ -109,6 +113,11 @@ export default function CompetitionForm({
     const section = formRef.current?.querySelector(`[data-form-section="${sectionId}"]`);
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveSection(sectionId);
+  };
+
+  const submitWithAction = (action) => {
+    saveActionRef.current = action;
+    formRef.current?.requestSubmit(submitButtonRef.current);
   };
 
   const update = (key) => (event) => {
@@ -179,20 +188,25 @@ export default function CompetitionForm({
 
   const submit = async (event) => {
     event.preventDefault();
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    if (!isValidUrl(form.registrationUrl) || !isValidUrl(form.informationUrl) || !isValidUrl(form.rulebookUrl)) {
-      setError("Gunakan tautan yang diawali http:// atau https://.");
-      return;
+    const saveAction = saveActionRef.current;
+    saveActionRef.current = "submit";
+    if (saveAction === "submit" || (saveAction === "archive" && isModerator)) {
+      const validationError = validateForm();
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+      if (!isValidUrl(form.registrationUrl) || !isValidUrl(form.informationUrl) || !isValidUrl(form.rulebookUrl)) {
+        setError("Gunakan tautan yang diawali http:// atau https://.");
+        return;
+      }
     }
 
     setBusy(true);
     setError("");
     const payload = {
       ...form,
+      saveAction,
       keywords: form.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
       feeTiers: form.feeTiers
         .filter((fee) => fee.label.trim() && fee.amount !== "")
@@ -210,7 +224,7 @@ export default function CompetitionForm({
         setError(message);
         return;
       }
-      onSuccess?.();
+      onSuccess?.(saveAction);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Lomba gagal disimpan.");
     } finally {
@@ -229,7 +243,7 @@ export default function CompetitionForm({
         )}
       </header>
 
-      <form ref={formRef} onSubmit={submit} className="competition-form-body">
+      <form ref={formRef} onSubmit={submit} className="competition-form-body" noValidate>
         <nav className="competition-form-nav" aria-label="Bagian formulir lomba">
           {formSections.map(({ id, label }, index) => (
             <button
@@ -415,8 +429,12 @@ export default function CompetitionForm({
         {error && <p className="form-error competition-form-error" role="alert">{error}</p>}
         <div className="competition-form-actions">
           <button className="button button-quiet" type="button" onClick={onCancel}>Batal</button>
-          <button className="button button-primary" type="submit" disabled={busy}>
-            {busy ? "Menyimpan..." : isModerator ? "Terbitkan lomba" : isEditing ? "Kirim perubahan" : "Kirim untuk ditinjau"}
+          <div className="competition-form-utility-actions">
+            {canSaveAsDraft && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => submitWithAction("draft")}><Save size={15} /> Simpan draft</button>}
+            {canArchiveFromForm && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => submitWithAction("archive")}><Archive size={15} /> Simpan ke arsip</button>}
+          </div>
+          <button ref={submitButtonRef} className="button button-primary" type="submit" disabled={busy}>
+            {busy ? "Menyimpan..." : isModerator ? "Terbitkan lomba" : isEditing && initialCompetition.status !== "draft" ? "Kirim perubahan" : "Kirim untuk ditinjau"}
             {!busy && <ArrowRight size={15} />}
           </button>
         </div>
