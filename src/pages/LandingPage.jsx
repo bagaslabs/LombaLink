@@ -17,6 +17,7 @@ export default function LandingPage({
   onSubmit,
   onRequireAccount,
   onTrackEvent,
+  onReport,
   competitions,
   competitionsLoading,
   competitionsError,
@@ -59,8 +60,10 @@ export default function LandingPage({
 
       <SearchPage
         account={account}
+        navigate={navigate}
         onRequireAccount={onRequireAccount}
         onTrackEvent={onTrackEvent}
+        onReport={onReport}
         competitions={competitions}
         competitionsLoading={competitionsLoading}
         competitionsError={competitionsError}
@@ -71,6 +74,7 @@ export default function LandingPage({
         navigate={navigate}
         onRequireAccount={onRequireAccount}
         onTrackEvent={onTrackEvent}
+        onReport={onReport}
         competitions={competitions}
         competitionsLoading={competitionsLoading}
         competitionsError={competitionsError}

@@ -8,6 +8,7 @@ export default function RecommendationsPage({
   navigate,
   onRequireAccount,
   onTrackEvent,
+  onReport,
   competitions,
   competitionsLoading,
   competitionsError,
@@ -53,7 +54,14 @@ export default function RecommendationsPage({
         {account && hasPreferences && !competitionsLoading && !competitionsError && <p className="discovery-result-count">{recommendations.length} rekomendasi untukmu.</p>}
         {results}
       </section>
-      <CompetitionModal item={detail} onClose={() => setDetail(null)} onTrackEvent={onTrackEvent} />
+      <CompetitionModal
+        item={detail}
+        onClose={() => setDetail(null)}
+        onTrackEvent={onTrackEvent}
+        onReport={onReport}
+        isLoggedIn={Boolean(account)}
+        onRequireLogin={() => navigate("/login")}
+      />
     </section>
   );
 }

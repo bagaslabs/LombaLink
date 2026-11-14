@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { AccountPrompt, SiteFooter } from "./components.jsx";
 import Navbar from "./Navbar.jsx";
@@ -10,7 +10,6 @@ import {
   getCompetitionCoverUrl,
   googleOAuthErrorMessage,
   isProfileComplete,
-  mergeAccountTypes,
 } from "./data.js";
 import { getSupabaseClient } from "./supabase.js";
 import AdminLoginPage from "./pages/AdminLoginPage.jsx";
@@ -22,9 +21,9 @@ import ProfilePage from "./pages/ProfilePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
 import RoleSelectionPage from "./pages/RoleSelectionPage.jsx";
+import { reportReasons } from "./reporting.js";
 
 const profilePhotoBucket = "lombalink-profile-photos";
-const pendingAccountTypeKey = "lombalink.pending_account_type";
 
 function useRoute() {
   const getCurrentRoute = () => `${window.location.pathname}${window.location.search}`;
@@ -58,6 +57,8 @@ export default function App() {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
   const [account, setAccount] = useState(null);
+  const [accountRoleReady, setAccountRoleReady] = useState(false);
+  const [accountRoleRefreshKey, setAccountRoleRefreshKey] = useState(0);
   const [supabaseClient, setSupabaseClient] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -69,7 +70,6 @@ export default function App() {
   const [promptRequired, setPromptRequired] = useState(false);
   const [encourageShare, setEncourageShare] = useState(false);
   const [postAfterProfile, setPostAfterProfile] = useState(false);
-  const pendingAccountTypeRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -109,6 +109,8 @@ export default function App() {
       const { data: { subscription: authSubscription } } = client.auth.onAuthStateChange((event, session) => {
         if (!active) return;
         setAccount(accountFromUser(session?.user));
+        setAccountRoleReady(!session?.user);
+        if (session?.user) setAccountRoleRefreshKey((current) => current + 1);
         setAuthReady(true);
         if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") setAuthError("");
       });
@@ -118,6 +120,8 @@ export default function App() {
         if (!active) return;
         if (error) setAuthError(authErrorMessage(error, "Sesi akun tidak dapat dimuat."));
         setAccount(accountFromUser(data.session?.user));
+        setAccountRoleReady(!data.session?.user);
+        if (data.session?.user) setAccountRoleRefreshKey((current) => current + 1);
         setAuthReady(true);
       });
     }).catch((error) => {
@@ -131,6 +135,56 @@ export default function App() {
       subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!account?.id || !supabaseClient) return undefined;
+    let active = true;
+
+    supabaseClient
+      .from("lombalink_profiles")
+      .select("account_type")
+      .eq("id", account.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setAuthError(`Role akun gagal dimuat: ${error.message}`);
+          setAccount((current) => current?.id === account.id
+            ? {
+              ...current,
+              accountType: "",
+              role: current.role === "moderator" ? "moderator" : "unselected",
+            }
+            : current);
+        } else {
+          const accountType = data?.account_type === "participant" || data?.account_type === "organizer"
+            ? data.account_type
+            : "";
+          setAccount((current) => current?.id === account.id
+            ? {
+              ...current,
+              accountType,
+              role: current.role === "moderator" ? "moderator" : accountType || "unselected",
+            }
+            : current);
+        }
+        setAccountRoleReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAuthError(error instanceof Error ? `Role akun gagal dimuat: ${error.message}` : "Role akun gagal dimuat.");
+        setAccount((current) => current?.id === account.id
+          ? {
+            ...current,
+            accountType: "",
+            role: current.role === "moderator" ? "moderator" : "unselected",
+          }
+          : current);
+        setAccountRoleReady(true);
+      });
+
+    return () => { active = false; };
+  }, [account?.id, accountRoleRefreshKey, supabaseClient]);
 
   useEffect(() => {
     if (!supabaseClient) return undefined;
@@ -169,86 +223,23 @@ export default function App() {
   }, [competitionReloadKey, supabaseClient]);
 
   useEffect(() => {
-    if (authReady && routePath === "/admin" && account?.role !== "moderator") {
+    if (authReady && accountRoleReady && routePath === "/admin" && account?.role !== "moderator") {
       navigate("/admin/login");
     }
-  }, [account, authReady, navigate, routePath]);
+  }, [account, accountRoleReady, authReady, navigate, routePath]);
 
   useEffect(() => {
-    if (!authReady || !account) return undefined;
-    const requestedType = localStorage.getItem(pendingAccountTypeKey);
-    if (!requestedType) return undefined;
-    if (requestedType !== "participant" && requestedType !== "organizer") {
-      localStorage.removeItem(pendingAccountTypeKey);
-      setAuthError("Pilihan jenis akun tidak valid. Data akun yang sudah tersimpan tidak diubah.");
-      return undefined;
-    }
-
-    if (account.role === "moderator") {
-      localStorage.removeItem(pendingAccountTypeKey);
-      return undefined;
-    }
-
-    if (account.storedAccountType && !account.accountType) {
-      localStorage.removeItem(pendingAccountTypeKey);
-      setAuthError("Jenis akun yang tersimpan tidak dikenali. Data tidak diubah; silakan hubungi admin.");
-      return undefined;
-    }
-
-    const updatedAccountTypes = mergeAccountTypes(account.accountTypes, requestedType);
-    if (
-      account.accountType === requestedType
-      && account.storedAccountType === requestedType
-      && account.accountTypes.includes(requestedType)
-    ) {
-      localStorage.removeItem(pendingAccountTypeKey);
-      return undefined;
-    }
-    if (!supabaseClient) return undefined;
-
-    pendingAccountTypeRef.current = true;
-    let active = true;
-    supabaseClient.auth.updateUser({
-      data: { account_type: requestedType, account_types: updatedAccountTypes },
-    })
-      .then(({ data, error }) => {
-        if (!active) return;
-        localStorage.removeItem(pendingAccountTypeKey);
-        pendingAccountTypeRef.current = false;
-        if (error) {
-          setAuthError(`Pilihan jenis akun gagal disimpan: ${error.message}`);
-          navigate("/role");
-          return;
-        }
-        if (!data.user) {
-          setAuthError("Pilihan jenis akun tersimpan, tetapi akun tidak dapat dimuat kembali.");
-          navigate("/role");
-          return;
-        }
-        setAccount(accountFromUser(data.user));
-        setAuthError("");
-        navigate(requestedType === "organizer" ? "/lomba/manajemen" : "/");
-      })
-      .catch((error) => {
-        if (!active) return;
-        localStorage.removeItem(pendingAccountTypeKey);
-        pendingAccountTypeRef.current = false;
-        setAuthError(error instanceof Error ? `Pilihan jenis akun gagal disimpan: ${error.message}` : "Pilihan jenis akun gagal disimpan.");
-        navigate("/role");
-      });
-
-    return () => { active = false; };
-  }, [account, authReady, navigate, supabaseClient]);
-
-  useEffect(() => {
-    if (!authReady || !account) return;
+    if (!authReady || !accountRoleReady || !account) return;
     if (account.role === "moderator" && routePath === "/role") {
       navigate("/admin");
       return;
     }
-    if (account.role === "unselected" && routePath.startsWith("/lomba/")) {
-      if (pendingAccountTypeRef.current) return;
+    if (account.role === "unselected" && routePath !== "/role") {
       navigate("/role");
+      return;
+    }
+    if (account.role !== "unselected" && routePath === "/role") {
+      navigate(account.role === "organizer" ? "/lomba/manajemen" : "/");
       return;
     }
     if (account.role === "participant" && routePath.startsWith("/lomba/")) {
@@ -259,7 +250,7 @@ export default function App() {
       setPostAfterProfile(true);
       navigate("/profile");
     }
-  }, [account, authReady, navigate, routePath]);
+  }, [account, accountRoleReady, authReady, navigate, routePath]);
 
   const trackCompetitionEvent = useCallback(async (competitionId, eventType) => {
     if (!supabaseClient) return "Analitik belum siap. Coba muat ulang halaman.";
@@ -275,13 +266,31 @@ export default function App() {
     }
   }, [supabaseClient]);
 
-  const signInWithGoogle = async (accountType) => {
-    if (!supabaseClient) return "Google sign-in belum siap. Periksa konfigurasi Supabase.";
-    if (accountType !== "participant" && accountType !== "organizer") {
-      return "Pilih jenis akun sebelum melanjutkan.";
+  const submitCompetitionReport = useCallback(async ({ competitionId, reason, description }) => {
+    if (!account || !supabaseClient) return "Masuk ke akun terlebih dahulu untuk mengirim laporan.";
+    if (!reportReasons.some((item) => item.value === reason)) return "Pilih alasan laporan yang valid.";
+    const trimmedDescription = typeof description === "string" ? description.trim() : "";
+    if (trimmedDescription.length < 10 || trimmedDescription.length > 1000) {
+      return "Jelaskan laporan dalam 10–1000 karakter.";
     }
+
     try {
-      localStorage.setItem(pendingAccountTypeKey, accountType);
+      const { error } = await supabaseClient.from("lombalink_competition_reports").insert({
+        competition_id: competitionId,
+        reporter_id: account.id,
+        reason,
+        description: trimmedDescription,
+      });
+      if (error?.code === "23505") return "Kamu sudah mengirim laporan yang masih ditinjau untuk lomba ini.";
+      return error ? `Laporan gagal dikirim: ${error.message}` : "";
+    } catch (error) {
+      return error instanceof Error ? `Laporan gagal dikirim: ${error.message}` : "Laporan gagal dikirim.";
+    }
+  }, [account, supabaseClient]);
+
+  const signInWithGoogle = async () => {
+    if (!supabaseClient) return "Google sign-in belum siap. Periksa konfigurasi Supabase.";
+    try {
       const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -290,17 +299,12 @@ export default function App() {
           queryParams: { prompt: "select_account" },
         },
       });
-      if (error) {
-        localStorage.removeItem(pendingAccountTypeKey);
-        return googleOAuthErrorMessage(error);
-      }
+      if (error) return googleOAuthErrorMessage(error);
       if (!data.url) {
-        localStorage.removeItem(pendingAccountTypeKey);
         return "Supabase tidak memberikan URL untuk memulai login Google.";
       }
       const response = await fetch(data.url, { redirect: "manual" });
       if (response.status >= 400) {
-        localStorage.removeItem(pendingAccountTypeKey);
         const body = await response.text();
         let providerMessage = "";
         try {
@@ -315,7 +319,6 @@ export default function App() {
       window.location.assign(data.url);
       return null;
     } catch (error) {
-      localStorage.removeItem(pendingAccountTypeKey);
       return authErrorMessage(error, "Gagal menghubungkan ke Google.");
     }
   };
@@ -332,6 +335,7 @@ export default function App() {
       }
 
       setAccount(accountFromUser(data.user));
+      setAccountRoleReady(true);
       setAuthError("");
       navigate("/admin");
       return null;
@@ -360,15 +364,17 @@ export default function App() {
     if (accountType !== "participant" && accountType !== "organizer") {
       return "Pilihan jenis akun tidak valid. Pilih salah satu opsi yang tersedia.";
     }
+    if (account.accountType) return "Role akun sudah ditetapkan dan tidak dapat diubah.";
     try {
-      const accountTypes = mergeAccountTypes(account.accountTypes, accountType);
-      const { data, error } = await supabaseClient.auth.updateUser({
-        data: { account_type: accountType, account_types: accountTypes },
+      const { error } = await supabaseClient.rpc("lombalink_select_account_type", {
+        p_account_type: accountType,
       });
       if (error) return `Pilihan jenis akun gagal disimpan: ${error.message}`;
-      if (!data.user) return "Pilihan tersimpan, tetapi akun tidak dapat dimuat kembali.";
 
-      setAccount(accountFromUser(data.user));
+      setAccount((current) => current?.id === account.id
+        ? { ...current, accountType, role: accountType }
+        : current);
+      setAccountRoleReady(true);
       setAuthError("");
       navigate(accountType === "organizer" ? "/lomba/manajemen" : "/");
       return null;
@@ -439,10 +445,6 @@ export default function App() {
           ...profileFields,
           birth_date: null,
           preferences: account.preferences,
-          ...(account.accountType ? {
-            account_type: account.accountType,
-            account_types: account.accountTypes,
-          } : {}),
         },
       });
       if (error || !data.user) {
@@ -469,7 +471,7 @@ export default function App() {
         return failureMessage;
       }
 
-      setAccount(accountFromUser(data.user));
+      setAccount(accountFromUser(data.user, account.accountType));
       setAuthError("");
       if (account.avatarPath && account.avatarPath !== avatarPath) {
         const { error: removeError } = await supabaseClient.storage.from(profilePhotoBucket).remove([account.avatarPath]);
@@ -495,16 +497,12 @@ export default function App() {
           region: account.region,
           institution: account.institution,
           preferences,
-          ...(account.accountType ? {
-            account_type: account.accountType,
-            account_types: account.accountTypes,
-          } : {}),
         },
       });
       if (error) return error.message;
       if (!data.user) return "Preferensi tidak dapat dimuat setelah disimpan.";
 
-      setAccount(accountFromUser(data.user));
+      setAccount(accountFromUser(data.user, account.accountType));
       setAuthError("");
       navigate(routePath === "/rekomendasi" ? "/rekomendasi" : "/");
       return null;
@@ -526,7 +524,7 @@ export default function App() {
       return;
     }
     if (account.role !== "organizer" && account.role !== "moderator") {
-      navigate("/role");
+      setAuthError("Role peserta tidak dapat mengajukan lomba. Role akun tidak dapat diubah.");
       return;
     }
     if (!isProfileComplete(account)) {
@@ -542,7 +540,7 @@ export default function App() {
     [competitions],
   );
 
-  if (!authReady) {
+  if (!authReady || (account && !accountRoleReady)) {
     return <main className="auth-loading" role="status"><LoaderCircle size={20} className="loading-icon" /> Memuat sesi akun...</main>;
   }
 
@@ -563,7 +561,7 @@ export default function App() {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk memilih jenis akun." theme={theme} onToggleTheme={toggleTheme} />;
     }
     if (account.role === "moderator") return null;
-    return <RoleSelectionPage account={account} onSave={saveAccountType} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} authError={authError} />;
+    return <RoleSelectionPage account={account} onSave={saveAccountType} theme={theme} onToggleTheme={toggleTheme} authError={authError} />;
   }
   if (routePath === "/personalization") {
     if (!account) {
@@ -575,10 +573,19 @@ export default function App() {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk membuka pengaturan." theme={theme} onToggleTheme={toggleTheme} />;
     }
-    return <SettingsPage account={account} onLogout={logout} onCancel={() => navigate("/")} onChangeAccountType={() => navigate("/role")} theme={theme} onToggleTheme={toggleTheme} />;
+    return <SettingsPage account={account} onLogout={logout} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
   }
   if (routePath === "/admin") {
-    if (account?.role !== "moderator") return null;
+    if (account?.role !== "moderator") {
+      return <AdminLoginPage
+        navigate={navigate}
+        onLogin={signInAsModerator}
+        authConfigured={Boolean(supabaseClient)}
+        authError={authError || "Sesi ini tidak memiliki akses moderator. Silakan masuk dengan akun moderator."}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />;
+    }
     return <AdminPage account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)} theme={theme} onToggleTheme={toggleTheme} />;
   }
   if (routePath.startsWith("/lomba/")) {
@@ -607,6 +614,7 @@ export default function App() {
     onSubmit={requestSubmission}
     onRequireAccount={openAccountPrompt}
     onTrackEvent={trackCompetitionEvent}
+    onReport={submitCompetitionReport}
     competitions={competitions}
     competitionsLoading={competitionsLoading}
     competitionsError={competitionsError}

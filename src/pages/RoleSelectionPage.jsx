@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, LoaderCircle, Search, UserRound } from "lucide-react";
+import { ArrowRight, Building2, LoaderCircle, Search, UserRound } from "lucide-react";
 import { ThemeToggle } from "../components.jsx";
 
 const roleOptions = [
@@ -17,7 +17,7 @@ const roleOptions = [
   },
 ];
 
-export default function RoleSelectionPage({ account, onSave, onCancel, theme, onToggleTheme, authError }) {
+export default function RoleSelectionPage({ account, onSave, theme, onToggleTheme, authError }) {
   const [selectedRole, setSelectedRole] = useState(account.accountType);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,16 +39,15 @@ export default function RoleSelectionPage({ account, onSave, onCancel, theme, on
 
   return (
     <main className="profile-page">
-      <div className="mx-auto mb-4 flex w-full max-w-[760px] items-center justify-between gap-4">
-        <button className="auth-back" onClick={onCancel}><ArrowLeft size={17} /> Kembali ke beranda</button>
+      <div className="mx-auto mb-4 flex w-full max-w-[760px] items-center justify-end gap-4">
         <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
       </div>
       <section className="profile-card role-selection-card">
         <div className="profile-card-heading">
           <span className="profile-settings-icon"><UserRound size={22} /></span>
-          <span className="eyebrow">{account.accountType ? "PREFERENSI AKUN" : "SATU LANGKAH LAGI"}</span>
+          <span className="eyebrow">SATU LANGKAH LAGI</span>
           <h1>Kamu ingin menggunakan LombaLink sebagai apa?</h1>
-          <p>Pilih role yang ingin digunakan sekarang. Satu akun bisa menyimpan role peserta dan penyelenggara.</p>
+          <p>Pilihan ini akan ditetapkan permanen untuk akunmu dan tidak dapat diubah nanti.</p>
         </div>
         <div className="role-choice-grid" role="group" aria-label="Pilih jenis akun">
           {roleOptions.map(({ value, title, description, icon: Icon }) => (

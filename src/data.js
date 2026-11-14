@@ -6,16 +6,6 @@ export const competitionTypeOptions = ["Esai", "Olimpiade", "Tes kemampuan", "Ha
 export const organizerLevelOptions = ["Sekolah", "Universitas", "Institut", "Lembaga", "Komunitas", "Kementerian", "Pemerintah", "Swasta", "Lainnya"];
 const validAccountTypes = ["participant", "organizer"];
 
-export function mergeAccountTypes(accountTypes, accountType) {
-  const savedTypes = Array.isArray(accountTypes)
-    ? accountTypes.filter((type) => validAccountTypes.includes(type))
-    : [];
-  return [...new Set([
-    ...savedTypes,
-    ...(validAccountTypes.includes(accountType) ? [accountType] : []),
-  ])];
-}
-
 export const phoneCountryCodes = [
   { country: "ID", name: "Indonesia", callingCode: "+62" },
   { country: "MY", name: "Malaysia", callingCode: "+60" },
@@ -78,15 +68,9 @@ export function getInitialTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function accountFromUser(user) {
+export function accountFromUser(user, profileAccountType) {
   if (!user) return null;
-  const storedAccountType = typeof user.user_metadata?.account_type === "string"
-    ? user.user_metadata.account_type
-    : "";
-  const accountTypes = mergeAccountTypes(user.user_metadata?.account_types, storedAccountType);
-  const accountType = validAccountTypes.includes(storedAccountType)
-    ? storedAccountType
-    : accountTypes[0] || "";
+  const accountType = validAccountTypes.includes(profileAccountType) ? profileAccountType : "";
   const savedPreferences = user.user_metadata?.preferences;
   const preferences = savedPreferences && typeof savedPreferences === "object" ? savedPreferences : {};
   const province = user.user_metadata?.province || "";
@@ -115,8 +99,6 @@ export function accountFromUser(user) {
       location: typeof preferences.location === "string" ? preferences.location : "",
     },
     accountType,
-    accountTypes,
-    storedAccountType,
     role: user.app_metadata?.role === "moderator" ? "moderator" : accountType || "unselected",
   };
 }

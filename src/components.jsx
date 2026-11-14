@@ -9,6 +9,7 @@ import {
   Globe2,
   ExternalLink,
   FileText,
+  Flag,
   MapPin,
   Moon,
   Search,
@@ -19,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { educationOptions, formatDate, organizerOptions, scopeOptions } from "./data.js";
+import { reportReasons } from "./reporting.js";
 
 export function Brand({ onClick }) {
   return (
@@ -89,8 +91,14 @@ export function CompetitionCard({ item, onDetails }) {
   );
 }
 
-export function CompetitionModal({ item, onClose, onTrackEvent, moderationActions }) {
+export function CompetitionModal({ item, onClose, onTrackEvent, onReport, isLoggedIn, onRequireLogin, moderationActions }) {
   const [trackingError, setTrackingError] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState(reportReasons[0].value);
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [reportNotice, setReportNotice] = useState("");
 
   useEffect(() => {
     setTrackingError("");
@@ -103,6 +111,14 @@ export function CompetitionModal({ item, onClose, onTrackEvent, moderationAction
     return () => { active = false; };
   }, [item?.id, onTrackEvent]);
 
+  useEffect(() => {
+    setReportOpen(false);
+    setReportReason(reportReasons[0].value);
+    setReportDescription("");
+    setReportError("");
+    setReportNotice("");
+  }, [item?.id]);
+
   if (!item) return null;
   const fees = Array.isArray(item.feeTiers) ? item.feeTiers : [];
   const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
@@ -111,6 +127,29 @@ export function CompetitionModal({ item, onClose, onTrackEvent, moderationAction
     onTrackEvent(item.id, "registration_click").then((message) => {
       if (message) setTrackingError(message);
     });
+  };
+  const submitReport = async (event) => {
+    event.preventDefault();
+    setReportBusy(true);
+    setReportError("");
+    try {
+      const message = await onReport({
+        competitionId: item.id,
+        reason: reportReason,
+        description: reportDescription.trim(),
+      });
+      if (message) {
+        setReportError(message);
+        return;
+      }
+      setReportOpen(false);
+      setReportDescription("");
+      setReportNotice("Laporan terkirim. Terima kasih sudah membantu menjaga informasi LombaLink.");
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : "Laporan gagal dikirim.");
+    } finally {
+      setReportBusy(false);
+    }
   };
 
   return (
@@ -146,6 +185,28 @@ export function CompetitionModal({ item, onClose, onTrackEvent, moderationAction
         </div>
         <p className="detail-note">Pastikan kamu memeriksa informasi dan persyaratan resmi dari penyelenggara sebelum mendaftar.</p>
         {trackingError && <p className="form-error" role="status">{trackingError}</p>}
+        {onReport && !moderationActions && <section className="competition-report-section">
+          {!reportNotice && (!isLoggedIn
+            ? <button className="button button-outline" type="button" onClick={onRequireLogin}><Flag size={15} /> Masuk untuk melaporkan</button>
+            : <button className="competition-report-toggle" type="button" aria-expanded={reportOpen} onClick={() => { setReportOpen((current) => !current); setReportError(""); }}><Flag size={15} /> Laporkan informasi ini</button>)}
+          {reportNotice && <p className="report-success" role="status">{reportNotice}</p>}
+          {reportOpen && <form className="competition-report-form" onSubmit={submitReport}>
+            <label>Alasan laporan
+              <select value={reportReason} onChange={(event) => setReportReason(event.target.value)} required>
+                {reportReasons.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+              </select>
+            </label>
+            <label>Jelaskan masalahnya
+              <textarea value={reportDescription} onChange={(event) => setReportDescription(event.target.value)} minLength={10} maxLength={1000} rows={4} placeholder="Tuliskan detail agar moderator dapat memeriksanya." required />
+            </label>
+            {reportError && <p className="form-error" role="alert">{reportError}</p>}
+            <div className="competition-report-actions">
+              <button className="button button-outline" type="button" onClick={() => setReportOpen(false)} disabled={reportBusy}>Batal</button>
+              <button className="button button-primary" type="submit" disabled={reportBusy}>{reportBusy ? "Mengirim..." : "Kirim laporan"}</button>
+            </div>
+            <small>Satu laporan aktif per akun untuk setiap lomba.</small>
+          </form>}
+        </section>}
         {moderationActions && item.status === "pending"
           ? <div className="competition-moderation-actions">
             <button className="button button-outline" type="button" disabled={moderationActions.busy} onClick={moderationActions.onReject}>Tolak</button>
@@ -159,17 +220,32 @@ export function CompetitionModal({ item, onClose, onTrackEvent, moderationAction
   );
 }
 
-export function SearchPanel({ filters, setFilters, onSearch, isLoggedIn, categoryOptions }) {
-  const update = (key) => (event) => setFilters({ ...filters, [key]: event.target.value });
+export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, isLoggedIn, categoryOptions }) {
+  const update = (key) => (event) => {
+    const value = event.target.value;
+    if (!isLoggedIn && value) {
+      onRequireAccount(false, true);
+      return;
+    }
+    setFilters({ ...filters, [key]: value });
+  };
+  const search = () => {
+    if (!isLoggedIn) {
+      onRequireAccount(false, true);
+      return;
+    }
+    onSearch();
+  };
+
   return (
     <div className="search-panel">
       <div className="search-main-row">
         <label className="search-keyword">
           <Search size={20} />
           <span className="sr-only">Kata kunci lomba</span>
-          <input value={filters.keyword} onChange={update("keyword")} placeholder="Cari nama lomba, bidang, atau penyelenggara..." onKeyDown={(event) => event.key === "Enter" && onSearch()} />
+          <input value={filters.keyword} onChange={update("keyword")} placeholder="Cari nama lomba, bidang, atau penyelenggara..." onKeyDown={(event) => event.key === "Enter" && search()} />
         </label>
-        <button className="button button-primary search-button" onClick={onSearch}><Search size={17} /> Cari lomba</button>
+        <button className="button button-primary search-button" onClick={search}><Search size={17} /> Cari lomba</button>
       </div>
       <div className="filter-row">
         <label className="filter-select"><GraduationCap size={16} /><span className="sr-only">Jenjang pendidikan</span>
@@ -190,7 +266,6 @@ export function SearchPanel({ filters, setFilters, onSearch, isLoggedIn, categor
       </div>
       <div className="search-hint">
         <span><SlidersHorizontal size={13} /> Atur filter untuk menemukan lomba yang cocok</span>
-        {!isLoggedIn && <span className="search-quota">Masuk untuk mencari lomba</span>}
       </div>
     </div>
   );
@@ -203,10 +278,10 @@ export function AccountPrompt({ onClose, navigate, encourageShare, required }) {
         {!required && <button className="modal-close" onClick={onClose} aria-label="Tutup"><X size={19} /></button>}
         <span className="prompt-icon"><Sparkles size={23} /></span>
         <span className="eyebrow">{required ? "AKSES ANGGOTA" : encourageShare ? "BERBAGI PELUANG" : "LANJUTKAN PERJALANANMU"}</span>
-        <h2 id="prompt-title">{required ? "Masuk untuk mencari lomba" : encourageShare ? "Punya akun LombaLink?" : "Pencarian gratis sudah habis"}</h2>
-        <p>{required ? "Masuk atau daftar gratis untuk menggunakan pencarian dan menjelajahi informasi lomba." : encourageShare ? "Masuk atau daftar sebagai anggota untuk menambahkan lomba dan membantu komunitas." : "Buat akun gratis untuk mencari lomba tanpa batas dan menyimpan kesempatan favoritmu."}</p>
-        <button className="button button-primary button-wide" onClick={() => navigate(required ? "/login" : "/register")}>{required ? "Masuk dengan Google" : encourageShare ? "Daftar untuk berbagi" : "Buat akun gratis"} <ArrowRight size={16} /></button>
-        <button className="prompt-login" onClick={() => navigate(required ? "/register" : "/login")}>{required ? "Belum punya akun?" : "Sudah punya akun?"} <strong>{required ? "Daftar gratis" : "Masuk"}</strong></button>
+        <h2 id="prompt-title">{required ? "Daftar untuk mencari lomba" : encourageShare ? "Punya akun LombaLink?" : "Pencarian gratis sudah habis"}</h2>
+        <p>{required ? "Buat akun gratis untuk menggunakan pencarian dan filter lomba." : encourageShare ? "Masuk atau daftar sebagai anggota untuk menambahkan lomba dan membantu komunitas." : "Buat akun gratis untuk mencari lomba tanpa batas dan menyimpan kesempatan favoritmu."}</p>
+        <button className="button button-primary button-wide" onClick={() => navigate("/register")}>{required ? "Daftar gratis" : encourageShare ? "Daftar untuk berbagi" : "Buat akun gratis"} <ArrowRight size={16} /></button>
+        <button className="prompt-login" onClick={() => navigate("/login")}>Sudah punya akun? <strong>Masuk</strong></button>
       </section>
     </div>
   );

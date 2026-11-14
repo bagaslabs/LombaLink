@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock3,
   Eye,
+  Flag,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
@@ -22,12 +23,14 @@ import CompetitionForm from "../CompetitionForm.jsx";
 import { competitionFieldsFromForm, competitionFromRow, getCompetitionCoverUrl } from "../data.js";
 import { removeCompetitionCover, uploadCompetitionCover } from "../competitionService.js";
 import AdminUsersPanel from "./AdminUsersPanel.jsx";
+import AdminReportsPanel from "./AdminReportsPanel.jsx";
 
 export default function AdminPage({ account, supabaseClient, navigate, onLogout, onCompetitionsChanged, theme, onToggleTheme }) {
   const [tab, setTab] = useState("pending");
   const [section, setSection] = useState("overview");
   const [competitions, setCompetitions] = useState([]);
   const [stats, setStats] = useState(null);
+  const [reportPendingCount, setReportPendingCount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
@@ -37,8 +40,16 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
   const [createNotice, setCreateNotice] = useState("");
   const [reviewItem, setReviewItem] = useState(null);
   const moderatorName = account?.name || "Moderator";
-  const pending = useMemo(() => competitions.filter((item) => item.status === "pending"), [competitions]);
   const visible = useMemo(() => competitions.filter((item) => tab === "all" || item.status === tab), [competitions, tab]);
+  const sectionLabel = section === "users"
+    ? "Pengguna"
+    : section === "reports"
+      ? "Laporan"
+      : ({
+        pending: "Verifikasi",
+        approved: "Lomba terbit",
+        rejected: "Lomba ditolak",
+      }[tab] || "Ringkasan");
 
   useEffect(() => {
     let active = true;
@@ -159,18 +170,38 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
       <aside className="admin-sidebar">
         <Brand onClick={() => navigate("/")} />
         <div className="sidebar-label">WORKSPACE</div>
-        <button className={`sidebar-item ${section === "overview" ? "active" : ""}`} onClick={() => setSection("overview")}><LayoutDashboard size={17} /> Ringkasan</button>
+        <button className={`sidebar-item ${section === "overview" && tab === "all" ? "active" : ""}`} onClick={() => { setSection("overview"); setTab("all"); }}><LayoutDashboard size={17} /> Ringkasan</button>
         <button className={`sidebar-item ${section === "users" ? "active" : ""}`} onClick={() => setSection("users")}><UsersRound size={17} /> Pengguna</button>
-        <button className="sidebar-item" onClick={() => { setSection("overview"); setTab("pending"); }}><Clock3 size={17} /> Verifikasi <span className="sidebar-count">{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
-        <button className="sidebar-item" onClick={() => { setSection("overview"); setTab("approved"); }}><CheckCircle2 size={17} /> Lomba terbit</button>
+        <button className={`sidebar-item ${section === "overview" && tab === "pending" ? "active" : ""}`} onClick={() => { setSection("overview"); setTab("pending"); }}><Clock3 size={17} /> Verifikasi <span className="sidebar-count">{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
+        <button className={`sidebar-item ${section === "overview" && tab === "approved" ? "active" : ""}`} onClick={() => { setSection("overview"); setTab("approved"); }}><CheckCircle2 size={17} /> Lomba terbit</button>
+        <button className={`sidebar-item ${section === "reports" ? "active" : ""}`} onClick={() => setSection("reports")}><Flag size={17} /> Laporan <span className="sidebar-count">{reportPendingCount === null ? "—" : reportPendingCount.toLocaleString("id-ID")}</span></button>
         <div className="sidebar-label sidebar-label-bottom">AKUN</div>
         <button className="sidebar-item" onClick={() => navigate("/")}><ArrowLeft size={17} /> Kembali ke situs</button>
         <div className="sidebar-user"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span><span><strong>{moderatorName}</strong><small>Moderator LombaLink</small></span><ShieldCheck size={15} /></div>
       </aside>
       <section className="admin-main">
-        <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{section === "users" ? "Pengguna" : "Ringkasan"}</strong></div><button className="admin-mobile-section" onClick={() => setSection(section === "users" ? "overview" : "users")}>{section === "users" ? <LayoutDashboard size={15} /> : <UsersRound size={15} />}{section === "users" ? "Ringkasan" : "Pengguna"}</button><div className="admin-top-actions"><ThemeToggle theme={theme} onToggleTheme={onToggleTheme} /><span className="admin-user-pill"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span> {moderatorName}</span><button className="icon-button" title="Keluar dari panel moderator" aria-label="Keluar" onClick={onLogout}><LogOut size={17} /></button></div></div>
+        <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{sectionLabel}</strong></div><label className="sr-only" htmlFor="admin-mobile-section">Pilih bagian panel moderator</label><select id="admin-mobile-section" className="admin-mobile-section" value={section === "users" || section === "reports" ? section : tab} onChange={(event) => {
+          const value = event.target.value;
+          if (value === "users" || value === "reports") {
+            setSection(value);
+          } else {
+            setSection("overview");
+            setTab(value);
+          }
+        }}>
+          <option value="all">Ringkasan</option>
+          <option value="pending">Verifikasi</option>
+          <option value="approved">Lomba terbit</option>
+          <option value="rejected">Lomba ditolak</option>
+          <option value="users">Pengguna</option>
+          <option value="reports">Laporan</option>
+        </select><div className="admin-top-actions"><ThemeToggle theme={theme} onToggleTheme={toggleTheme} /><span className="admin-user-pill"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span> {moderatorName}</span><button className="icon-button" title="Keluar dari panel moderator" aria-label="Keluar" onClick={onLogout}><LogOut size={17} /></button></div></div>
         <div className="admin-content">
-          {section === "users" ? <AdminUsersPanel supabaseClient={supabaseClient} moderatorId={account.id} /> : <>
+          {section === "users"
+            ? <AdminUsersPanel supabaseClient={supabaseClient} moderatorId={account.id} />
+            : section === "reports"
+              ? <AdminReportsPanel supabaseClient={supabaseClient} moderatorId={account.id} onPendingCountChange={setReportPendingCount} />
+              : <>
           <div className="admin-welcome"><div><span className="eyebrow">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date()).toLocaleUpperCase("id-ID")}</span><h1>Ruang kendali moderator</h1><p>Tinjau informasi baru dan bantu komunitas menemukan peluang yang terpercaya.</p></div><div className="admin-welcome-actions"><button className="button button-outline" onClick={() => navigate("/")}><ArrowLeft size={16} /> Lihat situs</button><button className="button button-primary" onClick={() => { setCreateNotice(""); setCreateModalOpen(true); }}><Plus size={16} /> Tambah Lomba</button></div></div>
           {createNotice && <div className="admin-users-notice admin-publish-notice" role="status"><CheckCircle2 size={16} /> {createNotice}<button onClick={() => setCreateNotice("")} aria-label="Tutup pemberitahuan"><X size={15} /></button></div>}
           {error && <div className="admin-users-error" role="alert">{error}<button onClick={() => setReloadKey((current) => current + 1)}>Coba lagi</button></div>}

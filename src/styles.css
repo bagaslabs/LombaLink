@@ -338,6 +338,64 @@ html[data-theme="dark"] :is(.table-heading,.table-footer) { border-color: #29365
 html[data-theme="dark"] .google-auth-button { background: #f9fafb; color: #39465f; }
 html[data-theme="dark"] .main-nav.is-open { background: #111b2d; border-color: #293650; }
 html[data-theme="dark"] .profile-form select { color: #9eabc0; background-color: #0c1525; border-color: #2b3a56; }
+.competition-report-section { display: grid; gap: 10px; margin: 17px 0; padding-top: 15px; border-top: 1px solid #eef0f5; }
+.competition-report-toggle { display: inline-flex; align-items: center; gap: 7px; justify-self: start; padding: 0; border: 0; background: transparent; color: #65789e; font-size: 11px; font-weight: 700; }
+.competition-report-form { display: grid; gap: 11px; padding: 13px; border: 1px solid #e8ecf3; border-radius: 10px; background: #f9faff; }
+.competition-report-form label { display: grid; gap: 6px; color: #526079; font-size: 10px; font-weight: 700; }
+.competition-report-form select,.competition-report-form textarea { width: 100%; padding: 9px 10px; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; color: #34415b; font: inherit; font-size: 11px; }
+.competition-report-form textarea { resize: vertical; line-height: 1.5; }
+.competition-report-form small { color: #929daf; font-size: 9px; }
+.competition-report-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.competition-report-actions .button { min-height: 34px; font-size: 10px; }
+.report-success { margin: 0; color: #438d69; font-size: 10px; line-height: 1.5; }
+.admin-reports-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.admin-reports-heading h1 { margin: 5px 0; color: #34415a; font: 800 24px Manrope,sans-serif; }
+.admin-reports-heading p { margin: 0; color: #8390a5; font-size: 11px; }
+.admin-report-total { padding: 6px 9px; border-radius: 7px; color: #c68235; background: #fff2df; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.admin-report-row { padding: 15px 19px; border-bottom: 1px solid #f0f2f6; }
+.admin-report-header { display: flex; align-items: center; gap: 11px; }
+.admin-report-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 10px; color: #7488dd; background: #eef2ff; }
+.admin-report-summary { min-width: 0; flex: 1; }
+.admin-report-summary strong,.admin-report-summary span,.admin-report-summary small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-report-summary strong { color: #3a4760; font-size: 11px; }
+.admin-report-summary span { margin-top: 4px; color: #7f8ba0; font-size: 9px; }
+.admin-report-summary small { margin-top: 4px; color: #a0a9b8; font-size: 8px; }
+.admin-report-description { margin: 12px 0 0 47px; color: #65728a; font-size: 10px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+.admin-report-actions { display: flex; justify-content: flex-end; gap: 7px; margin: 12px 0 0 47px; }
+.admin-report-actions .button { min-height: 31px; font-size: 9px; }
+.status-resolved { color: #448e6c; background: #eaf7f0; }
+.status-dismissed { color: #78849a; background: #eef1f5; }
+html[data-theme="dark"] .competition-report-section { border-color: #293650; }
+html[data-theme="dark"] .competition-report-toggle { color: #a8b7df; }
+html[data-theme="dark"] .competition-report-form { border-color: #293650; background: #0c1525; }
+html[data-theme="dark"] .competition-report-form label { color: #aebbd0; }
+html[data-theme="dark"] .competition-report-form :is(select,textarea) { border-color: #2b3a56; background: #111b2d; color: #d3dcec; }
+html[data-theme="dark"] .competition-report-form small,
+html[data-theme="dark"] .admin-reports-heading p,
+html[data-theme="dark"] .admin-report-summary span,
+html[data-theme="dark"] .admin-report-summary small,
+html[data-theme="dark"] .admin-report-description { color: #9eabc0; }
+html[data-theme="dark"] .report-success { color: #a4d5ba; }
+html[data-theme="dark"] .admin-reports-heading h1,
+html[data-theme="dark"] .admin-report-summary strong { color: #e4eaf5; }
+html[data-theme="dark"] .admin-report-total { color: #e6c982; background: #282213; }
+html[data-theme="dark"] .admin-report-row { border-color: #293650; }
+html[data-theme="dark"] .admin-report-icon { color: #b7c5ff; background: #202c49; }
+html[data-theme="dark"] .status-dismissed { color: #c3cee0; background: #202c40; }
+@media (max-width: 680px) {
+  .admin-reports-heading { align-items: flex-start; }
+  .admin-reports-heading h1 { font-size: 19px; }
+  .admin-reports-heading p { max-width: 230px; font-size: 9px; }
+  .admin-report-row { padding: 12px 10px; }
+  .admin-report-header { gap: 7px; }
+  .admin-report-icon { width: 29px; height: 29px; flex-basis: 29px; }
+  .admin-report-icon svg { width: 14px; }
+  .admin-report-summary strong { font-size: 9px; }
+  .admin-report-summary span { font-size: 8px; }
+  .admin-report-summary small { font-size: 7px; }
+  .admin-report-header .status-pill { max-width: 79px; white-space: normal; }
+  .admin-report-description,.admin-report-actions { margin-left: 36px; }
+}
 html[data-theme="dark"] .admin-auth-layout .auth-form-side { color: #c1ccdc; background: #111b2d; }
 html[data-theme="dark"] .admin-auth-layout .auth-form-wrap h2 { color: #cbd5e1; }
 html[data-theme="dark"] .admin-auth-layout .auth-subtitle { color: #9eabc0; }
