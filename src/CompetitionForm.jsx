@@ -756,23 +756,42 @@ export default function CompetitionForm({
                 {competitionCategoryOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label>Bidang lomba <span className="required-mark">*</span>
-              <select
-                value={form.field}
-                onChange={(event) => updateForm((current) => ({
-                  ...current,
-                  field: event.target.value,
-                  customField: event.target.value === "Lainnya" ? current.customField : "",
-                }))}
-                required
-              >
-                <option value="">Pilih bidang</option>
-                {competitionFieldOptions.map((option) => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            {form.field === "Lainnya" && <label>Nama bidang lomba <span className="required-mark">*</span>
-              <input value={form.customField} onChange={update("customField")} maxLength={80} placeholder="Contoh: Astronomi" required />
-            </label>}
+            <div className="competition-form-field">
+              <div className="competition-field-heading">
+                <label htmlFor="competition-field">{form.field === "Lainnya" ? "Bidang lomba lainnya" : "Bidang lomba"} <span className="required-mark">*</span></label>
+                {form.field === "Lainnya" && <button
+                  className="button button-outline button-small"
+                  type="button"
+                  onClick={() => updateForm((current) => ({ ...current, field: "", customField: "" }))}
+                >
+                  <List size={14} /> Pilih dari daftar
+                </button>}
+              </div>
+              {form.field === "Lainnya" ? (
+                <input
+                  id="competition-field"
+                  value={form.customField}
+                  onChange={update("customField")}
+                  maxLength={80}
+                  placeholder="Ketik bidang lomba lainnya"
+                  required
+                />
+              ) : (
+                <select
+                  id="competition-field"
+                  value={form.field}
+                  onChange={(event) => updateForm((current) => ({
+                    ...current,
+                    field: event.target.value,
+                    customField: event.target.value === "Lainnya" ? current.customField : "",
+                  }))}
+                  required
+                >
+                  <option value="">Pilih bidang</option>
+                  {competitionFieldOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              )}
+            </div>
             <label>Tingkat lomba <span className="required-mark">*</span>
               <select value={form.scope} onChange={update("scope")} required>
                 <option value="">Pilih tingkat</option>
