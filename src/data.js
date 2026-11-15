@@ -29,6 +29,16 @@ export const organizerLevelOptions = [
 ];
 export const competitionModeOptions = ["Online", "Offline", "Hybrid"];
 const validAccountTypes = ["participant", "organizer"];
+const createCompetitionTagline = (description) => {
+  const summary = String(description || "")
+    .replace(/[*_`>#]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (summary.length <= 500) return summary;
+  const cutoff = summary.lastIndexOf(" ", 497);
+  return `${summary.slice(0, cutoff > 0 ? cutoff : 497).trimEnd()}...`;
+};
 
 export const phoneCountryCodes = [
   { country: "ID", name: "Indonesia", callingCode: "+62" },
@@ -170,7 +180,7 @@ export function competitionFromRow(row) {
     guidebookPath: row.guidebook_path || "",
     guidebookUrl: row.rulebook_url || "",
     coverPath: row.cover_path || "",
-    tagline: row.tagline || "",
+    tagline: row.description ? createCompetitionTagline(row.description) : row.tagline || "",
     audience: row.audience || "",
     keywords: Array.isArray(row.keywords) ? row.keywords : [],
     feeTiers: Array.isArray(row.fee_tiers) ? row.fee_tiers : [],
@@ -264,14 +274,9 @@ export function competitionFieldsFromForm(form) {
     .filter(Boolean)
     .sort()
     .at(-1) || "";
-  const descriptionSummary = form.description
-    .replace(/[*_`>#]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 180);
   return {
     title: form.title.trim(),
-    tagline: descriptionSummary,
+    tagline: createCompetitionTagline(form.description),
     description: form.description.trim(),
     organizer: form.organizer.trim(),
     organizer_type: organizerType,
