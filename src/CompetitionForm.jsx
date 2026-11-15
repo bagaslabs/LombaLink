@@ -169,10 +169,17 @@ export default function CompetitionForm({
         setStorageNotice(`Draft lokal gagal disimpan: ${persistError instanceof Error ? persistError.message : "kesalahan penyimpanan."}`);
       }
     };
+    const persistWhenHidden = () => {
+      if (document.visibilityState === "hidden") persistForm();
+    };
 
     persistForm();
     window.addEventListener("pagehide", persistForm);
-    return () => window.removeEventListener("pagehide", persistForm);
+    document.addEventListener("visibilitychange", persistWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", persistForm);
+      document.removeEventListener("visibilitychange", persistWhenHidden);
+    };
   }, [form, persistenceKey]);
 
   useEffect(() => {

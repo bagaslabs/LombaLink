@@ -480,6 +480,14 @@ export default function App() {
     }
     if (account.accountType) return "Role akun sudah ditetapkan dan tidak dapat diubah.";
     try {
+      const { error: profileError } = await supabaseClient
+        .from("lombalink_profiles")
+        .upsert({
+          id: account.id,
+          full_name: account.fullName || account.name || "",
+        }, { onConflict: "id", ignoreDuplicates: true });
+      if (profileError) return `Profil akun gagal disiapkan: ${profileError.message}`;
+
       const { error } = await supabaseClient.rpc("lombalink_select_account_type", {
         p_account_type: accountType,
       });
