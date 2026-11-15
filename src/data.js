@@ -11,7 +11,7 @@ export const competitionFieldOptions = [
   "Seni dan Budaya",
   "Lainnya",
 ];
-export const participantTypeOptions = ["Individu", "Tim", "Individu dan Tim"];
+export const participantTypeOptions = ["Individu", "Tim"];
 export const targetParticipantOptions = ["SD / MI", "SMP / MTs", "SMA / SMK / MA", "Mahasiswa", "Umum"];
 export const scopeOptions = ["Kabupaten/Kota", "Provinsi", "Nasional", "Internasional"];
 export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "Komunitas"];
@@ -43,6 +43,20 @@ export const phoneCountryCodes = [
   { country: "SA", name: "Arab Saudi", callingCode: "+966" },
   { country: "AE", name: "Uni Emirat Arab", callingCode: "+971" },
 ];
+export function getScrollBehavior() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth";
+}
+
+export function scrollToPageSection(sectionId, behavior = getScrollBehavior()) {
+  const section = document.getElementById(sectionId);
+  if (!section) return false;
+
+  const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
+  const top = window.scrollY + section.getBoundingClientRect().top - headerHeight - 12;
+  window.scrollTo({ top: Math.max(0, top), behavior });
+  return true;
+}
+
 export const birthYearOptions = Array.from(
   { length: new Date().getFullYear() - 1899 },
   (_, index) => String(1900 + index),
@@ -124,6 +138,8 @@ export function competitionFromRow(row) {
     category: row.category,
     competitionCategory: row.competition_category || "",
     participantType: row.participant_type || "",
+    teamMinMembers: row.team_min_members == null ? "" : String(row.team_min_members),
+    teamMaxMembers: row.team_max_members == null ? "" : String(row.team_max_members),
     targetParticipants: Array.isArray(row.target_participants) ? row.target_participants : [],
     requirements: row.requirements || "",
     feeType: row.fee_type || (Array.isArray(row.fee_tiers) && row.fee_tiers.length ? "Berbayar" : "Gratis"),
@@ -140,6 +156,7 @@ export function competitionFromRow(row) {
     informationUrl: row.information_url || "",
     rulebookUrl: row.rulebook_url || "",
     guidebookPath: row.guidebook_path || "",
+    guidebookUrl: row.rulebook_url || "",
     coverPath: row.cover_path || "",
     tagline: row.tagline || "",
     audience: row.audience || "",
@@ -153,6 +170,7 @@ export function competitionFromRow(row) {
     contactPersonName: row.contact_person_name || "",
     contactPersonEmail: row.contact_person_email || "",
     contactPersonPhone: row.contact_person_phone || "",
+    contactPeople: Array.isArray(row.contact_people) ? row.contact_people : [],
     benefits: row.benefits || "",
     archivedAt: row.archived_at || null,
     featured: row.featured,
@@ -192,49 +210,85 @@ export function getAnalyticsVisitorId() {
 }
 
 export function competitionFieldsFromForm(form) {
-  const keepLegacyRegistrationBatches = form.legacyRegistrationBatches?.length
-    && form.registrationOpensAt === form.legacyRegistrationOpensAt
-    && form.registrationDeadline === form.legacyRegistrationDeadline;
+  const registrationBatches = (Array.isArray(form.registrationBatches) ? form.registrationBatches : [])
+    .map((batch, index) => {
+      const amount = batch.feeType === "Berbayar" && batch.feeAmount !== "" && batch.feeAmount != null
+        ? typeof batch.feeAmount === "number"
+          ? batch.feeAmount
+          : Number(String(batch.feeAmount ?? "").replace(/\D/g, "")) || 0
+        : null;
+      return {
+        label: `Batch ${index + 1}`,
+        startsAt: batch.startsAt,
+        endsAt: batch.endsAt,
+        feeType: batch.feeType,
+        feeAmount: amount,
+      };
+    });
+  const firstBatch = registrationBatches[0];
+  const contactPeople = (Array.isArray(form.contactPeople) ? form.contactPeople : []).map((person) => ({
+    name: person.name.trim(),
+    phone: normalizePhoneNumber(person.phone),
+    email: person.email.trim() || "",
+    instagramUsername: person.instagramUsername.trim().replace(/^@+/, ""),
+    instagramUrl: person.instagramUrl.trim(),
+  }));
+  const primaryContact = contactPeople[0] || {
+    name: "",
+    phone: "",
+    email: "",
+  };
+  const latestRegistrationDeadline = registrationBatches
+    .map((batch) => batch.endsAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || "";
+  const descriptionSummary = form.description
+    .replace(/[*_`>#]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
   return {
     title: form.title.trim(),
-    tagline: form.tagline.trim(),
+    tagline: descriptionSummary,
     description: form.description.trim(),
     organizer: form.organizer.trim(),
     organizer_type: form.organizerType || "Lembaga umum",
     organizer_level: form.organizerLevel || "Lembaga",
-    contact: form.contact.trim(),
-    contact_person_name: form.contactPersonName?.trim() || "Kontak Penyelenggara",
-    contact_person_email: form.contactPersonEmail || null,
-    contact_person_phone: form.contact.trim() || null,
+    contact: primaryContact.phone,
+    contact_person_name: primaryContact.name,
+    contact_person_email: primaryContact.email || null,
+    contact_person_phone: primaryContact.phone || null,
+    contact_people: contactPeople,
     audience: form.targetParticipants.join(", "),
     education: legacyEducation(form.targetParticipants),
     scope: form.scope,
     category: form.field,
     competition_category: form.competitionCategory,
     participant_type: form.participantType,
+    team_min_members: form.participantType === "Tim" ? Number(form.teamMinMembers) : null,
+    team_max_members: form.participantType === "Tim" ? Number(form.teamMaxMembers) : null,
     target_participants: form.targetParticipants,
     requirements: form.requirements.trim(),
     keywords: form.keywords,
     competition_type: form.legacyCompetitionType || "Lainnya",
     mode: form.mode,
     location: form.mode === "Online" ? "Online" : form.location.trim(),
-    fee_type: form.feeType,
-    fee_amount: form.feeType === "Berbayar" && form.feeAmount !== "" ? Number(form.feeAmount) : null,
-    fee_tiers: form.feeType === "Berbayar" && form.feeAmount !== ""
-      ? [{ label: "Biaya pendaftaran", amount: Number(form.feeAmount) }]
-      : [],
+    fee_type: firstBatch?.feeType || "Gratis",
+    fee_amount: firstBatch?.feeType === "Berbayar" ? firstBatch.feeAmount : null,
+    fee_tiers: registrationBatches
+      .filter((batch) => batch.feeType === "Berbayar" && batch.feeAmount != null)
+      .map(({ label, feeAmount }) => ({ label, amount: feeAmount })),
     prize: form.prize.trim() || "Informasi hadiah belum ditambahkan",
-    registration_batches: keepLegacyRegistrationBatches
-      ? form.legacyRegistrationBatches
-      : [{ label: "Pendaftaran", startsAt: form.registrationOpensAt, endsAt: form.registrationDeadline }],
-    deadline: form.registrationDeadline || null,
+    registration_batches: registrationBatches,
+    deadline: latestRegistrationDeadline || null,
     event_start_date: form.eventStartDate || null,
     event_end_date: form.eventStartDate && form.eventEndDate && form.eventEndDate >= form.eventStartDate
       ? form.eventEndDate
       : null,
     registration_url: form.registrationUrl.trim() || null,
     information_url: form.informationUrl || null,
-    rulebook_url: form.rulebookUrl || null,
+    rulebook_url: form.guidebookUrl?.trim() || null,
     guidebook_path: form.guidebookPath || null,
     benefits: form.benefits.trim(),
   };

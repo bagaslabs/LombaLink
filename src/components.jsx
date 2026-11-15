@@ -183,6 +183,17 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
   if (!item) return null;
   const fees = Array.isArray(item.feeTiers) ? item.feeTiers : [];
   const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
+  const contacts = Array.isArray(item.contactPeople) && item.contactPeople.length
+    ? item.contactPeople
+    : item.contactPersonName || item.contactPersonPhone || item.contactPersonEmail || item.contact
+      ? [{
+        name: item.contactPersonName || "",
+        phone: item.contactPersonPhone || item.contact || "",
+        email: item.contactPersonEmail || "",
+        instagramUsername: "",
+        instagramUrl: "",
+      }]
+      : [];
   const targetParticipants = Array.isArray(item.targetParticipants) && item.targetParticipants.length
     ? item.targetParticipants.join(", ")
     : item.audience || item.education;
@@ -222,13 +233,12 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
         <span className="eyebrow"><Trophy size={14} /> INFORMASI LOMBA</span>
         {item.coverUrl && <img className="competition-detail-cover" src={item.coverUrl} alt={`Gambar ${item.title}`} />}
         <h2 id="detail-title">{item.title}</h2>
-        {item.tagline && <p className="competition-detail-tagline">{item.tagline}</p>}
         <p className="detail-organizer"><Building2 size={16} /> {item.organizer}</p>
         {item.description && <div className="competition-detail-description"><CompetitionDescription value={item.description} /></div>}
         <div className="detail-grid">
           {item.competitionCategory && <div><span>Kategori</span><strong>{item.competitionCategory}</strong></div>}
           {item.category && <div><span>Bidang</span><strong>{item.category}</strong></div>}
-          {item.participantType && <div><span>Jenis peserta</span><strong>{item.participantType}</strong></div>}
+          {item.participantType && <div><span>Jenis peserta</span><strong>{item.participantType}{item.participantType === "Tim" && item.teamMinMembers && item.teamMaxMembers ? ` · ${item.teamMinMembers}–${item.teamMaxMembers} anggota` : ""}</strong></div>}
           {targetParticipants && <div><span>Target peserta</span><strong>{targetParticipants}</strong></div>}
           <div><span>Cakupan</span><strong>{item.scope}</strong></div>
           <div><span>Mode</span><strong>{item.mode}</strong></div>
@@ -236,8 +246,13 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
           <div><span>Batas pendaftaran</span><strong>{formatDate(item.deadline)}</strong></div>
           {item.eventStartDate && <div><span>Pelaksanaan</span><strong>{formatDate(item.eventStartDate)}{item.eventEndDate && ` - ${formatDate(item.eventEndDate)}`}</strong></div>}
         </div>
-        {batches.length > 0 && <section className="competition-detail-section"><h3>Jadwal pendaftaran</h3><ul>{batches.map((batch, index) => <li key={`${batch.label}-${index}`}><strong>{batch.label}</strong><span>{formatDate(batch.startsAt)} – {formatDate(batch.endsAt)}</span></li>)}</ul></section>}
-        {(item.feeType || fees.length > 0) && <section className="competition-detail-section"><h3>Biaya pendaftaran</h3>
+        {batches.length > 0 && <section className="competition-detail-section"><h3>Batch pendaftaran</h3><ul>{batches.map((batch, index) => {
+          const legacyFee = fees[index];
+          const feeType = batch.feeType || (legacyFee ? "Berbayar" : item.feeType);
+          const feeAmount = batch.feeType ? batch.feeAmount : legacyFee?.amount ?? item.feeAmount;
+          return <li key={`${batch.label}-${index}`}><div><strong>{batch.label || `Batch ${index + 1}`}</strong><span>{formatDate(batch.startsAt)} – {formatDate(batch.endsAt)}</span></div><strong>{feeType === "Berbayar" && feeAmount != null && feeAmount !== "" ? `Rp ${Number(feeAmount).toLocaleString("id-ID")}` : feeType === "Gratis" ? "Gratis" : "Biaya belum ditentukan"}</strong></li>;
+        })}</ul></section>}
+        {batches.length === 0 && (item.feeType || fees.length > 0) && <section className="competition-detail-section"><h3>Biaya pendaftaran</h3>
           {item.feeType === "Berbayar" && item.feeAmount != null && item.feeAmount !== ""
             ? <p>Rp {Number(item.feeAmount).toLocaleString("id-ID")}</p>
             : item.feeType === "Gratis"
@@ -249,10 +264,16 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
         {item.requirements && <section className="competition-detail-section"><h3>Persyaratan</h3><p>{item.requirements}</p></section>}
         {item.prize && item.prize !== "Informasi hadiah belum ditambahkan" && <section className="competition-detail-section"><h3>Hadiah</h3><p>{item.prize}</p></section>}
         {item.keywords?.length > 0 && <div className="competition-detail-keywords">{item.keywords.map((keyword) => <span className="soft-tag" key={keyword}>{keyword}</span>)}</div>}
-        {(item.contact || item.contactPersonName || item.contactPersonEmail || item.contactPersonPhone) && <section className="competition-detail-section"><h3>Kontak penyelenggara</h3><p>{item.contact || item.contactPersonName}</p>{!item.contact && item.contactPersonEmail && <a href={`mailto:${item.contactPersonEmail}`}>{item.contactPersonEmail}</a>}{!item.contact && item.contactPersonPhone && <a href={`tel:${item.contactPersonPhone}`}>{item.contactPersonPhone}</a>}</section>}
+        {contacts.length > 0 && <section className="competition-detail-section"><h3>Kontak penyelenggara</h3><div className="competition-detail-contacts">{contacts.map((contact, index) => <div className="competition-detail-contact" key={`${contact.name || "kontak"}-${index}`}>
+          {contact.name && <strong>{contact.name}</strong>}
+          {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
+          {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
+          {contact.instagramUsername && <span>Instagram: @{contact.instagramUsername.replace(/^@+/, "")}</span>}
+          {contact.instagramUrl && <a href={contact.instagramUrl} target="_blank" rel="noreferrer">Buka Instagram</a>}
+        </div>)}</div></section>}
         <div className="competition-detail-links">
           {item.informationUrl && <a className="button button-outline" href={item.informationUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Info lomba</a>}
-          {item.rulebookUrl && <a className="button button-outline" href={item.rulebookUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Guidebook</a>}
+          {item.rulebookUrl && <a className="button button-outline" href={item.rulebookUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Panduan / Juknis</a>}
         </div>
         <p className="detail-note">Pastikan kamu memeriksa informasi dan persyaratan resmi dari penyelenggara sebelum mendaftar.</p>
         {trackingError && <p className="form-error" role="status">{trackingError}</p>}

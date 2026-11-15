@@ -8,6 +8,7 @@ import {
   competitionFromRow,
   getAnalyticsVisitorId,
   getCompetitionCoverUrl,
+  getScrollBehavior,
   googleOAuthErrorMessage,
   isProfileComplete,
 } from "./data.js";
@@ -44,7 +45,7 @@ function useRoute() {
     if (getCurrentRoute() !== normalizedRoute) {
       window.history.pushState({}, "", normalizedRoute);
       setRoute(normalizedRoute);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: getScrollBehavior() });
     }
   }, []);
 
@@ -735,6 +736,7 @@ export default function App() {
   }
 
   const requestedSection = new URLSearchParams(route.split("?")[1] || "").get("section");
+  const requestedScroll = new URLSearchParams(route.split("?")[1] || "").get("scroll");
   const initialSection = routePath === "/cari"
     ? "cari"
     : routePath === "/rekomendasi" ? "rekomendasi" : routePath === "/" ? requestedSection || "" : "";
@@ -766,6 +768,7 @@ export default function App() {
       competitionsError={competitionsError}
       categoryOptions={categoryOptions}
       initialSection={initialSection}
+      initialScrollBehavior={requestedScroll === "smooth" ? getScrollBehavior() : "instant"}
     />;
 
   return (

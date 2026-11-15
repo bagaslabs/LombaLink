@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { Brand, ThemeToggle } from "./components.jsx";
+import { scrollToPageSection } from "./data.js";
 
 export default function Navbar({ account, route, navigate, onSubmit, onLogout, theme, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,15 +23,15 @@ export default function Navbar({ account, route, navigate, onSubmit, onLogout, t
     if (path === "/") setActiveSection("");
   };
   const goToSection = (sectionId) => {
-    const section = document.getElementById(sectionId);
-    if (section) {
-      section.scrollIntoView({ behavior: "instant", block: "start" });
-    } else {
+    if (!scrollToPageSection(sectionId)) {
       const routeBySection = {
         cari: "/cari",
         rekomendasi: "/rekomendasi",
       };
-      navigate(routeBySection[sectionId] || `/?section=${encodeURIComponent(sectionId)}`);
+      const targetRoute = routeBySection[sectionId]
+        ? `${routeBySection[sectionId]}?scroll=smooth`
+        : `/?section=${encodeURIComponent(sectionId)}&scroll=smooth`;
+      navigate(targetRoute);
     }
     setActiveSection(sectionId);
     setMenuOpen(false);

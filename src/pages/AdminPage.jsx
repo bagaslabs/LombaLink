@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   Trophy,
   UsersRound,
   X,
@@ -25,7 +26,6 @@ import { competitionFieldsFromForm, competitionFromRow, getCompetitionCoverUrl }
 import {
   removeCompetitionCover,
   uploadCompetitionCover,
-  uploadCompetitionGuidebook,
 } from "../competitionService.js";
 import AdminUsersPanel from "./AdminUsersPanel.jsx";
 import AdminReportsPanel from "./AdminReportsPanel.jsx";
@@ -43,6 +43,8 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
   const [reloadKey, setReloadKey] = useState(0);
   const [createNotice, setCreateNotice] = useState("");
   const [reviewItem, setReviewItem] = useState(null);
+  const [deleteItem, setDeleteItem] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
   const isCreatePage = routePath === "/admin/tambahkan-lomba";
   const moderatorName = account?.name || "Moderator";
   const visible = useMemo(() => competitions.filter((item) => (
@@ -167,10 +169,48 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     }
   };
 
+  const deleteCompetition = async () => {
+    if (!deleteItem) return;
+    const item = deleteItem;
+    setActionId(item.id);
+    setDeleteError("");
+    try {
+      const { error: deleteErrorResult } = await supabaseClient
+        .from("lombalink_competitions")
+        .delete()
+        .eq("id", item.id)
+        .select("id")
+        .single();
+      if (deleteErrorResult) {
+        setDeleteError(`Lomba gagal dihapus: ${deleteErrorResult.message}`);
+        return;
+      }
+
+      setDeleteItem(null);
+      setReviewItem((current) => current?.id === item.id ? null : current);
+      setReloadKey((current) => current + 1);
+      onCompetitionsChanged?.();
+
+      const cleanupErrors = await Promise.all([
+        item.coverPath ? removeCompetitionCover(supabaseClient, item.coverPath) : "",
+        item.guidebookPath ? removeCompetitionCover(supabaseClient, item.guidebookPath) : "",
+      ]);
+      const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
+      setCreateNotice(cleanupMessage
+        ? `Lomba dihapus, tetapi ${cleanupMessage.toLowerCase()}`
+        : "Lomba berhasil dihapus.");
+    } catch (deleteErrorResult) {
+      setDeleteError(deleteErrorResult instanceof Error
+        ? `Lomba gagal dihapus: ${deleteErrorResult.message}`
+        : "Lomba gagal dihapus.");
+    } finally {
+      setActionId("");
+    }
+  };
+
   const publishCompetition = async (form) => {
     if (!supabaseClient || !account?.id) return "Sesi moderator tidak tersedia. Silakan masuk kembali.";
     let coverPath = null;
-    let guidebookPath = null;
     try {
       const competitionId = crypto.randomUUID();
       const saveAction = form.saveAction || "submit";
@@ -180,23 +220,12 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         if (upload.error) return upload.error;
         coverPath = upload.path;
       }
-      if (form.guidebookFile) {
-        const upload = await uploadCompetitionGuidebook(supabaseClient, account.id, competitionId, form.guidebookFile);
-        if (upload.error) {
-          const cleanupError = coverPath ? await removeCompetitionCover(supabaseClient, coverPath) : "";
-          return `${upload.error}${cleanupError ? ` ${cleanupError}` : ""}`;
-        }
-        guidebookPath = upload.path;
-      }
-
       const { error: insertError } = await supabaseClient.from("lombalink_competitions").insert({
         ...competitionFieldsFromForm(form),
         id: competitionId,
         cover_path: coverPath,
-        guidebook_path: guidebookPath,
-        rulebook_url: guidebookPath
-          ? getCompetitionCoverUrl(supabaseClient, guidebookPath)
-          : form.rulebookUrl || null,
+        guidebook_path: form.guidebookPath || null,
+        rulebook_url: form.guidebookUrl?.trim() || null,
         status: "approved",
         archived_at: saveAction === "archive" ? reviewedAt : null,
         submitted_by: account.id,
@@ -206,7 +235,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
       if (insertError) {
         const cleanupErrors = await Promise.all([
           coverPath ? removeCompetitionCover(supabaseClient, coverPath) : "",
-          guidebookPath ? removeCompetitionCover(supabaseClient, guidebookPath) : "",
         ]);
         const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
         return `Lomba gagal diterbitkan: ${insertError.message}${cleanupMessage ? ` ${cleanupMessage}` : ""}`;
@@ -222,7 +250,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     } catch (insertError) {
       const cleanupErrors = await Promise.all([
         coverPath ? removeCompetitionCover(supabaseClient, coverPath) : "",
-        guidebookPath ? removeCompetitionCover(supabaseClient, guidebookPath) : "",
       ]);
       const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
       const message = insertError instanceof Error ? insertError.message : "kesalahan tidak diketahui.";
@@ -247,12 +274,12 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
       <aside className="admin-sidebar">
         <Brand onClick={() => navigate("/")} />
         <div className="sidebar-label">WORKSPACE</div>
-        <button className={`sidebar-item ${section === "overview" && tab === "all" ? "active" : ""}`} onClick={() => showAdminSection("overview", "all")}><LayoutDashboard size={17} /> Ringkasan</button>
+        <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "all" ? "active" : ""}`} onClick={() => showAdminSection("overview", "all")}><LayoutDashboard size={17} /> Ringkasan</button>
         <button className={`sidebar-item ${isCreatePage ? "active" : ""}`} onClick={openCreatePage}><Plus size={17} /> Tambah Lomba</button>
-        <button className={`sidebar-item ${section === "users" ? "active" : ""}`} onClick={() => showAdminSection("users")}><UsersRound size={17} /> Pengguna</button>
-        <button className={`sidebar-item ${section === "overview" && tab === "pending" ? "active" : ""}`} onClick={() => showAdminSection("overview", "pending")}><Clock3 size={17} /> Verifikasi <span className="sidebar-count">{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
-        <button className={`sidebar-item ${section === "overview" && tab === "approved" ? "active" : ""}`} onClick={() => showAdminSection("overview", "approved")}><CheckCircle2 size={17} /> Lomba terbit</button>
-        <button className={`sidebar-item ${section === "reports" ? "active" : ""}`} onClick={() => showAdminSection("reports")}><Flag size={17} /> Laporan <span className="sidebar-count">{reportPendingCount === null ? "—" : reportPendingCount.toLocaleString("id-ID")}</span></button>
+        <button className={`sidebar-item ${!isCreatePage && section === "users" ? "active" : ""}`} onClick={() => showAdminSection("users")}><UsersRound size={17} /> Pengguna</button>
+        <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "pending" ? "active" : ""}`} onClick={() => showAdminSection("overview", "pending")}><Clock3 size={17} /> Verifikasi <span className="sidebar-count">{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
+        <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "approved" ? "active" : ""}`} onClick={() => showAdminSection("overview", "approved")}><CheckCircle2 size={17} /> Lomba terbit</button>
+        <button className={`sidebar-item ${!isCreatePage && section === "reports" ? "active" : ""}`} onClick={() => showAdminSection("reports")}><Flag size={17} /> Laporan <span className="sidebar-count">{reportPendingCount === null ? "—" : reportPendingCount.toLocaleString("id-ID")}</span></button>
         <div className="sidebar-label sidebar-label-bottom">AKUN</div>
         <button className="sidebar-item" onClick={() => navigate("/")}><ArrowLeft size={17} /> Kembali ke situs</button>
         <div className="sidebar-user"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span><span><strong>{moderatorName}</strong><small>Moderator LombaLink</small></span><ShieldCheck size={15} /></div>
@@ -319,6 +346,13 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
                 <div className="submission-actions">
                   <button title={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} className="archive-action" disabled={actionId === item.id} onClick={() => toggleArchive(item)}><span className="sr-only">{item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"}</span><Archive size={16} /></button>
                   {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : <span className="reviewed-label">{item.status === "draft" ? "Belum dikirim" : "Ditinjau"}</span>}
+                  <button
+                    title="Hapus lomba"
+                    aria-label={`Hapus lomba ${item.title}`}
+                    className="delete-action"
+                    disabled={Boolean(actionId)}
+                    onClick={() => { setDeleteError(""); setDeleteItem(item); }}
+                  ><Trash2 size={16} /></button>
                 </div>
               </article>) : <div className="admin-empty"><CheckCircle2 size={22} /><strong>Tidak ada pengajuan di sini</strong><span>Tidak ada lomba dengan status ini di database.</span></div>}
             </div>
@@ -337,6 +371,28 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           onReject: () => updateStatus(reviewItem.id, "rejected"),
         }}
       />
+      {deleteItem && <div
+        className="modal-backdrop"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !actionId) {
+            setDeleteItem(null);
+            setDeleteError("");
+          }
+        }}
+      >
+        <section className="modal-card admin-competition-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="admin-delete-competition-title">
+          <span className="eyebrow">HAPUS LOMBA</span>
+          <h2 id="admin-delete-competition-title">Hapus “{deleteItem.title}”?</h2>
+          <p className="admin-user-confirm-copy">Lomba akan dihapus permanen. Laporan dan data analitik yang terkait juga ikut terhapus.</p>
+          {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
+          <div className="admin-user-confirm-actions">
+            <button className="button button-outline" type="button" disabled={Boolean(actionId)} onClick={() => { setDeleteItem(null); setDeleteError(""); }}>Batal</button>
+            <button className="button-danger" type="button" disabled={Boolean(actionId)} onClick={deleteCompetition}>
+              <Trash2 size={15} /> {actionId === deleteItem.id ? "Menghapus..." : "Hapus permanen"}
+            </button>
+          </div>
+        </section>
+      </div>}
     </main>
   );
 }

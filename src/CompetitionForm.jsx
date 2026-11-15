@@ -4,6 +4,7 @@ import {
   competitionCategoryOptions,
   competitionFieldOptions,
   competitionModeOptions,
+  normalizePhoneNumber,
   participantTypeOptions,
   scopeOptions,
   targetParticipantOptions,
@@ -25,6 +26,34 @@ function normalizeKeywordTag(value) {
   return tag ? `#${tag}` : "";
 }
 
+function formatRupiahInput(value) {
+  const digits = String(value ?? "").replace(/\D/g, "").slice(0, 15);
+  return digits ? Number(digits).toLocaleString("id-ID") : "";
+}
+
+function normalizeRegistrationBatch(batch, index, fallbackFeeType = "Gratis", fallbackFeeAmount = "") {
+  const feeType = batch?.feeType || fallbackFeeType;
+  return {
+    label: batch?.label || `Batch ${index + 1}`,
+    startsAt: batch?.startsAt || "",
+    endsAt: batch?.endsAt || "",
+    feeType,
+    feeAmount: feeType === "Berbayar"
+      ? formatRupiahInput(batch?.feeAmount ?? fallbackFeeAmount)
+      : "",
+  };
+}
+
+function normalizeContactPerson(person = {}) {
+  return {
+    name: person.name || "",
+    phone: person.phone || "",
+    email: person.email || "",
+    instagramUsername: person.instagramUsername || "",
+    instagramUrl: person.instagramUrl || "",
+  };
+}
+
 function toForm(competition) {
   const legacyTargets = {
     SMP: ["SMP / MTs"],
@@ -33,10 +62,30 @@ function toForm(competition) {
     Umum: ["Umum"],
   };
   const feeTiers = Array.isArray(competition?.feeTiers) ? competition.feeTiers : [];
-  const firstBatch = competition?.registrationBatches?.[0];
+  const savedBatches = Array.isArray(competition?.registrationBatches) ? competition.registrationBatches : [];
+  const fallbackFeeType = competition?.feeType || (feeTiers.length ? "Berbayar" : "Gratis");
+  const registrationBatches = (savedBatches.length ? savedBatches : [{
+    startsAt: "",
+    endsAt: competition?.deadline || "",
+  }]).map((batch, index) => {
+    const feeTier = feeTiers[index];
+    return normalizeRegistrationBatch(
+      batch,
+      index,
+      feeTier ? "Berbayar" : fallbackFeeType,
+      feeTier?.amount ?? competition?.feeAmount ?? "",
+    );
+  });
+  const savedContactPeople = Array.isArray(competition?.contactPeople) ? competition.contactPeople : [];
+  const legacyPhone = competition?.contactPersonPhone
+    || (/^[+\d\s().-]+$/.test(competition?.contact || "") ? competition.contact : "");
+  const contactPeople = (savedContactPeople.length ? savedContactPeople : [{
+    name: competition?.contactPersonName || "",
+    phone: legacyPhone,
+    email: competition?.contactPersonEmail || "",
+  }]).map(normalizeContactPerson);
   return {
     title: competition?.title || "",
-    tagline: competition?.tagline || "",
     description: competition?.description || "",
     competitionCategory: competition?.competitionCategory || "",
     field: competition?.category || "",
@@ -45,7 +94,7 @@ function toForm(competition) {
       : [],
     keywordInput: "",
     scope: competition?.scope || "",
-    participantType: competition?.participantType || "",
+    participantType: competition?.participantType === "Individu dan Tim" ? "" : competition?.participantType || "",
     targetParticipants: Array.isArray(competition?.targetParticipants) && competition.targetParticipants.length
       ? competition.targetParticipants
       : legacyTargets[competition?.education] || [],
@@ -54,17 +103,11 @@ function toForm(competition) {
     organizer: competition?.organizer || "",
     organizerType: competition?.organizerType || "",
     organizerLevel: competition?.organizerLevel || "",
-    contact: competition?.contact || competition?.contactPersonPhone || "",
-    contactPersonName: competition?.contactPersonName || "",
-    contactPersonEmail: competition?.contactPersonEmail || "",
+    contactPeople,
+    teamMinMembers: competition?.teamMinMembers == null ? "" : String(competition.teamMinMembers),
+    teamMaxMembers: competition?.teamMaxMembers == null ? "" : String(competition.teamMaxMembers),
     legacyCompetitionType: competition?.competitionType || "",
-    feeType: competition?.feeType || (feeTiers.length ? "Berbayar" : "Gratis"),
-    feeAmount: competition?.feeAmount || (feeTiers[0]?.amount != null ? String(feeTiers[0].amount) : ""),
-    legacyRegistrationBatches: Array.isArray(competition?.registrationBatches) ? competition.registrationBatches : [],
-    legacyRegistrationOpensAt: firstBatch?.startsAt || "",
-    legacyRegistrationDeadline: competition?.deadline || firstBatch?.endsAt || "",
-    registrationOpensAt: firstBatch?.startsAt || "",
-    registrationDeadline: competition?.deadline || firstBatch?.endsAt || "",
+    registrationBatches,
     prize: competition?.prize === "Informasi hadiah belum ditambahkan" ? "" : competition?.prize || "",
     requirements: competition?.requirements || "",
     eventStartDate: competition?.eventStartDate || "",
@@ -80,9 +123,6 @@ function toForm(competition) {
     coverFile: null,
     coverNeedsReselect: false,
     removeCover: false,
-    guidebookFile: null,
-    guidebookNeedsReselect: false,
-    removeGuidebook: false,
   };
 }
 
@@ -100,7 +140,9 @@ function restoreFormDraft(storageKey, competition) {
     const savedKeywords = Array.isArray(savedForm.keywords)
       ? savedForm.keywords
       : typeof savedForm.keywords === "string" ? savedForm.keywords.split(",") : [];
-    const savedBatches = Array.isArray(savedForm.registrationBatches) ? savedForm.registrationBatches : [];
+    const savedBatches = Array.isArray(savedForm.registrationBatches)
+      ? savedForm.registrationBatches
+      : Array.isArray(savedForm.legacyRegistrationBatches) ? savedForm.legacyRegistrationBatches : [];
     const savedFeeTiers = Array.isArray(savedForm.feeTiers) ? savedForm.feeTiers : [];
     const legacyTargets = {
       SMP: ["SMP / MTs"],
@@ -113,10 +155,21 @@ function restoreFormDraft(storageKey, competition) {
       : targetParticipantOptions.filter((target) => String(savedForm.audience || "").includes(target)).length
         ? targetParticipantOptions.filter((target) => String(savedForm.audience || "").includes(target))
         : legacyTargets[savedForm.education] || [];
-    const legacyDeadline = savedBatches.reduce(
-      (latest, batch) => batch.endsAt > latest ? batch.endsAt : latest,
-      "",
-    );
+    const fallbackFeeType = savedForm.feeType ?? (savedFeeTiers.length ? "Berbayar" : "Gratis");
+    const registrationBatches = (savedBatches.length ? savedBatches : [{
+      startsAt: savedForm.registrationOpensAt || "",
+      endsAt: savedForm.registrationDeadline || "",
+    }]).map((batch, index) => normalizeRegistrationBatch(
+      batch,
+      index,
+      savedFeeTiers[index] ? "Berbayar" : fallbackFeeType,
+      savedFeeTiers[index]?.amount ?? savedForm.feeAmount ?? "",
+    ));
+    const savedContactPeople = Array.isArray(savedForm.contactPeople) ? savedForm.contactPeople : [{
+      name: savedForm.contactPersonName || initialForm.contactPeople[0]?.name || "",
+      phone: savedForm.contactPersonPhone || savedForm.contact || initialForm.contactPeople[0]?.phone || "",
+      email: savedForm.contactPersonEmail || initialForm.contactPeople[0]?.email || "",
+    }];
 
     return {
       form: {
@@ -124,21 +177,15 @@ function restoreFormDraft(storageKey, competition) {
         ...savedForm,
         competitionCategory: savedForm.competitionCategory ?? "",
         field: savedForm.field ?? savedForm.category ?? "",
-        participantType: savedForm.participantType ?? "",
+        participantType: savedForm.participantType === "Individu dan Tim" ? "" : savedForm.participantType ?? "",
         targetParticipants,
-        contact: savedForm.contact ?? savedForm.contactPersonPhone ?? "",
-        feeType: savedForm.feeType ?? (savedFeeTiers.length ? "Berbayar" : "Gratis"),
-        feeAmount: savedForm.feeAmount ?? (savedFeeTiers[0]?.amount != null ? String(savedFeeTiers[0].amount) : ""),
-        legacyRegistrationBatches: savedForm.legacyRegistrationBatches ?? savedBatches,
-        legacyRegistrationOpensAt: savedForm.legacyRegistrationOpensAt ?? savedBatches[0]?.startsAt ?? "",
-        legacyRegistrationDeadline: savedForm.legacyRegistrationDeadline ?? legacyDeadline,
-        registrationOpensAt: savedForm.registrationOpensAt ?? savedBatches[0]?.startsAt ?? "",
-        registrationDeadline: savedForm.registrationDeadline ?? legacyDeadline,
+        contactPeople: savedContactPeople.map(normalizeContactPerson),
+        teamMinMembers: savedForm.teamMinMembers ?? "",
+        teamMaxMembers: savedForm.teamMaxMembers ?? "",
+        registrationBatches,
         keywords: [...new Set(savedKeywords.map(normalizeKeywordTag).filter(Boolean))],
         coverFile: null,
         coverNeedsReselect: Boolean(savedForm.coverNeedsReselect),
-        guidebookFile: null,
-        guidebookNeedsReselect: Boolean(savedForm.guidebookNeedsReselect),
       },
       notice: "Draft formulir dipulihkan dari penyimpanan perangkat.",
     };
@@ -206,11 +253,10 @@ export default function CompetitionForm({
     if (!persistenceKey) return undefined;
     const persistForm = () => {
       try {
-        const { coverFile, guidebookFile, ...savedForm } = formStateRef.current;
+        const { coverFile, ...savedForm } = formStateRef.current;
         window.localStorage.setItem(persistenceKey, JSON.stringify({
           ...savedForm,
           coverNeedsReselect: Boolean(coverFile) || savedForm.coverNeedsReselect,
-          guidebookNeedsReselect: Boolean(guidebookFile) || savedForm.guidebookNeedsReselect,
         }));
         setStorageNotice((current) => current.startsWith("Draft lokal gagal")
           ? current
@@ -273,6 +319,55 @@ export default function CompetitionForm({
     updateForm((current) => ({ ...current, [key]: value }));
   };
 
+  const updateContactPerson = (index, key, value) => {
+    updateForm((current) => ({
+      ...current,
+      contactPeople: current.contactPeople.map((person, personIndex) => (
+        personIndex === index ? { ...person, [key]: value } : person
+      )),
+    }));
+  };
+
+  const updateRegistrationBatch = (index, key, value) => {
+    updateForm((current) => ({
+      ...current,
+      registrationBatches: current.registrationBatches.map((batch, batchIndex) => (
+        batchIndex === index ? { ...batch, [key]: value } : batch
+      )),
+    }));
+  };
+
+  const addContactPerson = () => {
+    updateForm((current) => ({
+      ...current,
+      contactPeople: [...current.contactPeople, normalizeContactPerson()],
+    }));
+  };
+
+  const removeContactPerson = (index) => {
+    updateForm((current) => ({
+      ...current,
+      contactPeople: current.contactPeople.filter((_, personIndex) => personIndex !== index),
+    }));
+  };
+
+  const addRegistrationBatch = () => {
+    updateForm((current) => ({
+      ...current,
+      registrationBatches: [
+        ...current.registrationBatches,
+        normalizeRegistrationBatch({}, current.registrationBatches.length),
+      ],
+    }));
+  };
+
+  const removeRegistrationBatch = (index) => {
+    updateForm((current) => ({
+      ...current,
+      registrationBatches: current.registrationBatches.filter((_, batchIndex) => batchIndex !== index),
+    }));
+  };
+
   const addKeywordTag = (value = form.keywordInput) => {
     const tag = normalizeKeywordTag(value);
     if (!tag) return;
@@ -286,28 +381,49 @@ export default function CompetitionForm({
   const validateForm = () => {
     if (!form.title.trim() || !form.description.trim() || !form.organizer.trim()
       || !form.competitionCategory || !form.field || !form.scope || !form.registrationUrl.trim()
-      || !form.contact.trim()) {
+      || !form.contactPeople.length) {
       return "Lengkapi nama, deskripsi, penyelenggara, kategori, bidang, tingkat, link pendaftaran, dan kontak.";
+    }
+    if (!form.contactPeople.every((person) => person.name.trim() && normalizePhoneNumber(person.phone))) {
+      return "Setiap kontak wajib memiliki nama dan nomor telepon yang valid.";
+    }
+    if (form.contactPeople.some((person) => (
+      (person.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email))
+      || (person.instagramUrl && !isValidUrl(person.instagramUrl))
+    ))) {
+      return "Periksa kembali format email dan tautan Instagram.";
     }
     if (!form.participantType || !form.targetParticipants.length || !form.mode) {
       return "Pilih jenis peserta, minimal satu target peserta, dan mode pelaksanaan.";
     }
+    if (form.participantType === "Tim" && (
+      !Number.isInteger(Number(form.teamMinMembers))
+      || !Number.isInteger(Number(form.teamMaxMembers))
+      || Number(form.teamMinMembers) < 1
+      || Number(form.teamMaxMembers) < Number(form.teamMinMembers)
+    )) {
+      return "Isi jumlah minimal dan maksimal anggota tim dengan benar.";
+    }
     if (form.mode !== "Online" && !form.location.trim()) {
       return "Lokasi wajib diisi untuk lomba Offline atau Hybrid.";
     }
-    if (!form.registrationOpensAt || !form.registrationDeadline) {
-      return "Tanggal pembukaan dan deadline pendaftaran wajib diisi.";
+    if (!form.registrationBatches.length) {
+      return "Tambahkan minimal satu batch pendaftaran.";
     }
-    if (form.registrationDeadline < form.registrationOpensAt) {
-      return "Deadline pendaftaran tidak boleh sebelum tanggal pembukaan.";
+    if (form.registrationBatches.some((batch) => (
+      !batch.startsAt
+      || !batch.endsAt
+      || batch.endsAt < batch.startsAt
+      || !["Gratis", "Berbayar"].includes(batch.feeType)
+      || (batch.feeType === "Berbayar" && (!batch.feeAmount || !Number.isFinite(Number(batch.feeAmount.replace(/\D/g, "")))))
+    ))) {
+      return "Lengkapi tanggal dan biaya setiap batch pendaftaran dengan benar.";
     }
     if (!isValidUrl(form.registrationUrl)) {
       return "Link pendaftaran harus diawali http:// atau https://.";
     }
-    if (form.feeType === "Berbayar" && (
-      form.feeAmount === "" || !Number.isFinite(Number(form.feeAmount)) || Number(form.feeAmount) < 0
-    )) {
-      return "Isi nominal biaya pendaftaran dengan angka nol atau lebih.";
+    if (!isValidUrl(form.guidebookUrl)) {
+      return "Link panduan harus diawali http:// atau https://.";
     }
     if (!form.coverFile && (form.removeCover || !form.coverPath)) {
       return "Poster lomba wajib diunggah sebelum mengirim lomba.";
@@ -330,27 +446,6 @@ export default function CompetitionForm({
     }
     setError("");
     updateForm((current) => ({ ...current, coverFile: file, coverNeedsReselect: false, removeCover: false }));
-  };
-
-  const selectGuidebook = (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (file.type !== "application/pdf") {
-      setError("Panduan lomba harus berupa file PDF.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Ukuran file panduan maksimal 5 MB.");
-      return;
-    }
-    setError("");
-    updateForm((current) => ({
-      ...current,
-      guidebookFile: file,
-      guidebookNeedsReselect: false,
-      removeGuidebook: false,
-    }));
   };
 
   const formatDescription = (before, after = before) => {
@@ -403,7 +498,16 @@ export default function CompetitionForm({
       keywords: [...new Set([...form.keywords, normalizeKeywordTag(form.keywordInput)].filter(Boolean))],
       keywordInput: "",
       targetParticipants: [...form.targetParticipants],
-      feeAmount: form.feeType === "Berbayar" ? Number(form.feeAmount) : "",
+      contactPeople: form.contactPeople.map((person) => ({
+        ...person,
+        phone: normalizePhoneNumber(person.phone),
+      })),
+      registrationBatches: form.registrationBatches.map((batch) => ({
+        ...batch,
+        feeAmount: batch.feeType === "Berbayar" && batch.feeAmount
+          ? Number(batch.feeAmount.replace(/\D/g, ""))
+          : "",
+      })),
     };
 
     try {
@@ -456,7 +560,7 @@ export default function CompetitionForm({
         </nav>
         {storageNotice && <p className="competition-form-helper" role="status">
           {storageNotice}
-          {(form.coverNeedsReselect || form.guidebookNeedsReselect) && " File yang belum tersimpan perlu dipilih ulang."}
+          {form.coverNeedsReselect && " Poster yang belum tersimpan perlu dipilih ulang."}
         </p>}
 
         <section id="competition-section-general" data-form-section className="competition-form-section" aria-labelledby="competition-section-general-heading">
@@ -492,24 +596,20 @@ export default function CompetitionForm({
                 <label htmlFor="competition-title">Nama lomba <span className="required-mark">*</span>
                   <input id="competition-title" value={form.title} onChange={update("title")} maxLength={160} required />
                 </label>
-                <label htmlFor="competition-tagline">Deskripsi singkat / tagline <span className="optional-mark">(opsional)</span>
-                  <input id="competition-tagline" value={form.tagline} onChange={update("tagline")} maxLength={180} placeholder="Kalimat singkat yang menggambarkan lomba" />
-                </label>
+                <div className="competition-rich-editor competition-rich-editor-cover">
+                  <label htmlFor="competition-description">Deskripsi Lomba <span className="required-mark">*</span></label>
+                  <div className="competition-rich-toolbar" aria-label="Format deskripsi">
+                    <button type="button" aria-label="Tebalkan teks terpilih" title="Tebal" onClick={() => formatDescription("**")}><Bold size={15} /></button>
+                    <button type="button" aria-label="Miringkan teks terpilih" title="Miring" onClick={() => formatDescription("*")}><Italic size={15} /></button>
+                    <button type="button" aria-label="Buat daftar" title="Daftar" onClick={formatDescriptionList}><List size={15} /></button>
+                  </div>
+                  <textarea id="competition-description" ref={descriptionRef} rows="6" value={form.description} onChange={update("description")} maxLength={5000} required />
+                </div>
               </div>
             </div>
             <label className="competition-form-full">Nama penyelenggara <span className="required-mark">*</span>
               <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
             </label>
-            <div className="competition-rich-editor competition-form-full">
-              <label htmlFor="competition-description">Deskripsi lomba <span className="required-mark">*</span></label>
-              <div className="competition-rich-toolbar" aria-label="Format deskripsi">
-                <button type="button" aria-label="Tebalkan teks terpilih" title="Tebal" onClick={() => formatDescription("**")}><Bold size={15} /></button>
-                <button type="button" aria-label="Miringkan teks terpilih" title="Miring" onClick={() => formatDescription("*")}><Italic size={15} /></button>
-                <button type="button" aria-label="Buat daftar" title="Daftar" onClick={formatDescriptionList}><List size={15} /></button>
-                <span>Pilih teks lalu gunakan format. Baris baru dan daftar akan ditampilkan di detail lomba.</span>
-              </div>
-              <textarea id="competition-description" ref={descriptionRef} rows="6" value={form.description} onChange={update("description")} maxLength={5000} required />
-            </div>
             <label>Kategori lomba <span className="required-mark">*</span>
               <select value={form.competitionCategory} onChange={update("competitionCategory")} required>
                 <option value="">Pilih kategori</option>
@@ -533,9 +633,37 @@ export default function CompetitionForm({
             <label>Link pendaftaran <span className="required-mark">*</span>
               <input type="url" value={form.registrationUrl} onChange={update("registrationUrl")} placeholder="https://" required />
             </label>
-            <label>Kontak penyelenggara / WhatsApp <span className="required-mark">*</span>
-              <input value={form.contact} onChange={update("contact")} maxLength={160} placeholder="Nomor WhatsApp atau kontak yang bisa dihubungi" required />
-            </label>
+            <section className="competition-contact-people competition-form-full" aria-label="Kontak penyelenggara">
+              <div className="competition-repeat-heading">
+                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Isi nama dan nomor telepon untuk setiap kontak.</span></div>
+                <button className="button button-outline button-small" type="button" onClick={addContactPerson}>Tambah kontak</button>
+              </div>
+              {form.contactPeople.map((person, index) => (
+                <fieldset className="competition-contact-person" key={`contact-${index}`}>
+                  <legend>
+                    Kontak {index + 1}
+                    {form.contactPeople.length > 1 && <button type="button" className="competition-repeat-remove" aria-label={`Hapus kontak ${index + 1}`} onClick={() => removeContactPerson(index)}><X size={14} /></button>}
+                  </legend>
+                  <div className="competition-contact-grid">
+                    <label>Nama <span className="required-mark">*</span>
+                      <input value={person.name} onChange={(event) => updateContactPerson(index, "name", event.target.value)} maxLength={120} required />
+                    </label>
+                    <label>Nomor telepon / WhatsApp <span className="required-mark">*</span>
+                      <input type="tel" inputMode="tel" value={person.phone} onChange={(event) => updateContactPerson(index, "phone", event.target.value)} maxLength={24} placeholder="08xxxxxxxxxx" required />
+                    </label>
+                    <label>Instagram username <span className="optional-mark">(opsional)</span>
+                      <input value={person.instagramUsername} onChange={(event) => updateContactPerson(index, "instagramUsername", event.target.value)} maxLength={30} placeholder="@username" />
+                    </label>
+                    <label>Link Instagram <span className="optional-mark">(opsional)</span>
+                      <input type="url" value={person.instagramUrl} onChange={(event) => updateContactPerson(index, "instagramUrl", event.target.value)} placeholder="https://instagram.com/username" />
+                    </label>
+                    <label>Email / Gmail <span className="optional-mark">(opsional)</span>
+                      <input type="email" value={person.email} onChange={(event) => updateContactPerson(index, "email", event.target.value)} maxLength={254} placeholder="nama@gmail.com" />
+                    </label>
+                  </div>
+                </fieldset>
+              ))}
+            </section>
             <div className="competition-form-full competition-keyword-field">
               <label htmlFor="competition-keyword-input">Tag lomba <span className="optional-mark">(opsional)</span></label>
               <div className="competition-keyword-entry">
@@ -594,6 +722,16 @@ export default function CompetitionForm({
                 {participantTypeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
+            {form.participantType === "Tim" && (
+              <>
+                <label>Minimal anggota tim <span className="required-mark">*</span>
+                  <input type="number" min="1" step="1" value={form.teamMinMembers} onChange={update("teamMinMembers")} required />
+                </label>
+                <label>Maksimal anggota tim <span className="required-mark">*</span>
+                  <input type="number" min={form.teamMinMembers || 1} step="1" value={form.teamMaxMembers} onChange={update("teamMaxMembers")} required />
+                </label>
+              </>
+            )}
             <fieldset className="competition-target-fieldset">
               <legend>Target peserta <span className="required-mark">*</span></legend>
               <div className="competition-target-options">
@@ -614,22 +752,44 @@ export default function CompetitionForm({
                 ))}
               </div>
             </fieldset>
-            <label>Biaya pendaftaran <span className="required-mark">*</span>
-              <select value={form.feeType} onChange={update("feeType")} required>
-                <option value="">Pilih biaya</option>
-                <option>Gratis</option>
-                <option>Berbayar</option>
-              </select>
-            </label>
-            {form.feeType === "Berbayar" && <label>Nominal biaya (Rp) <span className="required-mark">*</span>
-              <input type="number" min="0" step="1000" value={form.feeAmount} onChange={update("feeAmount")} placeholder="Contoh: 50000" required />
-            </label>}
-            <label>Tanggal pembukaan pendaftaran <span className="required-mark">*</span>
-              <input type="date" value={form.registrationOpensAt} onChange={update("registrationOpensAt")} required />
-            </label>
-            <label>Deadline pendaftaran <span className="required-mark">*</span>
-              <input type="date" value={form.registrationDeadline} onChange={update("registrationDeadline")} min={form.registrationOpensAt || undefined} required />
-            </label>
+            <section className="competition-repeat-section competition-form-full" aria-labelledby="registration-batches-heading">
+              <div className="competition-repeat-heading">
+                <div><strong id="registration-batches-heading">Batch pendaftaran <span className="required-mark">*</span></strong><span>Atur rentang tanggal dan biaya untuk tiap batch.</span></div>
+                <button className="button button-outline button-small" type="button" onClick={addRegistrationBatch}>Tambah batch</button>
+              </div>
+              {form.registrationBatches.map((batch, index) => (
+                <fieldset className="competition-registration-batch" key={`batch-${index}`}>
+                  <legend>
+                    Batch {index + 1}
+                    {form.registrationBatches.length > 1 && <button type="button" className="competition-repeat-remove" aria-label={`Hapus batch ${index + 1}`} onClick={() => removeRegistrationBatch(index)}><X size={14} /></button>}
+                  </legend>
+                  <div className="competition-form-grid">
+                    <label>Tanggal mulai <span className="required-mark">*</span>
+                      <input type="date" value={batch.startsAt} onChange={(event) => updateRegistrationBatch(index, "startsAt", event.target.value)} required />
+                    </label>
+                    <label>Tanggal akhir / deadline <span className="required-mark">*</span>
+                      <input type="date" value={batch.endsAt} onChange={(event) => updateRegistrationBatch(index, "endsAt", event.target.value)} min={batch.startsAt || undefined} required />
+                    </label>
+                    <label>Biaya pendaftaran <span className="required-mark">*</span>
+                      <select value={batch.feeType} onChange={(event) => updateForm((current) => ({
+                        ...current,
+                        registrationBatches: current.registrationBatches.map((item, batchIndex) => (
+                          batchIndex === index
+                            ? { ...item, feeType: event.target.value, feeAmount: event.target.value === "Berbayar" ? item.feeAmount : "" }
+                            : item
+                        )),
+                      }))}>
+                        <option>Gratis</option>
+                        <option>Berbayar</option>
+                      </select>
+                    </label>
+                    {batch.feeType === "Berbayar" && <label>Nominal <span className="required-mark">*</span>
+                      <span className="competition-currency-input"><span>Rp</span><input inputMode="numeric" value={batch.feeAmount} onChange={(event) => updateRegistrationBatch(index, "feeAmount", formatRupiahInput(event.target.value.slice(0, 20)))} placeholder="350.000" maxLength={20} required /></span>
+                    </label>}
+                  </div>
+                </fieldset>
+              ))}
+            </section>
             <label>Tanggal pelaksanaan <span className="optional-mark">(opsional)</span>
               <input type="date" value={form.eventStartDate} onChange={update("eventStartDate")} />
             </label>
@@ -659,30 +819,13 @@ export default function CompetitionForm({
             <label>Hadiah / penghargaan <span className="optional-mark">(opsional)</span>
               <textarea rows="4" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
             </label>
-            <div className="competition-guidebook-field competition-form-full">
-              <label htmlFor="competition-guidebook">Panduan lomba / Juknis <span className="optional-mark">(opsional)</span></label>
-              <div className="competition-guidebook-controls">
-                <label className="button button-outline button-small" htmlFor="competition-guidebook"><Upload size={15} /> Unggah PDF</label>
-                <input id="competition-guidebook" className="sr-only" type="file" accept="application/pdf,.pdf" onChange={selectGuidebook} />
-                {(form.guidebookFile || (!form.removeGuidebook && form.guidebookUrl)) && (
-                  <>
-                    <span>{form.guidebookFile?.name || "Panduan tersimpan"}</span>
-                    <button
-                      type="button"
-                      className="competition-remove-cover"
-                      aria-label="Hapus panduan lomba"
-                      onClick={() => updateForm((current) => ({
-                        ...current,
-                        guidebookFile: null,
-                        guidebookNeedsReselect: false,
-                        removeGuidebook: true,
-                      }))}
-                    ><X size={15} /></button>
-                  </>
-                )}
-              </div>
-              <p className="competition-form-helper">Format PDF, maksimal 5 MB.</p>
-            </div>
+            <label className="competition-form-full">Link Panduan / Juknis <span className="optional-mark">(opsional)</span>
+              <input type="url" value={form.guidebookUrl} onChange={(event) => updateForm((current) => ({
+                ...current,
+                guidebookUrl: event.target.value,
+                guidebookPath: event.target.value === current.guidebookUrl ? current.guidebookPath : "",
+              }))} placeholder="https://" />
+            </label>
           </div>
         </section>
 

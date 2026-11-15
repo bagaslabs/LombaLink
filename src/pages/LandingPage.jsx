@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import SearchPage from "./SearchPage.jsx";
 import RecommendationsPage from "./RecommendationsPage.jsx";
+import { scrollToPageSection } from "../data.js";
 
 export default function LandingPage({
   account,
@@ -21,15 +22,16 @@ export default function LandingPage({
   competitionsError,
   categoryOptions,
   initialSection,
+  initialScrollBehavior = "instant",
 }) {
   useLayoutEffect(() => {
     if (!initialSection) return undefined;
-    document.getElementById(initialSection)?.scrollIntoView({ behavior: "instant", block: "start" });
+    scrollToPageSection(initialSection, initialScrollBehavior);
     return undefined;
-  }, [initialSection]);
+  }, [initialSection, initialScrollBehavior]);
 
   const scrollToSection = (sectionId) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "instant", block: "start" });
+    scrollToPageSection(sectionId);
   };
 
   return (
