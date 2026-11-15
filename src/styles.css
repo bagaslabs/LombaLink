@@ -995,21 +995,21 @@ html[data-theme="dark"] .competition-form-actions { background: #111b2d; }
 .card-art.has-cover::before,.card-art.has-cover::after { display: none; }
 .card-cover-image { object-fit: contain; opacity: 1; background: #f5f7fc; }
 .card-content { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 18px 22px; }
-.competition-card h3 { min-height: 0; margin: 0; font-size: 19px; line-height: 1.35; }
-.competition-card-organizer { display: flex; align-items: center; gap: 7px; margin: 0; color: #78859b; font-size: 12px; line-height: 1.4; }
+.competition-card h3 { min-height: 0; margin: 0; font-size: 20px; line-height: 1.35; letter-spacing: -.4px; }
+.competition-card-organizer { display: flex; align-items: center; gap: 7px; margin: 0; color: #78859b; font-size: 13px; line-height: 1.4; }
 .competition-card-organizer svg { flex: 0 0 auto; color: #8996ad; }
 .competition-card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .competition-card-tags .soft-tag { padding: 5px 8px; font-size: 10px; line-height: 1.2; }
-.competition-card-info { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px 18px; align-items: start; color: #78859b; font-size: 12px; }
+.competition-card-info { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 14px 18px; align-items: start; color: #78859b; font-size: 12px; }
 .competition-card-info > div { display: flex; align-items: flex-start; gap: 7px; min-width: 0; }
 .competition-card-info > div > svg { flex: 0 0 auto; margin-top: 2px; color: #8996ad; }
 .competition-card-info > div > span { min-width: 0; }
 .competition-card-info small,.competition-card-info strong { display: block; }
 .competition-card-info small { margin-bottom: 3px; color: #929db0; font-size: 10px; font-weight: 500; line-height: 1.35; }
 .competition-card-info strong { color: #526079; font-size: 12px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
-.competition-card-tagline { display: -webkit-box; overflow: hidden; width: 100%; min-width: 0; margin: 0; color: #78859b; font-size: 14px; line-height: 1.6; text-align: justify; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; }
+.competition-card-tagline { display: -webkit-box; overflow: hidden; width: 100%; min-width: 0; margin: 0; color: #78859b; font-size: 13px; line-height: 1.65; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; }
 .competition-card .card-bottom { justify-content: flex-end; margin-top: 0; padding-top: 0; border-top: 0; }
-.competition-card-details-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 29px; padding: 5px 9px; border: 1px solid #dfe5f2; border-radius: 8px; color: #526dc1; background: #f7f8fc; font-size: 9px; font-weight: 700; line-height: 1.2; }
+.competition-card-details-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 6px 11px; border: 1px solid #dfe5f2; border-radius: 8px; color: #526dc1; background: #f7f8fc; font-size: 10px; font-weight: 700; line-height: 1.2; }
 .competition-card-details-button:hover { border-color: #b7c7ff; background: #eff2ff; }
 html[data-theme="dark"] .competition-card-info small { color: #95a2b7; }
 html[data-theme="dark"] .competition-card-info strong { color: #c3cee0; }
@@ -1040,8 +1040,9 @@ html[data-theme="dark"] .card-cover-image { background: #111b2d; }
 }
 @media (min-width: 768px) {
   .competition-grid { grid-template-columns: minmax(0,1fr); }
-  .competition-card { grid-template-columns: clamp(120px,15vw,180px) minmax(0,1fr); }
+  .competition-card { grid-template-columns: clamp(144px,16vw,210px) minmax(0,1fr); }
 }
+html[data-theme="dark"] .competition-card-organizer { color: #9eabc0; }
 .competition-keyword-field { display: grid; gap: 7px; min-width: 0; color: #526079; font-size: 10px; font-weight: 700; }
 .competition-keyword-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; padding: 6px 8px; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; }
 .competition-keyword-entry:focus-within { border-color: #93aaff; box-shadow: 0 0 0 3px #ebefff; }
