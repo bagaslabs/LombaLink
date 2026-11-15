@@ -4,13 +4,19 @@ import {
   Building2,
   CalendarDays,
   Check,
+  Clock3,
   ChevronDown,
   GraduationCap,
   Globe2,
   ExternalLink,
   FileText,
   Flag,
+  Instagram,
   MapPin,
+  Mail,
+  MessageCircle,
+  Music2,
+  Phone,
   UsersRound,
   Wallet,
   Moon,
@@ -21,8 +27,19 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { formatDate, organizerOptions, scopeOptions, targetParticipantOptions } from "./data.js";
+import { formatDate, organizerOptions, provinceOptions, scopeOptions, targetParticipantOptions } from "./data.js";
 import { reportReasons } from "./reporting.js";
+
+function getExternalContactUrl(url, fallback = "") {
+  try {
+    const parsedUrl = new URL(url || fallback);
+    return parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:"
+      ? parsedUrl.href
+      : "";
+  } catch {
+    return "";
+  }
+}
 
 export function Brand({ onClick }) {
   return (
@@ -78,11 +95,55 @@ function getNearestRegistrationBatch(item) {
     .sort((first, second) => (first.startsAt || first.endsAt).localeCompare(second.startsAt || second.endsAt))[0] || null;
 }
 
+function getDaysUntilDate(dateString) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString || "")) return null;
+  const targetDate = new Date(`${dateString}T00:00:00Z`);
+  if (Number.isNaN(targetDate.getTime()) || targetDate.toISOString().slice(0, 10) !== dateString) return null;
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((targetDate.getTime() - today) / 86400000);
+}
+
+function getRegistrationBadge(item, batch) {
+  const startsIn = getDaysUntilDate(batch?.startsAt);
+  const closesIn = getDaysUntilDate(batch?.endsAt || item.deadline);
+  if (closesIn == null) return { text: "Jadwal belum ada", status: "unknown" };
+  if (closesIn < 0) return { text: "Ditutup", status: "closed" };
+  if (startsIn > 0) return { text: `Buka H-${startsIn}`, status: "upcoming" };
+  if (closesIn === 0) return { text: "Tutup hari ini", status: "closing" };
+  return { text: `H-${closesIn} Tutup`, status: "open" };
+}
+
+function PosterLightbox({ imageUrl, imageAlt, onClose }) {
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="poster-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Poster ${imageAlt}`}
+      onClick={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <button className="poster-lightbox-close" type="button" aria-label="Tutup poster" onClick={onClose}><X size={21} /></button>
+      <img src={imageUrl} alt={imageAlt} />
+    </div>
+  );
+}
+
 export function CompetitionCard({ item, onDetails }) {
   const [coverAspectRatio, setCoverAspectRatio] = useState("9 / 16");
+  const [posterOpen, setPosterOpen] = useState(false);
   const cardRef = useRef(null);
   const contentRef = useRef(null);
   const nearestBatch = getNearestRegistrationBatch(item);
+  const registrationBadge = getRegistrationBadge(item, nearestBatch);
   const batchDates = nearestBatch
     ? `${formatDate(nearestBatch.startsAt)}${nearestBatch.endsAt !== nearestBatch.startsAt ? ` - ${formatDate(nearestBatch.endsAt)}` : ""}`
     : `Tutup ${formatDate(item.deadline)}`;
@@ -101,7 +162,7 @@ export function CompetitionCard({ item, onDetails }) {
   const eventDates = eventStart
     ? `${eventStart}${item.eventEndDate && item.eventEndDate !== item.eventStartDate ? ` – ${formatDate(item.eventEndDate)}` : ""}`
     : "";
-  const tags = [...new Set([item.competitionCategory, item.category, ...(item.keywords || [])].filter(Boolean))].slice(0, 3);
+  const tags = [...new Set([item.competitionType, item.competitionCategory, item.category, ...(item.keywords || [])].filter(Boolean))].slice(0, 3);
 
   useEffect(() => {
     const card = cardRef.current;
@@ -134,16 +195,22 @@ export function CompetitionCard({ item, onDetails }) {
         style={item.coverUrl ? { "--card-cover-aspect": coverAspectRatio } : undefined}
       >
         {item.coverUrl && (
-          <img
-            className="card-cover-image"
-            src={item.coverUrl}
-            alt=""
-            onLoad={(event) => {
-              const { naturalWidth, naturalHeight } = event.currentTarget;
-              if (naturalWidth && naturalHeight) setCoverAspectRatio(`${naturalWidth} / ${naturalHeight}`);
-            }}
-          />
+          <button className="card-cover-zoom" type="button" aria-label={`Perbesar poster ${item.title}`} onClick={() => setPosterOpen(true)}>
+            <img
+              className="card-cover-image"
+              src={item.coverUrl}
+              alt=""
+              onLoad={(event) => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                if (naturalWidth && naturalHeight) setCoverAspectRatio(`${naturalWidth} / ${naturalHeight}`);
+              }}
+            />
+          </button>
         )}
+        <div className="competition-card-badges">
+          <span className={`competition-card-fee-badge${feeType === "Berbayar" ? " is-paid" : ""}`}>{feeType === "Berbayar" ? "Berbayar" : "Gratis"}</span>
+          <span className={`competition-card-registration-badge is-${registrationBadge.status}`}><Clock3 size={13} />{registrationBadge.text}</span>
+        </div>
         {!item.coverUrl && <span className="card-art-icon"><Trophy size={25} /></span>}
       </div>
       <div className="card-content" ref={contentRef}>
@@ -176,6 +243,7 @@ export function CompetitionCard({ item, onDetails }) {
           </button>
         </div>
       </div>
+      {posterOpen && <PosterLightbox imageUrl={item.coverUrl} imageAlt={`Poster ${item.title}`} onClose={() => setPosterOpen(false)} />}
     </article>
   );
 }
@@ -192,14 +260,14 @@ function renderDescriptionInline(value, keyPrefix) {
   });
 }
 
-function CompetitionDescription({ value }) {
+function renderDescriptionLines(value, keyPrefix) {
   const content = [];
   let listItems = [];
   let listType = "";
   const flushList = () => {
     if (!listItems.length) return;
     const ListTag = listType === "ordered" ? "ol" : "ul";
-    content.push(<ListTag key={`list-${content.length}`}>{listItems}</ListTag>);
+    content.push(<ListTag key={`${keyPrefix}-list-${content.length}`}>{listItems}</ListTag>);
     listItems = [];
     listType = "";
   };
@@ -212,19 +280,38 @@ function CompetitionDescription({ value }) {
       const nextListType = orderedItem ? "ordered" : "unordered";
       if (listItems.length && listType !== nextListType) flushList();
       listType = nextListType;
-      listItems.push(<li key={`item-${index}`}>{renderDescriptionInline(listItem[1], `inline-${index}`)}</li>);
+      listItems.push(<li key={`${keyPrefix}-item-${index}`}>{renderDescriptionInline(listItem[1], `${keyPrefix}-inline-${index}`)}</li>);
       return;
     }
     flushList();
     if (line.trim()) {
-      content.push(<p key={`paragraph-${index}`}>{renderDescriptionInline(line, `inline-${index}`)}</p>);
+      content.push(<p key={`${keyPrefix}-paragraph-${index}`}>{renderDescriptionInline(line, `${keyPrefix}-inline-${index}`)}</p>);
     }
   });
   flushList();
+  return content;
+}
+
+function CompetitionDescription({ value }) {
+  const content = [];
+  const segments = String(value || "").split(/(\[\[justify\]\][\s\S]*?\[\[\/justify\]\])/g);
+  segments.forEach((segment, index) => {
+    const isJustified = segment.startsWith("[[justify]]") && segment.endsWith("[[/justify]]");
+    const text = isJustified
+      ? segment.slice("[[justify]]".length, segment.length - "[[/justify]]".length)
+      : segment;
+    const blocks = renderDescriptionLines(text, `description-${index}`);
+    if (isJustified) {
+      content.push(<div className="competition-description-justified" key={`justified-${index}`}>{blocks}</div>);
+    } else {
+      content.push(...blocks);
+    }
+  });
   return <div className="competition-description-content">{content}</div>;
 }
 
 export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLoggedIn, onRequireLogin, moderationActions }) {
+  const [posterOpen, setPosterOpen] = useState(false);
   const [trackingError, setTrackingError] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState(reportReasons[0].value);
@@ -303,14 +390,15 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
     <div className="competition-detail-content">
         {onClose && <button className="modal-close" onClick={onClose} aria-label="Tutup"><X size={19} /></button>}
         <span className="eyebrow"><Trophy size={14} /> INFORMASI LOMBA</span>
-        {item.coverUrl && <img className="competition-detail-cover" src={item.coverUrl} alt={`Gambar ${item.title}`} />}
+        {item.coverUrl && <button className="competition-detail-cover-button" type="button" aria-label={`Perbesar poster ${item.title}`} onClick={() => setPosterOpen(true)}><img className="competition-detail-cover" src={item.coverUrl} alt={`Poster ${item.title}`} /></button>}
         <h2 id="detail-title">{item.title}</h2>
         <p className="detail-organizer"><Building2 size={16} /> {item.organizer}</p>
         {item.description && <div className="competition-detail-description"><CompetitionDescription value={item.description} /></div>}
         <div className="detail-grid">
           {item.competitionCategory && <div><span>Kategori</span><strong>{item.competitionCategory}</strong></div>}
+          {item.competitionType && <div><span>Tipe lomba</span><strong>{item.competitionType}</strong></div>}
           {item.category && <div><span>Bidang</span><strong>{item.category}</strong></div>}
-          {item.participantType && <div><span>Jenis peserta</span><strong>{item.participantType}{item.participantType === "Tim" && item.teamMinMembers && item.teamMaxMembers ? ` · ${item.teamMinMembers}–${item.teamMaxMembers} anggota` : ""}</strong></div>}
+          {item.participantType && <div><span>Jenis peserta</span><strong>{item.participantType}{item.participantType === "Tim" && item.teamMinMembers && item.teamMaxMembers ? ` · ${item.teamMinMembers === item.teamMaxMembers ? `${item.teamMinMembers}` : `${item.teamMinMembers}–${item.teamMaxMembers}`} anggota` : ""}</strong></div>}
           {targetParticipants && <div><span>Target peserta</span><strong>{targetParticipants}</strong></div>}
           <div><span>Cakupan</span><strong>{item.scope}</strong></div>
           <div><span>Mode</span><strong>{item.mode}</strong></div>
@@ -336,13 +424,33 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
         {item.requirements && <section className="competition-detail-section"><h3>Persyaratan</h3><CompetitionDescription value={item.requirements} /></section>}
         {item.prize && item.prize !== "Informasi hadiah belum ditambahkan" && <section className="competition-detail-section"><h3>Hadiah</h3><CompetitionDescription value={item.prize} /></section>}
         {item.keywords?.length > 0 && <div className="competition-detail-keywords">{item.keywords.map((keyword) => <span className="soft-tag" key={keyword}>{keyword}</span>)}</div>}
-        {contacts.length > 0 && <section className="competition-detail-section"><h3>Kontak penyelenggara</h3><div className="competition-detail-contacts">{contacts.map((contact, index) => <div className="competition-detail-contact" key={`${contact.name || "kontak"}-${index}`}>
-          {contact.name && <strong>{contact.name}</strong>}
-          {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
-          {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
-          {contact.instagramUsername && <span>Instagram: @{contact.instagramUsername.replace(/^@+/, "")}</span>}
-          {contact.instagramUrl && <a href={contact.instagramUrl} target="_blank" rel="noreferrer">Buka Instagram</a>}
-        </div>)}</div></section>}
+        {contacts.length > 0 && <section className="competition-detail-section"><h3>Kontak penyelenggara</h3><div className="competition-detail-contacts">{contacts.map((contact, index) => {
+          const instagramUsername = String(contact.instagramUsername || "").replace(/^@+/, "");
+          const tiktokUsername = String(contact.tiktokUsername || "").replace(/^@+/, "");
+          const instagramUrl = getExternalContactUrl(contact.instagramUrl, instagramUsername
+            ? `https://www.instagram.com/${encodeURIComponent(instagramUsername)}/`
+            : "");
+          const tiktokUrl = getExternalContactUrl(contact.tiktokUrl, tiktokUsername
+            ? `https://www.tiktok.com/@${encodeURIComponent(tiktokUsername)}`
+            : "");
+          const whatsappEnabled = contact.contactMethods?.includes("whatsapp") || contact.whatsappUrl;
+          const phoneDigits = String(contact.phone || "").replace(/\D/g, "");
+          const whatsappUrl = whatsappEnabled
+            ? getExternalContactUrl(contact.whatsappUrl, phoneDigits ? `https://wa.me/${phoneDigits}` : "")
+            : "";
+          return (
+            <div className="competition-detail-contact" key={`${contact.name || "kontak"}-${index}`}>
+              {contact.name && <strong>{contact.name}</strong>}
+              <div className="competition-detail-contact-methods">
+                {contact.phone && <a href={`tel:${contact.phone}`} aria-label={`Telepon ${contact.name || "penyelenggara"}`}><Phone size={15} />{contact.phone}</a>}
+                {contact.email && <a href={`mailto:${encodeURIComponent(contact.email)}`} aria-label={`Email ${contact.name || "penyelenggara"}`}><Mail size={15} />{contact.email}</a>}
+                {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Buka Instagram"><Instagram size={15} />{instagramUsername ? `@${instagramUsername}` : "Instagram"}</a>}
+                {tiktokUrl && <a href={tiktokUrl} target="_blank" rel="noreferrer" aria-label="Buka TikTok"><Music2 size={15} />{tiktokUsername ? `@${tiktokUsername}` : "TikTok"}</a>}
+                {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Buka WhatsApp"><MessageCircle size={15} />WhatsApp</a>}
+              </div>
+            </div>
+          );
+        })}</div></section>}
         <div className="competition-detail-links">
           {item.informationUrl && <a className="button button-outline" href={item.informationUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Info lomba</a>}
           {item.rulebookUrl && <a className="button button-outline" href={item.rulebookUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Panduan / Juknis</a>}
@@ -379,6 +487,7 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
           : item.registrationUrl
             ? <a className="button button-primary button-wide" href={item.registrationUrl} target="_blank" rel="noreferrer" onClick={trackRegistration}>Daftar lomba <ExternalLink size={15} /></a>
             : onClose && <button className="button button-primary button-wide" onClick={onClose}>Mengerti <Check size={16} /></button>}
+        {posterOpen && <PosterLightbox imageUrl={item.coverUrl} imageAlt={`Poster ${item.title}`} onClose={() => setPosterOpen(false)} />}
     </div>
   );
 }
@@ -403,6 +512,14 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
       return;
     }
     setFilters({ ...filters, [key]: value });
+  };
+  const updateScope = (event) => {
+    const value = event.target.value;
+    if (!isLoggedIn && value) {
+      onRequireAccount(false, true);
+      return;
+    }
+    setFilters({ ...filters, scope: value, location: "" });
   };
   const search = () => {
     if (!isLoggedIn) {
@@ -430,13 +547,19 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
           <select value={filters.category} onChange={update("category")}><option value="">Semua kategori</option>{categoryOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
         <label className="filter-select"><Globe2 size={15} /><span className="sr-only">Cakupan lomba</span>
-          <select value={filters.scope} onChange={update("scope")}><option value="">Semua cakupan</option><option value="Daerah">Daerah (data lama)</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
+          <select value={filters.scope} onChange={updateScope}><option value="">Semua cakupan</option><option value="Daerah">Daerah (data lama)</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
         <label className="filter-select"><Building2 size={15} /><span className="sr-only">Jenis penyelenggara</span>
           <select value={filters.organizerType} onChange={update("organizerType")}><option value="">Semua penyelenggara</option>{organizerOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
         <label className="filter-select location-filter"><MapPin size={15} /><span className="sr-only">Daerah atau provinsi</span>
-          <input value={filters.location} onChange={update("location")} placeholder="Daerah / provinsi" />
+          {filters.scope === "Provinsi"
+            ? <select value={filters.location} onChange={update("location")} aria-label="Pilih provinsi">
+              <option value="">Semua provinsi</option>
+              {provinceOptions.map((province) => <option key={province}>{province}</option>)}
+            </select>
+            : <input value={filters.location} onChange={update("location")} placeholder="Daerah / provinsi" />}
+          {filters.scope === "Provinsi" && <ChevronDown size={14} aria-hidden="true" />}
         </label>
       </div>
       <div className="search-hint">

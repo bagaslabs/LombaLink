@@ -17,13 +17,13 @@ export default function SearchPage({
   const [hasSearched, setHasSearched] = useState(false);
 
   const matchingCompetitions = useMemo(() => competitions.filter((item) => {
-    const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
+    const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
     return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
       && (!filters.education || (item.targetParticipants || []).includes(filters.education) || item.education === filters.education)
       && (!filters.category || item.category === filters.category)
       && (!filters.scope || item.scope === filters.scope)
       && (!filters.organizerType || item.organizerType === filters.organizerType)
-      && (!filters.location || item.location.toLowerCase().includes(filters.location.toLowerCase().trim()));
+      && (!filters.location || String(item.location || "").toLowerCase().includes(filters.location.toLowerCase().trim()));
   }), [competitions, filters]);
 
   const search = () => {

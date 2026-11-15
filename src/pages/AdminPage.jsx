@@ -376,6 +376,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
               <CompetitionForm
                 mode="moderator"
                 suggestedKeywords={[...suggestedKeywords, ...competitions.flatMap((item) => item.keywords || [])]}
+                suggestedCompetitions={competitions}
                 persistenceKey={`lombalink.competition-form.v1.${account.id}.moderator-new`}
                 onSubmit={publishCompetition}
                 onCancel={returnToAdmin}
@@ -459,6 +460,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
               mode="moderator"
               initialCompetition={editingItem}
               suggestedKeywords={[...suggestedKeywords, ...competitions.flatMap((item) => item.keywords || [])]}
+              suggestedCompetitions={competitions}
               persistenceKey={`lombalink.competition-form.v1.${account.id}.moderator-edit.${editingItem.id}`}
               onSubmit={updateModeratedCompetition}
               onCancel={() => setEditingItem(null)}

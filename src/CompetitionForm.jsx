@@ -1,13 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
+  AlignJustify,
   ArrowRight,
   Bold,
   Camera,
   Crop,
+  Instagram,
   Italic,
   List,
   ListOrdered,
+  Mail,
+  MessageCircle,
+  Music2,
   RotateCcw,
   Save,
   Smile,
@@ -19,6 +24,7 @@ import {
   competitionCategoryOptions,
   competitionFieldOptions,
   competitionModeOptions,
+  competitionTypeOptions,
   normalizePhoneNumber,
   organizerLevelOptions,
   participantTypeOptions,
@@ -32,6 +38,12 @@ const formSections = [
   { id: "competition-section-technical", label: "Spesifik" },
 ];
 const descriptionEmojis = ["🎉", "🏆", "📅", "✨", "📢", "🎁", "✅", "📍"];
+const contactPlatforms = [
+  { id: "instagram", label: "Instagram", Icon: Instagram },
+  { id: "gmail", label: "Gmail", Icon: Mail },
+  { id: "tiktok", label: "TikTok", Icon: Music2 },
+  { id: "whatsapp", label: "WhatsApp", Icon: MessageCircle },
+];
 const coverCropWidth = 900;
 const coverCropPresetRatios = [
   { label: "4:6", width: 4, height: 6 },
@@ -117,25 +129,55 @@ function normalizeContactPerson(person = {}) {
   let phone = String(person.phone || "").replace(/\D/g, "");
   if (phone.startsWith("62")) phone = phone.slice(2);
   else if (phone.startsWith("0")) phone = phone.slice(1);
+  const contactMethods = Array.isArray(person.contactMethods)
+    ? [...new Set(person.contactMethods.filter((method) => contactPlatforms.some((platform) => platform.id === method)))]
+    : [
+      ...(person.instagramUsername || person.instagramUrl ? ["instagram"] : []),
+      ...(person.email ? ["gmail"] : []),
+      ...(person.tiktokUsername || person.tiktokUrl ? ["tiktok"] : []),
+      ...(person.whatsappUrl ? ["whatsapp"] : []),
+    ];
   return {
     name: person.name || "",
     phone: phone.slice(0, 13),
     email: person.email || "",
     instagramUsername: person.instagramUsername || "",
     instagramUrl: person.instagramUrl || "",
+    tiktokUsername: person.tiktokUsername || "",
+    tiktokUrl: person.tiktokUrl || "",
+    whatsappUrl: person.whatsappUrl || "",
+    contactMethods,
   };
 }
 
 function getTeamMemberRange(minimum, maximum) {
-  return minimum != null && minimum !== "" && maximum != null && maximum !== ""
-    ? `${minimum}-${maximum}`
-    : "";
+  const minimumValue = minimum == null || minimum === "" ? "" : String(minimum);
+  const maximumValue = maximum == null || maximum === "" ? "" : String(maximum);
+  if (!minimumValue) return maximumValue;
+  if (!maximumValue || minimumValue === maximumValue) return minimumValue;
+  return `${minimumValue}-${maximumValue}`;
 }
 
 function parseTeamMemberRange(value) {
-  const match = String(value || "").match(/^\s*(\d+)\s*[-–]\s*(\d+)\s*$/);
+  const match = String(value || "").match(/^\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*$/);
   if (!match) return null;
-  return { minimum: Number(match[1]), maximum: Number(match[2]) };
+  return { minimum: Number(match[1]), maximum: Number(match[2] || match[1]) };
+}
+
+function normalizeCompetitionType(value, customValue = "") {
+  const type = String(value || "").trim();
+  const customType = String(customValue || "").trim();
+  if (type === "Lainnya") {
+    return customType
+      ? { competitionType: "Lainnya", customCompetitionType: customType }
+      : { competitionType: "", customCompetitionType: "" };
+  }
+  if (competitionTypeOptions.includes(type)) {
+    return { competitionType: type, customCompetitionType: "" };
+  }
+  return type
+    ? { competitionType: "Lainnya", customCompetitionType: type }
+    : { competitionType: "", customCompetitionType: "" };
 }
 
 function toForm(competition) {
@@ -170,6 +212,7 @@ function toForm(competition) {
   }]).map(normalizeContactPerson);
   const savedField = competition?.category || "";
   const customField = savedField && !competitionFieldOptions.includes(savedField) ? savedField : "";
+  const competitionTypeFields = normalizeCompetitionType(competition?.competitionType);
   return {
     title: competition?.title || "",
     description: competition?.description || "",
@@ -192,7 +235,7 @@ function toForm(competition) {
     organizerLevel: competition?.organizerLevel || "",
     contactPeople,
     teamMemberRange: competition?.teamMemberRange || getTeamMemberRange(competition?.teamMinMembers, competition?.teamMaxMembers),
-    legacyCompetitionType: competition?.competitionType || "",
+    ...competitionTypeFields,
     registrationBatches,
     prize: competition?.prize === "Informasi hadiah belum ditambahkan" ? "" : competition?.prize || "",
     requirements: competition?.requirements || "",
@@ -244,6 +287,10 @@ function restoreFormDraft(storageKey, competition) {
     const savedField = savedForm.field ?? savedForm.category ?? "";
     const customField = savedForm.customField
       ?? (savedField && !competitionFieldOptions.includes(savedField) ? savedField : "");
+    const competitionTypeFields = normalizeCompetitionType(
+      savedForm.competitionType ?? savedForm.legacyCompetitionType ?? savedForm.competition_type,
+      savedForm.customCompetitionType,
+    );
     const fallbackFeeType = savedForm.feeType ?? (savedFeeTiers.length ? "Berbayar" : "Gratis");
     const registrationBatches = (savedBatches.length ? savedBatches : [{
       startsAt: savedForm.registrationOpensAt || "",
@@ -265,6 +312,7 @@ function restoreFormDraft(storageKey, competition) {
         ...initialForm,
         ...savedForm,
         competitionCategory: savedForm.competitionCategory ?? "",
+        ...competitionTypeFields,
         field: customField ? "Lainnya" : savedField,
         customField,
         participantType: savedForm.participantType === "Individu dan Tim" ? "" : savedForm.participantType ?? "",
@@ -306,6 +354,7 @@ export default function CompetitionForm({
   mode = "organizer",
   initialCompetition = null,
   suggestedKeywords = [],
+  suggestedCompetitions = [],
   persistenceKey = "",
   onSubmit,
   onCancel,
@@ -331,6 +380,8 @@ export default function CompetitionForm({
   const [coverEditorError, setCoverEditorError] = useState("");
   const [activeSection, setActiveSection] = useState(formSections[0].id);
   const [emojiPickerField, setEmojiPickerField] = useState("");
+  const [fieldSuggestionsOpen, setFieldSuggestionsOpen] = useState(false);
+  const [organizerSuggestionsOpen, setOrganizerSuggestionsOpen] = useState(false);
   const formRef = useRef(null);
   const descriptionRef = useRef(null);
   const requirementsRef = useRef(null);
@@ -346,13 +397,76 @@ export default function CompetitionForm({
   const canSaveAsDraft = !isModerator && (!isEditing || initialCompetition.status === "draft");
   const canArchiveFromForm = !isEditing || initialCompetition.status === "draft";
   const normalizedKeywordInput = normalizeKeywordTag(form.keywordInput);
-  const keywordSuggestions = [...new Set([...suggestedKeywords.map(normalizeKeywordTag), ...popularKeywordTags])]
+  const fieldInputValue = form.field === "Lainnya" ? form.customField : form.field;
+  const { keywordUsageCounts, fieldUsageCounts, organizerUsageCounts } = useMemo(() => {
+    const keywordUsers = new Map();
+    const fieldUsers = new Map();
+    const organizerUsers = new Map();
+    for (const competition of suggestedCompetitions) {
+      const userId = competition.submitterId || competition.id;
+      if (!userId) continue;
+      for (const tag of new Set((competition.keywords || []).map(normalizeKeywordTag).filter(Boolean))) {
+        if (!keywordUsers.has(tag)) keywordUsers.set(tag, new Set());
+        keywordUsers.get(tag).add(userId);
+      }
+      const field = String(competition.category || "").trim();
+      if (field && field !== "Lainnya") {
+        if (!fieldUsers.has(field)) fieldUsers.set(field, new Set());
+        fieldUsers.get(field).add(userId);
+      }
+      const organizer = String(competition.organizer || "").trim();
+      if (organizer) {
+        const key = organizer.toLocaleLowerCase("id-ID");
+        if (!organizerUsers.has(key)) organizerUsers.set(key, { name: organizer, users: new Set() });
+        organizerUsers.get(key).users.add(userId);
+      }
+    }
+    return {
+      keywordUsageCounts: new Map([...keywordUsers].map(([key, users]) => [key, users.size])),
+      fieldUsageCounts: new Map([...fieldUsers].map(([key, users]) => [key, users.size])),
+      organizerUsageCounts: new Map([...organizerUsers].map(([key, value]) => [key, { name: value.name, count: value.users.size }])),
+    };
+  }, [suggestedCompetitions]);
+  const keywordSuggestions = [...new Set([
+    ...suggestedKeywords.map(normalizeKeywordTag),
+    ...suggestedCompetitions.flatMap((competition) => competition.keywords || []),
+    ...popularKeywordTags,
+  ])]
+    .map(normalizeKeywordTag)
     .filter((tag) => tag && !form.keywords.includes(tag))
     .filter((tag) => !normalizedKeywordInput || tag.includes(normalizedKeywordInput.slice(1)))
+    .map((tag) => ({ tag, count: keywordUsageCounts.get(tag) || 0 }))
+    .sort((first, second) => second.count - first.count)
     .slice(0, 7);
   const showCustomKeyword = normalizedKeywordInput
     && !form.keywords.includes(normalizedKeywordInput)
-    && !keywordSuggestions.includes(normalizedKeywordInput);
+    && !keywordSuggestions.some(({ tag }) => tag === normalizedKeywordInput);
+  const fieldSuggestions = [...new Set([
+    ...competitionFieldOptions.filter((field) => field !== "Lainnya"),
+    ...suggestedCompetitions.map((competition) => String(competition.category || "").trim()),
+  ])]
+    .filter(Boolean)
+    .filter((field) => !fieldInputValue || field.toLocaleLowerCase("id-ID").includes(fieldInputValue.trim().toLocaleLowerCase("id-ID")))
+    .map((field) => ({ field, count: fieldUsageCounts.get(field) || 0 }))
+    .sort((first, second) => (
+      Number(second.field.toLocaleLowerCase("id-ID") === fieldInputValue.trim().toLocaleLowerCase("id-ID"))
+      - Number(first.field.toLocaleLowerCase("id-ID") === fieldInputValue.trim().toLocaleLowerCase("id-ID"))
+      || second.count - first.count
+    ))
+    .slice(0, 6);
+  const showCustomField = fieldInputValue.trim()
+    && !fieldSuggestions.some(({ field }) => field.toLocaleLowerCase("id-ID") === fieldInputValue.trim().toLocaleLowerCase("id-ID"));
+  const organizerQuery = form.organizer.trim().toLocaleLowerCase("id-ID");
+  const organizerSuggestions = [...organizerUsageCounts.values()]
+    .filter(({ name }) => !organizerQuery || name.toLocaleLowerCase("id-ID").includes(organizerQuery))
+    .sort((first, second) => (
+      Number(second.name.toLocaleLowerCase("id-ID") === organizerQuery)
+      - Number(first.name.toLocaleLowerCase("id-ID") === organizerQuery)
+      || second.count - first.count
+    ))
+    .slice(0, 6);
+  const showCustomOrganizer = organizerQuery
+    && !organizerSuggestions.some(({ name }) => name.toLocaleLowerCase("id-ID") === organizerQuery);
   const selectedCoverCropRatio = coverCropRatioLabel === "Asli"
     ? coverOriginalCropRatio || coverCropPresetRatios[2]
     : coverCropPresetRatios.find(({ label }) => label === coverCropRatioLabel) || coverCropPresetRatios[2];
@@ -478,6 +592,31 @@ export default function CompetitionForm({
     }));
   };
 
+  const toggleContactMethod = (index, method) => {
+    const fieldsByMethod = {
+      instagram: ["instagramUsername", "instagramUrl"],
+      gmail: ["email"],
+      tiktok: ["tiktokUsername", "tiktokUrl"],
+      whatsapp: ["whatsappUrl"],
+    };
+    updateForm((current) => ({
+      ...current,
+      contactPeople: current.contactPeople.map((person, personIndex) => {
+        if (personIndex !== index) return person;
+        const isEnabled = person.contactMethods.includes(method);
+        if (!isEnabled) {
+          return { ...person, contactMethods: [...person.contactMethods, method] };
+        }
+        const clearedFields = Object.fromEntries(fieldsByMethod[method].map((field) => [field, ""]));
+        return {
+          ...person,
+          ...clearedFields,
+          contactMethods: person.contactMethods.filter((activeMethod) => activeMethod !== method),
+        };
+      }),
+    }));
+  };
+
   const updateRegistrationBatch = (index, key, value) => {
     updateForm((current) => ({
       ...current,
@@ -528,13 +667,31 @@ export default function CompetitionForm({
     }));
   };
 
+  const selectCompetitionField = (value) => {
+    const builtInField = competitionFieldOptions.find((field) => (
+      field !== "Lainnya" && field.toLocaleLowerCase("id-ID") === value.toLocaleLowerCase("id-ID")
+    ));
+    updateForm((current) => ({
+      ...current,
+      field: builtInField || "Lainnya",
+      customField: builtInField ? "" : value,
+    }));
+    setFieldSuggestionsOpen(false);
+  };
+
+  const selectOrganizer = (value) => {
+    updateForm((current) => ({ ...current, organizer: value }));
+    setOrganizerSuggestionsOpen(false);
+  };
+
   const validateForm = () => {
     if (!form.title.trim() || !form.description.trim() || !form.organizer.trim()
-      || !form.organizerLevel || !form.competitionCategory || !form.field
+      || !form.organizerLevel || !form.competitionCategory || !form.competitionType || !form.field
+      || (form.competitionType === "Lainnya" && !form.customCompetitionType.trim())
       || (form.field === "Lainnya" && !form.customField.trim())
       || !form.scope || !form.registrationUrl.trim()
       || !form.contactPeople.length) {
-      return "Lengkapi nama, deskripsi, penyelenggara, kategori, bidang, tingkat, link pendaftaran, dan kontak.";
+      return "Lengkapi nama, deskripsi, penyelenggara, kategori, tipe lomba, bidang, tingkat, link pendaftaran, dan kontak.";
     }
     if (!form.contactPeople.every((person) => person.name.trim() && isValidIndonesianPhone(person.phone))) {
       return "Setiap kontak wajib memiliki nama dan nomor telepon yang valid.";
@@ -542,8 +699,10 @@ export default function CompetitionForm({
     if (form.contactPeople.some((person) => (
       (person.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email))
       || (person.instagramUrl && !isValidUrl(person.instagramUrl))
+      || (person.tiktokUrl && !isValidUrl(person.tiktokUrl))
+      || (person.whatsappUrl && !isValidUrl(person.whatsappUrl))
     ))) {
-      return "Periksa kembali format email dan tautan Instagram.";
+      return "Periksa kembali format Gmail dan tautan Instagram, TikTok, atau WhatsApp.";
     }
     if (!form.participantType || !form.targetParticipants.length || !form.mode) {
       return "Pilih jenis peserta, minimal satu target peserta, dan mode pelaksanaan.";
@@ -553,7 +712,7 @@ export default function CompetitionForm({
       || parseTeamMemberRange(form.teamMemberRange).minimum < 1
       || parseTeamMemberRange(form.teamMemberRange).maximum < parseTeamMemberRange(form.teamMemberRange).minimum
     )) {
-      return "Isi rentang jumlah anggota tim dengan benar, contoh 3-5.";
+      return "Isi jumlah anggota tim dengan benar, contoh 5 atau 3-5.";
     }
     if (form.mode !== "Online" && !form.location.trim()) {
       return "Lokasi wajib diisi untuk lomba Offline atau Hybrid.";
@@ -813,6 +972,9 @@ export default function CompetitionForm({
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "*")} aria-label="Miringkan">
           <Italic size={15} />
         </button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "[[justify]]", "[[/justify]]")} aria-label="Rata kiri-kanan">
+          <AlignJustify size={15} />
+        </button>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatList(fieldKey, fieldRef)} aria-label="Buat daftar berpoin">
           <List size={15} />
         </button>
@@ -997,7 +1159,47 @@ export default function CompetitionForm({
               <legend>Informasi penyelenggara</legend>
               <div className="competition-organizer-grid">
                 <label>Nama penyelenggara <span className="required-mark">*</span>
-                  <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
+                  <div className="competition-organizer-autocomplete">
+                    <input
+                      value={form.organizer}
+                      onFocus={() => setOrganizerSuggestionsOpen(true)}
+                      onBlur={(event) => {
+                        if (!event.currentTarget.closest(".competition-organizer-autocomplete")?.contains(event.relatedTarget)) {
+                          setOrganizerSuggestionsOpen(false);
+                        }
+                      }}
+                      onChange={(event) => {
+                        update("organizer")(event);
+                        setOrganizerSuggestionsOpen(true);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && organizerSuggestionsOpen && organizerSuggestions.length) {
+                          event.preventDefault();
+                          selectOrganizer(organizerSuggestions[0].name);
+                        }
+                      }}
+                      maxLength={160}
+                      autoComplete="off"
+                      aria-autocomplete="list"
+                      aria-expanded={organizerSuggestionsOpen}
+                      aria-controls="competition-organizer-suggestions"
+                      required
+                    />
+                    {organizerSuggestionsOpen && (organizerSuggestions.length > 0 || showCustomOrganizer) && (
+                      <div id="competition-organizer-suggestions" className="competition-autocomplete-list" role="listbox" aria-label="Rekomendasi penyelenggara">
+                        {organizerSuggestions.map(({ name, count }) => (
+                          <button type="button" role="option" aria-selected="false" key={name} onMouseDown={(event) => event.preventDefault()} onClick={() => selectOrganizer(name)}>
+                            <span>{name}</span><small>{count} pengguna</small>
+                          </button>
+                        ))}
+                        {showCustomOrganizer && (
+                          <button type="button" className="competition-autocomplete-create" onMouseDown={(event) => event.preventDefault()} onClick={() => selectOrganizer(form.organizer.trim())}>
+                            Gunakan nama “{form.organizer.trim()}”
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </label>
                 <label>Asal / jenis penyelenggara <span className="required-mark">*</span>
                   <select
@@ -1028,40 +1230,78 @@ export default function CompetitionForm({
                 {competitionCategoryOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
+            <label>Tipe lomba <span className="required-mark">*</span>
+              <select
+                value={form.competitionType}
+                onChange={(event) => updateForm((current) => ({
+                  ...current,
+                  competitionType: event.target.value,
+                  customCompetitionType: event.target.value === "Lainnya" ? current.customCompetitionType : "",
+                }))}
+                required
+              >
+                <option value="">Pilih tipe lomba</option>
+                {competitionTypeOptions.map((option) => <option key={option}>{option}</option>)}
+              </select>
+            </label>
+            {form.competitionType === "Lainnya" && <label>Tipe lomba lainnya <span className="required-mark">*</span>
+              <input
+                value={form.customCompetitionType}
+                onChange={update("customCompetitionType")}
+                maxLength={80}
+                placeholder="Contoh: cerdas cermat"
+                required
+              />
+            </label>}
             <div className="competition-form-field">
               <div className="competition-field-heading">
-                <label htmlFor="competition-field">{form.field === "Lainnya" ? "Bidang lomba lainnya" : "Bidang lomba"} <span className="required-mark">*</span></label>
-                {form.field === "Lainnya" && <button
-                  className="button button-outline button-small"
-                  type="button"
-                  onClick={() => updateForm((current) => ({ ...current, field: "", customField: "" }))}
-                >
-                  <List size={14} /> Pilih dari daftar
-                </button>}
+                <label htmlFor="competition-field">Bidang lomba <span className="required-mark">*</span></label>
               </div>
-              {form.field === "Lainnya" ? (
-                <input
-                  id="competition-field"
-                  value={form.customField}
-                  onChange={update("customField")}
-                  maxLength={80}
-                  placeholder="Ketik bidang lomba lainnya"
-                  required
-                />
-              ) : (
-                <select
-                  id="competition-field"
-                  value={form.field}
-                  onChange={(event) => updateForm((current) => ({
+              <input
+                id="competition-field"
+                value={fieldInputValue}
+                onFocus={() => setFieldSuggestionsOpen(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.closest(".competition-form-field")?.contains(event.relatedTarget)) {
+                    setFieldSuggestionsOpen(false);
+                  }
+                }}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const builtInField = competitionFieldOptions.find((field) => (
+                    field !== "Lainnya" && field.toLocaleLowerCase("id-ID") === value.trim().toLocaleLowerCase("id-ID")
+                  ));
+                  updateForm((current) => ({
                     ...current,
-                    field: event.target.value,
-                    customField: event.target.value === "Lainnya" ? current.customField : "",
-                  }))}
-                  required
-                >
-                  <option value="">Pilih bidang</option>
-                  {competitionFieldOptions.map((option) => <option key={option}>{option}</option>)}
-                </select>
+                    field: builtInField || "Lainnya",
+                    customField: builtInField ? "" : value,
+                  }));
+                  setFieldSuggestionsOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && fieldSuggestionsOpen && fieldSuggestions.length) {
+                    event.preventDefault();
+                    selectCompetitionField(fieldSuggestions[0].field);
+                  }
+                }}
+                maxLength={80}
+                placeholder="Ketik bidang lomba"
+                autoComplete="off"
+                required
+              />
+              {fieldSuggestionsOpen && (fieldSuggestions.length > 0 || showCustomField) && (
+                <div className="competition-autocomplete-list" role="listbox" aria-label="Rekomendasi bidang lomba">
+                  {fieldSuggestions.map(({ field, count }) => (
+                    <button type="button" role="option" aria-selected="false" key={field} onMouseDown={(event) => event.preventDefault()} onClick={() => selectCompetitionField(field)}>
+                      <span>{field}</span><small>{count} pengguna</small>
+                    </button>
+                  ))}
+                  {showCustomField && (
+                    <button type="button" className="competition-autocomplete-create" onMouseDown={(event) => event.preventDefault()} onClick={() => selectCompetitionField(fieldInputValue.trim())}>
+                      Gunakan bidang “{fieldInputValue.trim()}”
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <label>Tingkat lomba <span className="required-mark">*</span>
@@ -1076,7 +1316,7 @@ export default function CompetitionForm({
             </label>
             <section className="competition-contact-people competition-form-full" aria-label="Kontak penyelenggara">
               <div className="competition-repeat-heading">
-                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Isi nama dan nomor telepon untuk setiap kontak.</span></div>
+                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Isi nama dan nomor telepon, lalu pilih kanal kontak tambahan.</span></div>
                 <button className="button button-outline button-small" type="button" onClick={addContactPerson}>Tambah kontak</button>
               </div>
               {form.contactPeople.map((person, index) => (
@@ -1095,15 +1335,46 @@ export default function CompetitionForm({
                         <input type="tel" inputMode="numeric" value={person.phone} onChange={(event) => updateContactPerson(index, "phone", event.target.value)} maxLength={13} pattern="[2-9][0-9]{6,12}" title="Masukkan nomor Indonesia tanpa +62, misalnya 8123456789" placeholder="8123456789" required />
                       </span>
                     </label>
-                    <label>Instagram username <span className="optional-mark">(opsional)</span>
-                      <input value={person.instagramUsername} onChange={(event) => updateContactPerson(index, "instagramUsername", event.target.value)} maxLength={30} placeholder="@username" />
-                    </label>
-                    <label>Link Instagram <span className="optional-mark">(opsional)</span>
-                      <input type="url" value={person.instagramUrl} onChange={(event) => updateContactPerson(index, "instagramUrl", event.target.value)} placeholder="https://instagram.com/username" />
-                    </label>
-                    <label>Email / Gmail <span className="optional-mark">(opsional)</span>
+                    <div className="competition-contact-platforms" role="group" aria-label={`Pilih kanal kontak untuk ${person.name || `kontak ${index + 1}`}`}>
+                      {contactPlatforms.map(({ id, label, Icon }) => {
+                        const active = person.contactMethods.includes(id);
+                        return (
+                          <button
+                            className={`competition-contact-platform-toggle${active ? " is-active" : ""}`}
+                            data-platform={id}
+                            type="button"
+                            aria-pressed={active}
+                            key={id}
+                            onClick={() => toggleContactMethod(index, id)}
+                          >
+                            <Icon size={16} aria-hidden="true" />
+                            <span>{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {person.contactMethods.includes("instagram") && <>
+                      <label>Username Instagram <span className="optional-mark">(opsional)</span>
+                        <input value={person.instagramUsername} onChange={(event) => updateContactPerson(index, "instagramUsername", event.target.value)} maxLength={30} placeholder="@username" />
+                      </label>
+                      <label>Link Instagram <span className="optional-mark">(opsional)</span>
+                        <input type="url" value={person.instagramUrl} onChange={(event) => updateContactPerson(index, "instagramUrl", event.target.value)} placeholder="https://instagram.com/username" />
+                      </label>
+                    </>}
+                    {person.contactMethods.includes("gmail") && <label>Alamat Gmail <span className="optional-mark">(opsional)</span>
                       <input type="email" value={person.email} onChange={(event) => updateContactPerson(index, "email", event.target.value)} maxLength={254} placeholder="nama@gmail.com" />
-                    </label>
+                    </label>}
+                    {person.contactMethods.includes("tiktok") && <>
+                      <label>Username TikTok <span className="optional-mark">(opsional)</span>
+                        <input value={person.tiktokUsername} onChange={(event) => updateContactPerson(index, "tiktokUsername", event.target.value)} maxLength={30} placeholder="@username" />
+                      </label>
+                      <label>Link TikTok <span className="optional-mark">(opsional)</span>
+                        <input type="url" value={person.tiktokUrl} onChange={(event) => updateContactPerson(index, "tiktokUrl", event.target.value)} placeholder="https://tiktok.com/@username" />
+                      </label>
+                    </>}
+                    {person.contactMethods.includes("whatsapp") && <label>Link WhatsApp <span className="optional-mark">(opsional)</span>
+                      <input type="url" value={person.whatsappUrl} onChange={(event) => updateContactPerson(index, "whatsappUrl", event.target.value)} placeholder="https://wa.me/628123456789" />
+                    </label>}
                   </div>
                 </fieldset>
               ))}
@@ -1140,8 +1411,10 @@ export default function CompetitionForm({
               <p className="competition-form-helper">Pilih rekomendasi atau ketik tag sendiri, lalu tekan Enter.</p>
               {(keywordSuggestions.length > 0 || showCustomKeyword) && (
                 <div className="competition-keyword-suggestions" aria-label="Rekomendasi tag">
-                  {keywordSuggestions.map((tag) => (
-                    <button type="button" key={tag} onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(tag)}>{tag}</button>
+                    {keywordSuggestions.map(({ tag, count }) => (
+                      <button type="button" key={tag} onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(tag)}>
+                        {tag}<small>{count} pengguna</small>
+                      </button>
                   ))}
                   {showCustomKeyword && (
                     <button type="button" className="competition-keyword-create" onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(form.keywordInput)}>
@@ -1171,11 +1444,11 @@ export default function CompetitionForm({
                 {participantTypeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label>Rentang jumlah anggota{form.participantType === "Tim" && <span className="required-mark"> *</span>}
+            <label>Jumlah anggota tim{form.participantType === "Tim" && <span className="required-mark"> *</span>}
               <input
                 value={form.teamMemberRange}
                 onChange={update("teamMemberRange")}
-                placeholder="Contoh: 3-5"
+                placeholder="Contoh: 5 atau 3-5"
                 maxLength={9}
                 disabled={form.participantType !== "Tim"}
                 required={form.participantType === "Tim"}

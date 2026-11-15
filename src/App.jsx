@@ -728,6 +728,7 @@ export default function App() {
       navigate={navigate}
       onLogout={logout}
       suggestedKeywords={keywordSuggestions}
+      suggestedCompetitions={competitions}
       formPersistenceKey={`lombalink.competition-form.v1.${account.id}.${new URLSearchParams(route.slice(route.indexOf("?") + 1)).get("edit") || "new"}`}
       onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)}
       theme={theme}

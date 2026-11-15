@@ -1,5 +1,18 @@
 export const educationOptions = ["SMP", "SMA", "Kuliah", "Umum"];
 export const competitionCategoryOptions = ["Akademik", "Non-akademik"];
+export const competitionTypeOptions = [
+  "Esai / karya tulis",
+  "Ujian / tes tertulis",
+  "Proyek / riset",
+  "Olimpiade / kuis",
+  "Debat",
+  "Presentasi / pitching",
+  "Karya / prototipe",
+  "Desain / kreativitas",
+  "Hackathon",
+  "Pertunjukan / penampilan",
+  "Lainnya",
+];
 export const competitionFieldOptions = [
   "Teknologi",
   "Sains",
@@ -14,6 +27,46 @@ export const competitionFieldOptions = [
 export const participantTypeOptions = ["Individu", "Tim"];
 export const targetParticipantOptions = ["SD / MI", "SMP / MTs", "SMA / SMK / MA", "Mahasiswa", "Umum"];
 export const scopeOptions = ["Kabupaten/Kota", "Provinsi", "Nasional", "Internasional"];
+export const provinceOptions = [
+  "Aceh",
+  "Bali",
+  "Banten",
+  "Bengkulu",
+  "DI Yogyakarta",
+  "DKI Jakarta",
+  "Gorontalo",
+  "Jambi",
+  "Jawa Barat",
+  "Jawa Tengah",
+  "Jawa Timur",
+  "Kalimantan Barat",
+  "Kalimantan Selatan",
+  "Kalimantan Tengah",
+  "Kalimantan Timur",
+  "Kalimantan Utara",
+  "Kepulauan Bangka Belitung",
+  "Kepulauan Riau",
+  "Lampung",
+  "Maluku",
+  "Maluku Utara",
+  "Nusa Tenggara Barat",
+  "Nusa Tenggara Timur",
+  "Papua",
+  "Papua Barat",
+  "Papua Barat Daya",
+  "Papua Pegunungan",
+  "Papua Selatan",
+  "Papua Tengah",
+  "Riau",
+  "Sulawesi Barat",
+  "Sulawesi Selatan",
+  "Sulawesi Tengah",
+  "Sulawesi Tenggara",
+  "Sulawesi Utara",
+  "Sumatera Barat",
+  "Sumatera Selatan",
+  "Sumatera Utara",
+];
 export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "Komunitas"];
 export const organizerLevelOptions = [
   "SD",
@@ -31,6 +84,7 @@ export const competitionModeOptions = ["Online", "Offline", "Hybrid"];
 const validAccountTypes = ["participant", "organizer"];
 const createCompetitionTagline = (description) => {
   const summary = String(description || "")
+    .replace(/\[\[\/?justify\]\]/g, "")
     .replace(/[*_`>#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -154,6 +208,7 @@ export function accountFromUser(user, profileAccountType) {
 export function competitionFromRow(row) {
   return {
     id: row.id,
+    submitterId: row.submitted_by || "",
     title: row.title,
     organizer: row.organizer,
     organizerType: row.organizer_type,
@@ -254,13 +309,17 @@ export function competitionFieldsFromForm(form) {
     email: person.email.trim() || "",
     instagramUsername: person.instagramUsername.trim().replace(/^@+/, ""),
     instagramUrl: person.instagramUrl.trim(),
+    tiktokUsername: person.tiktokUsername.trim().replace(/^@+/, ""),
+    tiktokUrl: person.tiktokUrl.trim(),
+    whatsappUrl: person.whatsappUrl.trim(),
+    contactMethods: [...person.contactMethods],
   }));
   const primaryContact = contactPeople[0] || {
     name: "",
     phone: "",
     email: "",
   };
-  const teamMemberRange = String(form.teamMemberRange || "").match(/^\s*(\d+)\s*[-–]\s*(\d+)\s*$/);
+  const teamMemberRange = String(form.teamMemberRange || "").match(/^\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*$/);
   const governmentOrganizerLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar", "Kemdikti"];
   const organizerType = form.organizerType || (
     governmentOrganizerLevels.includes(form.organizerLevel)
@@ -293,11 +352,13 @@ export function competitionFieldsFromForm(form) {
     competition_category: form.competitionCategory,
     participant_type: form.participantType,
     team_min_members: form.participantType === "Tim" && teamMemberRange ? Number(teamMemberRange[1]) : null,
-    team_max_members: form.participantType === "Tim" && teamMemberRange ? Number(teamMemberRange[2]) : null,
+    team_max_members: form.participantType === "Tim" && teamMemberRange ? Number(teamMemberRange[2] || teamMemberRange[1]) : null,
     target_participants: form.targetParticipants,
     requirements: form.requirements.trim(),
     keywords: form.keywords,
-    competition_type: form.legacyCompetitionType || "Lainnya",
+    competition_type: form.competitionType === "Lainnya"
+      ? form.customCompetitionType.trim()
+      : form.competitionType || "Lainnya",
     mode: form.mode,
     location: form.mode === "Online" ? "Online" : form.location.trim(),
     fee_type: firstBatch?.feeType || "Gratis",
@@ -376,5 +437,5 @@ export function isProfileComplete(account) {
 export function formatDate(dateString) {
   if (!dateString) return "Segera";
   const date = new Date(`${dateString}T00:00:00`);
-  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(date);
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(date);
 }

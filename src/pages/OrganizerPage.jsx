@@ -54,6 +54,7 @@ export default function OrganizerPage({
   navigate,
   onLogout,
   suggestedKeywords = [],
+  suggestedCompetitions = [],
   formPersistenceKey,
   onCompetitionsChanged,
   theme,
@@ -355,6 +356,7 @@ export default function OrganizerPage({
                   key={editId || "new"}
                   initialCompetition={editingCompetition}
                   suggestedKeywords={competitionKeywordSuggestions}
+                  suggestedCompetitions={suggestedCompetitions}
                   persistenceKey={formPersistenceKey}
                   onSubmit={saveCompetition}
                   onCancel={() => navigate("/lomba/manajemen")}
