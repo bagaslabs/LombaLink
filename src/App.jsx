@@ -59,6 +59,7 @@ export default function App() {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
   const [account, setAccount] = useState(null);
+  const authAccountIdRef = useRef(null);
   const [accountRoleReady, setAccountRoleReady] = useState(false);
   const [accountRoleRefreshKey, setAccountRoleRefreshKey] = useState(0);
   const [supabaseClient, setSupabaseClient] = useState(null);
@@ -114,9 +115,28 @@ export default function App() {
 
       const { data: { subscription: authSubscription } } = client.auth.onAuthStateChange((event, session) => {
         if (!active) return;
-        setAccount(accountFromUser(session?.user));
-        setAccountRoleReady(!session?.user);
-        if (session?.user) setAccountRoleRefreshKey((current) => current + 1);
+        const user = session?.user ?? null;
+        const nextAccount = accountFromUser(user);
+        const nextAccountId = nextAccount?.id ?? null;
+        if (authAccountIdRef.current !== nextAccountId) {
+          authAccountIdRef.current = nextAccountId;
+          setAccount(nextAccount);
+          setAccountRoleReady(!nextAccount);
+          if (nextAccount) setAccountRoleRefreshKey((current) => current + 1);
+        } else if (nextAccount) {
+          setAccount((current) => {
+            if (current?.id !== nextAccount.id) return nextAccount;
+            return {
+              ...current,
+              ...accountFromUser(user, current.accountType),
+              accountType: current.accountType,
+              role: current.role,
+            };
+          });
+        } else {
+          setAccount(null);
+          setAccountRoleReady(true);
+        }
         setAuthReady(true);
         if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") setAuthError("");
       });
@@ -125,9 +145,12 @@ export default function App() {
       return client.auth.getSession().then(({ data, error }) => {
         if (!active) return;
         if (error) setAuthError(authErrorMessage(error, "Sesi akun tidak dapat dimuat."));
-        setAccount(accountFromUser(data.session?.user));
-        setAccountRoleReady(!data.session?.user);
-        if (data.session?.user) setAccountRoleRefreshKey((current) => current + 1);
+        const user = data.session?.user ?? null;
+        const nextAccount = accountFromUser(user);
+        authAccountIdRef.current = nextAccount?.id ?? null;
+        setAccount(nextAccount);
+        setAccountRoleReady(!nextAccount);
+        if (nextAccount) setAccountRoleRefreshKey((current) => current + 1);
         setAuthReady(true);
       });
     }).catch((error) => {
