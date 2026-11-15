@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { CompetitionCard, CompetitionModal, SearchPanel } from "../components.jsx";
+import { CompetitionCard, SearchPanel } from "../components.jsx";
 
 const emptyFilters = { keyword: "", education: "", category: "", scope: "", organizerType: "", location: "" };
 
@@ -8,21 +8,18 @@ export default function SearchPage({
   account,
   navigate,
   onRequireAccount,
-  onTrackEvent,
-  onReport,
   competitions,
   competitionsLoading,
   competitionsError,
   categoryOptions,
 }) {
   const [filters, setFilters] = useState(emptyFilters);
-  const [detail, setDetail] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
 
   const matchingCompetitions = useMemo(() => competitions.filter((item) => {
-    const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.location} ${(item.keywords || []).join(" ")}`.toLowerCase();
+    const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
     return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
-      && (!filters.education || item.education === filters.education)
+      && (!filters.education || (item.targetParticipants || []).includes(filters.education) || item.education === filters.education)
       && (!filters.category || item.category === filters.category)
       && (!filters.scope || item.scope === filters.scope)
       && (!filters.organizerType || item.organizerType === filters.organizerType)
@@ -43,7 +40,7 @@ export default function SearchPage({
   } else if (competitionsError) {
     results = <div className="empty-results" role="alert"><span><Search size={23} /></span><h3>Data lomba tidak dapat dimuat</h3><p>{competitionsError}</p></div>;
   } else if (matchingCompetitions.length) {
-    results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{matchingCompetitions.map((item) => <CompetitionCard key={item.id} item={item} onDetails={setDetail} />)}</div>;
+    results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{matchingCompetitions.map((item) => <CompetitionCard key={item.id} item={item} onDetails={() => navigate(`/kompetisi/${encodeURIComponent(item.id)}`)} />)}</div>;
   } else {
     results = <div className="empty-results"><span><Search size={23} /></span><h3>Belum ada lomba yang cocok</h3><p>Coba ubah kata kunci atau filter pencarianmu.</p><button className="button button-outline" onClick={() => setFilters(emptyFilters)}>Hapus semua filter</button></div>;
   }
@@ -67,14 +64,6 @@ export default function SearchPage({
         {!competitionsLoading && !competitionsError && <p className="discovery-result-count">{hasSearched ? `${matchingCompetitions.length} lomba ditemukan.` : `${competitions.length} lomba tersedia.`}</p>}
         {results}
       </section>
-      <CompetitionModal
-        item={detail}
-        onClose={() => setDetail(null)}
-        onTrackEvent={onTrackEvent}
-        onReport={onReport}
-        isLoggedIn={Boolean(account)}
-        onRequireLogin={() => navigate("/login")}
-      />
     </section>
   );
 }

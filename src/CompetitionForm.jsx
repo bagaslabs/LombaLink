@@ -1,21 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Archive, ArrowRight, Camera, Plus, Save, Trash2, Upload, X } from "lucide-react";
+import { Archive, ArrowRight, Bold, Camera, Italic, List, Save, Upload, X } from "lucide-react";
 import {
+  competitionCategoryOptions,
+  competitionFieldOptions,
   competitionModeOptions,
-  competitionTypeOptions,
-  educationOptions,
-  organizerLevelOptions,
-  organizerOptions,
+  participantTypeOptions,
   scopeOptions,
+  targetParticipantOptions,
 } from "./data.js";
 
-const emptyBatch = () => ({ label: "", startsAt: "", endsAt: "" });
-const emptyFeeTier = () => ({ label: "", amount: "" });
 const popularKeywordTags = ["#pramuka", "#olimpiade", "#esai", "#sains", "#teknologi", "#seni", "#debat", "#pelajar", "#gratis"];
 const formSections = [
-  { id: "competition-section-information", label: "Informasi Lomba" },
-  { id: "competition-section-schedule", label: "Jadwal & Biaya" },
-  { id: "competition-section-organizer", label: "Penyelenggara" },
+  { id: "competition-section-general", label: "Umum" },
+  { id: "competition-section-technical", label: "Spesifik" },
 ];
 
 function normalizeKeywordTag(value) {
@@ -29,43 +26,63 @@ function normalizeKeywordTag(value) {
 }
 
 function toForm(competition) {
+  const legacyTargets = {
+    SMP: ["SMP / MTs"],
+    SMA: ["SMA / SMK / MA"],
+    Kuliah: ["Mahasiswa"],
+    Umum: ["Umum"],
+  };
+  const feeTiers = Array.isArray(competition?.feeTiers) ? competition.feeTiers : [];
+  const firstBatch = competition?.registrationBatches?.[0];
   return {
     title: competition?.title || "",
     tagline: competition?.tagline || "",
     description: competition?.description || "",
-    audience: competition?.audience || "",
-    education: competition?.education || "",
-    category: competition?.category || "",
+    competitionCategory: competition?.competitionCategory || "",
+    field: competition?.category || "",
     keywords: Array.isArray(competition?.keywords)
       ? [...new Set(competition.keywords.map(normalizeKeywordTag).filter(Boolean))]
       : [],
     keywordInput: "",
     scope: competition?.scope || "",
-    competitionType: competition?.competitionType || "",
+    participantType: competition?.participantType || "",
+    targetParticipants: Array.isArray(competition?.targetParticipants) && competition.targetParticipants.length
+      ? competition.targetParticipants
+      : legacyTargets[competition?.education] || [],
     mode: competition?.mode || "",
     location: competition?.location || "",
     organizer: competition?.organizer || "",
     organizerType: competition?.organizerType || "",
     organizerLevel: competition?.organizerLevel || "",
+    contact: competition?.contact || competition?.contactPersonPhone || "",
     contactPersonName: competition?.contactPersonName || "",
     contactPersonEmail: competition?.contactPersonEmail || "",
-    contactPersonPhone: competition?.contactPersonPhone || "",
-    feeTiers: competition?.feeTiers?.length ? competition.feeTiers : [],
+    legacyCompetitionType: competition?.competitionType || "",
+    feeType: competition?.feeType || (feeTiers.length ? "Berbayar" : "Gratis"),
+    feeAmount: competition?.feeAmount || (feeTiers[0]?.amount != null ? String(feeTiers[0].amount) : ""),
+    legacyRegistrationBatches: Array.isArray(competition?.registrationBatches) ? competition.registrationBatches : [],
+    legacyRegistrationOpensAt: firstBatch?.startsAt || "",
+    legacyRegistrationDeadline: competition?.deadline || firstBatch?.endsAt || "",
+    registrationOpensAt: firstBatch?.startsAt || "",
+    registrationDeadline: competition?.deadline || firstBatch?.endsAt || "",
     prize: competition?.prize === "Informasi hadiah belum ditambahkan" ? "" : competition?.prize || "",
-    registrationBatches: competition?.registrationBatches?.length
-      ? competition.registrationBatches
-      : [{ label: "Pendaftaran", startsAt: "", endsAt: competition?.deadline || "" }],
+    requirements: competition?.requirements || "",
     eventStartDate: competition?.eventStartDate || "",
     eventEndDate: competition?.eventEndDate || "",
     registrationUrl: competition?.registrationUrl || "",
     informationUrl: competition?.informationUrl || "",
     rulebookUrl: competition?.rulebookUrl || "",
+    guidebookPath: competition?.guidebookPath || "",
+    guidebookUrl: competition?.guidebookUrl || competition?.rulebookUrl || "",
     benefits: competition?.benefits || "",
     coverPath: competition?.coverPath || "",
     coverUrl: competition?.coverUrl || "",
     coverFile: null,
     coverNeedsReselect: false,
     removeCover: false,
+    guidebookFile: null,
+    guidebookNeedsReselect: false,
+    removeGuidebook: false,
   };
 }
 
@@ -83,14 +100,45 @@ function restoreFormDraft(storageKey, competition) {
     const savedKeywords = Array.isArray(savedForm.keywords)
       ? savedForm.keywords
       : typeof savedForm.keywords === "string" ? savedForm.keywords.split(",") : [];
+    const savedBatches = Array.isArray(savedForm.registrationBatches) ? savedForm.registrationBatches : [];
+    const savedFeeTiers = Array.isArray(savedForm.feeTiers) ? savedForm.feeTiers : [];
+    const legacyTargets = {
+      SMP: ["SMP / MTs"],
+      SMA: ["SMA / SMK / MA"],
+      Kuliah: ["Mahasiswa"],
+      Umum: ["Umum"],
+    };
+    const targetParticipants = Array.isArray(savedForm.targetParticipants)
+      ? savedForm.targetParticipants
+      : targetParticipantOptions.filter((target) => String(savedForm.audience || "").includes(target)).length
+        ? targetParticipantOptions.filter((target) => String(savedForm.audience || "").includes(target))
+        : legacyTargets[savedForm.education] || [];
+    const legacyDeadline = savedBatches.reduce(
+      (latest, batch) => batch.endsAt > latest ? batch.endsAt : latest,
+      "",
+    );
 
     return {
       form: {
         ...initialForm,
         ...savedForm,
+        competitionCategory: savedForm.competitionCategory ?? "",
+        field: savedForm.field ?? savedForm.category ?? "",
+        participantType: savedForm.participantType ?? "",
+        targetParticipants,
+        contact: savedForm.contact ?? savedForm.contactPersonPhone ?? "",
+        feeType: savedForm.feeType ?? (savedFeeTiers.length ? "Berbayar" : "Gratis"),
+        feeAmount: savedForm.feeAmount ?? (savedFeeTiers[0]?.amount != null ? String(savedFeeTiers[0].amount) : ""),
+        legacyRegistrationBatches: savedForm.legacyRegistrationBatches ?? savedBatches,
+        legacyRegistrationOpensAt: savedForm.legacyRegistrationOpensAt ?? savedBatches[0]?.startsAt ?? "",
+        legacyRegistrationDeadline: savedForm.legacyRegistrationDeadline ?? legacyDeadline,
+        registrationOpensAt: savedForm.registrationOpensAt ?? savedBatches[0]?.startsAt ?? "",
+        registrationDeadline: savedForm.registrationDeadline ?? legacyDeadline,
         keywords: [...new Set(savedKeywords.map(normalizeKeywordTag).filter(Boolean))],
         coverFile: null,
         coverNeedsReselect: Boolean(savedForm.coverNeedsReselect),
+        guidebookFile: null,
+        guidebookNeedsReselect: Boolean(savedForm.guidebookNeedsReselect),
       },
       notice: "Draft formulir dipulihkan dari penyimpanan perangkat.",
     };
@@ -129,6 +177,7 @@ export default function CompetitionForm({
   const [previewUrl, setPreviewUrl] = useState("");
   const [activeSection, setActiveSection] = useState(formSections[0].id);
   const formRef = useRef(null);
+  const descriptionRef = useRef(null);
   const formStateRef = useRef(form);
   const submitButtonRef = useRef(null);
   const saveActionRef = useRef("submit");
@@ -157,10 +206,11 @@ export default function CompetitionForm({
     if (!persistenceKey) return undefined;
     const persistForm = () => {
       try {
-        const { coverFile, ...savedForm } = formStateRef.current;
+        const { coverFile, guidebookFile, ...savedForm } = formStateRef.current;
         window.localStorage.setItem(persistenceKey, JSON.stringify({
           ...savedForm,
           coverNeedsReselect: Boolean(coverFile) || savedForm.coverNeedsReselect,
+          guidebookNeedsReselect: Boolean(guidebookFile) || savedForm.guidebookNeedsReselect,
         }));
         setStorageNotice((current) => current.startsWith("Draft lokal gagal")
           ? current
@@ -223,13 +273,6 @@ export default function CompetitionForm({
     updateForm((current) => ({ ...current, [key]: value }));
   };
 
-  const updateRow = (key, index, field, value) => {
-    updateForm((current) => ({
-      ...current,
-      [key]: current[key].map((item, rowIndex) => rowIndex === index ? { ...item, [field]: value } : item),
-    }));
-  };
-
   const addKeywordTag = (value = form.keywordInput) => {
     const tag = normalizeKeywordTag(value);
     if (!tag) return;
@@ -241,38 +284,33 @@ export default function CompetitionForm({
   };
 
   const validateForm = () => {
-    if (!form.title.trim() || !form.description.trim() || !form.audience.trim()
-      || !form.education || !form.scope || !form.category.trim()
-      || !form.competitionType || !form.mode
-      || (form.mode !== "Online" && !form.location.trim())) {
-      return "Lengkapi nama, deskripsi, bidang, peserta, cakupan, tipe, mode, dan lokasi lomba.";
+    if (!form.title.trim() || !form.description.trim() || !form.organizer.trim()
+      || !form.competitionCategory || !form.field || !form.scope || !form.registrationUrl.trim()
+      || !form.contact.trim()) {
+      return "Lengkapi nama, deskripsi, penyelenggara, kategori, bidang, tingkat, link pendaftaran, dan kontak.";
     }
-
-    if (!form.registrationBatches.length) return "Tambahkan minimal satu batch pendaftaran.";
-    if (form.registrationBatches.some((batch) => (
-      !batch.label.trim() || !batch.startsAt || !batch.endsAt || batch.endsAt < batch.startsAt
-    ))) {
-      return "Lengkapi nama dan rentang tanggal setiap batch pendaftaran.";
+    if (!form.participantType || !form.targetParticipants.length || !form.mode) {
+      return "Pilih jenis peserta, minimal satu target peserta, dan mode pelaksanaan.";
     }
-    if (form.feeTiers.some((fee) => (
-      !fee.label.trim() || fee.amount === "" || !Number.isFinite(Number(fee.amount)) || Number(fee.amount) < 0
-    ))) {
-      return "Isi kategori dan biaya dengan benar, atau hapus baris biaya yang kosong.";
+    if (form.mode !== "Online" && !form.location.trim()) {
+      return "Lokasi wajib diisi untuk lomba Offline atau Hybrid.";
     }
-    if (form.eventStartDate && form.eventEndDate && form.eventEndDate < form.eventStartDate) {
-      return "Tanggal akhir pelaksanaan tidak boleh sebelum tanggal mulai.";
+    if (!form.registrationOpensAt || !form.registrationDeadline) {
+      return "Tanggal pembukaan dan deadline pendaftaran wajib diisi.";
     }
-    if (![form.registrationUrl, form.informationUrl, form.rulebookUrl].every(isValidUrl)) {
-      return "Gunakan tautan yang diawali http:// atau https://.";
+    if (form.registrationDeadline < form.registrationOpensAt) {
+      return "Deadline pendaftaran tidak boleh sebelum tanggal pembukaan.";
     }
-    if (!form.organizer.trim() || !form.organizerType || !form.organizerLevel || !form.contactPersonName.trim()) {
-      return "Lengkapi nama, jenis, tingkat penyelenggara, dan contact person.";
+    if (!isValidUrl(form.registrationUrl)) {
+      return "Link pendaftaran harus diawali http:// atau https://.";
     }
-    if (!form.contactPersonEmail.trim() && !form.contactPersonPhone.trim()) {
-      return "Isi minimal email atau nomor telepon contact person.";
+    if (form.feeType === "Berbayar" && (
+      form.feeAmount === "" || !Number.isFinite(Number(form.feeAmount)) || Number(form.feeAmount) < 0
+    )) {
+      return "Isi nominal biaya pendaftaran dengan angka nol atau lebih.";
     }
-    if (form.contactPersonEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactPersonEmail.trim())) {
-      return "Format email contact person belum valid.";
+    if (!form.coverFile && (form.removeCover || !form.coverPath)) {
+      return "Poster lomba wajib diunggah sebelum mengirim lomba.";
     }
 
     return "";
@@ -294,6 +332,57 @@ export default function CompetitionForm({
     updateForm((current) => ({ ...current, coverFile: file, coverNeedsReselect: false, removeCover: false }));
   };
 
+  const selectGuidebook = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setError("Panduan lomba harus berupa file PDF.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Ukuran file panduan maksimal 5 MB.");
+      return;
+    }
+    setError("");
+    updateForm((current) => ({
+      ...current,
+      guidebookFile: file,
+      guidebookNeedsReselect: false,
+      removeGuidebook: false,
+    }));
+  };
+
+  const formatDescription = (before, after = before) => {
+    const field = descriptionRef.current;
+    if (!field) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const selected = form.description.slice(start, end);
+    const nextDescription = `${form.description.slice(0, start)}${before}${selected || "teks"}${after}${form.description.slice(end)}`;
+    updateForm((current) => ({ ...current, description: nextDescription }));
+    requestAnimationFrame(() => {
+      field.focus();
+      const selectionStart = start + before.length;
+      field.setSelectionRange(selectionStart, selectionStart + (selected || "teks").length);
+    });
+  };
+
+  const formatDescriptionList = () => {
+    const field = descriptionRef.current;
+    if (!field) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const selected = form.description.slice(start, end) || "Item daftar";
+    const list = selected.split("\n").map((line) => `- ${line}`).join("\n");
+    const nextDescription = `${form.description.slice(0, start)}${list}${form.description.slice(end)}`;
+    updateForm((current) => ({ ...current, description: nextDescription }));
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(start, start + list.length);
+    });
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     const saveAction = saveActionRef.current;
@@ -302,10 +391,6 @@ export default function CompetitionForm({
       const validationError = validateForm();
       if (validationError) {
         setError(validationError);
-        return;
-      }
-      if (!isValidUrl(form.registrationUrl) || !isValidUrl(form.informationUrl) || !isValidUrl(form.rulebookUrl)) {
-        setError("Gunakan tautan yang diawali http:// atau https://.");
         return;
       }
     }
@@ -317,14 +402,8 @@ export default function CompetitionForm({
       saveAction,
       keywords: [...new Set([...form.keywords, normalizeKeywordTag(form.keywordInput)].filter(Boolean))],
       keywordInput: "",
-      feeTiers: form.feeTiers
-        .filter((fee) => fee.label.trim() && fee.amount !== "")
-        .map((fee) => ({ label: fee.label.trim(), amount: Number(fee.amount) })),
-      registrationBatches: form.registrationBatches.map((batch) => ({
-        label: batch.label.trim(),
-        startsAt: batch.startsAt,
-        endsAt: batch.endsAt,
-      })),
+      targetParticipants: [...form.targetParticipants],
+      feeAmount: form.feeType === "Berbayar" ? Number(form.feeAmount) : "",
     };
 
     try {
@@ -375,53 +454,87 @@ export default function CompetitionForm({
             </button>
           ))}
         </nav>
-        {storageNotice && <p className="competition-form-helper" role="status">{storageNotice}{form.coverNeedsReselect && " Gambar yang belum tersimpan perlu dipilih ulang."}</p>}
+        {storageNotice && <p className="competition-form-helper" role="status">
+          {storageNotice}
+          {(form.coverNeedsReselect || form.guidebookNeedsReselect) && " File yang belum tersimpan perlu dipilih ulang."}
+        </p>}
 
-        <section id="competition-section-information" data-form-section className="competition-form-section" aria-labelledby="competition-section-information-heading">
+        <section id="competition-section-general" data-form-section className="competition-form-section" aria-labelledby="competition-section-general-heading">
           <div className="competition-form-section-heading">
             <span>01</span>
-            <div><h3 id="competition-section-information-heading">Informasi lomba</h3><p>Kenalkan lomba dan siapa saja yang bisa mengikuti.</p></div>
+            <div><h3 id="competition-section-general-heading">Informasi umum</h3><p>Informasi utama, klasifikasi, dan kontak lomba.</p></div>
           </div>
           <div className="competition-form-grid">
             <div className="competition-cover-picker">
-              <div className="competition-cover-preview">
-                {previewUrl || (!form.removeCover && form.coverUrl)
-                  ? <img src={previewUrl || form.coverUrl} alt="Pratinjau gambar lomba" />
-                  : <Camera size={24} />}
+              <div className="competition-cover-column">
+                <div className="competition-cover-preview">
+                  {previewUrl || (!form.removeCover && form.coverUrl)
+                    ? <img src={previewUrl || form.coverUrl} alt="Pratinjau poster lomba" />
+                    : <Camera size={24} />}
+                </div>
+                <div className="competition-cover-controls">
+                  <label className="button button-outline button-small" htmlFor="competition-cover"><Upload size={15} /> Unggah poster <span className="required-mark">*</span></label>
+                  <input id="competition-cover" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectCover} />
+                  {(previewUrl || (!form.removeCover && form.coverUrl)) && (
+                    <button
+                      type="button"
+                      className="competition-remove-cover"
+                      aria-label="Hapus poster lomba"
+                      onClick={() => updateForm((current) => ({ ...current, coverFile: null, coverNeedsReselect: false, removeCover: true }))}
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                  <p>Wajib · JPG, PNG, atau WebP · maksimal 5 MB · disarankan poster A4 vertikal.</p>
+                </div>
               </div>
-              <div>
-                <label className="button button-outline button-small" htmlFor="competition-cover"><Upload size={15} /> Tambahkan gambar</label>
-                <input id="competition-cover" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectCover} />
-                <p>Poster vertikal rasio 2:3 · contoh 1080 × 1620 px · JPG, PNG, atau WebP · maksimal 5 MB · opsional</p>
+              <div className="competition-cover-fields">
+                <label htmlFor="competition-title">Nama lomba <span className="required-mark">*</span>
+                  <input id="competition-title" value={form.title} onChange={update("title")} maxLength={160} required />
+                </label>
+                <label htmlFor="competition-tagline">Deskripsi singkat / tagline <span className="optional-mark">(opsional)</span>
+                  <input id="competition-tagline" value={form.tagline} onChange={update("tagline")} maxLength={180} placeholder="Kalimat singkat yang menggambarkan lomba" />
+                </label>
               </div>
-              {(previewUrl || (!form.removeCover && form.coverUrl)) && (
-                <button
-                  type="button"
-                  className="competition-remove-cover"
-                  aria-label="Hapus gambar lomba"
-                  onClick={() => updateForm((current) => ({ ...current, coverFile: null, coverNeedsReselect: false, removeCover: true }))}
-                >
-                  <X size={15} />
-                </button>
-              )}
             </div>
-            <label className="competition-form-full">Nama lomba <span className="required-mark">*</span>
-              <input value={form.title} onChange={update("title")} maxLength={160} required />
+            <label className="competition-form-full">Nama penyelenggara <span className="required-mark">*</span>
+              <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
             </label>
-            <label className="competition-form-full">Tagline <span className="optional-mark">(opsional)</span>
-              <input value={form.tagline} onChange={update("tagline")} maxLength={180} placeholder="Kalimat singkat yang menggambarkan lomba" />
-            </label>
-            <label className="competition-form-full">Deskripsi <span className="required-mark">*</span>
-              <textarea rows="5" value={form.description} onChange={update("description")} maxLength={5000} required />
+            <div className="competition-rich-editor competition-form-full">
+              <label htmlFor="competition-description">Deskripsi lomba <span className="required-mark">*</span></label>
+              <div className="competition-rich-toolbar" aria-label="Format deskripsi">
+                <button type="button" aria-label="Tebalkan teks terpilih" title="Tebal" onClick={() => formatDescription("**")}><Bold size={15} /></button>
+                <button type="button" aria-label="Miringkan teks terpilih" title="Miring" onClick={() => formatDescription("*")}><Italic size={15} /></button>
+                <button type="button" aria-label="Buat daftar" title="Daftar" onClick={formatDescriptionList}><List size={15} /></button>
+                <span>Pilih teks lalu gunakan format. Baris baru dan daftar akan ditampilkan di detail lomba.</span>
+              </div>
+              <textarea id="competition-description" ref={descriptionRef} rows="6" value={form.description} onChange={update("description")} maxLength={5000} required />
+            </div>
+            <label>Kategori lomba <span className="required-mark">*</span>
+              <select value={form.competitionCategory} onChange={update("competitionCategory")} required>
+                <option value="">Pilih kategori</option>
+                {competitionCategoryOptions.map((option) => <option key={option}>{option}</option>)}
+              </select>
             </label>
             <label>Bidang lomba <span className="required-mark">*</span>
-              <input value={form.category} onChange={update("category")} maxLength={80} placeholder="Contoh: Sains, teknologi, seni" required />
-            </label>
-            <label>Tipe lomba <span className="required-mark">*</span>
-              <select value={form.competitionType} onChange={update("competitionType")} required>
-                <option value="">Pilih tipe lomba</option>
-                {competitionTypeOptions.map((option) => <option key={option}>{option}</option>)}
+              <select value={form.field} onChange={update("field")} required>
+                <option value="">Pilih bidang</option>
+                {form.field && !competitionFieldOptions.includes(form.field) && <option value={form.field}>{form.field} (data tersimpan)</option>}
+                {competitionFieldOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
+            </label>
+            <label>Tingkat lomba <span className="required-mark">*</span>
+              <select value={form.scope} onChange={update("scope")} required>
+                <option value="">Pilih tingkat</option>
+                {form.scope && !scopeOptions.includes(form.scope) && <option value={form.scope}>{form.scope} (data tersimpan)</option>}
+                {scopeOptions.map((option) => <option key={option}>{option}</option>)}
+              </select>
+            </label>
+            <label>Link pendaftaran <span className="required-mark">*</span>
+              <input type="url" value={form.registrationUrl} onChange={update("registrationUrl")} placeholder="https://" required />
+            </label>
+            <label>Kontak penyelenggara / WhatsApp <span className="required-mark">*</span>
+              <input value={form.contact} onChange={update("contact")} maxLength={160} placeholder="Nomor WhatsApp atau kontak yang bisa dihubungi" required />
             </label>
             <div className="competition-form-full competition-keyword-field">
               <label htmlFor="competition-keyword-input">Tag lomba <span className="optional-mark">(opsional)</span></label>
@@ -466,121 +579,110 @@ export default function CompetitionForm({
                 </div>
               )}
             </div>
-            <label>Untuk siapa <span className="required-mark">*</span>
-              <textarea rows="3" value={form.audience} onChange={update("audience")} maxLength={500} placeholder="Contoh: siswa SMA/SMK sederajat" required />
-            </label>
-            <label>Jenjang <span className="required-mark">*</span>
-              <select value={form.education} onChange={update("education")} required>
-                <option value="">Pilih jenjang</option>
-                {educationOptions.map((option) => <option key={option}>{option}</option>)}
+          </div>
+        </section>
+
+        <section id="competition-section-technical" data-form-section className="competition-form-section" aria-labelledby="competition-section-technical-heading">
+          <div className="competition-form-section-heading">
+            <span>02</span>
+            <div><h3 id="competition-section-technical-heading">Detail teknis kompetisi</h3><p>Peserta, jadwal, biaya, pelaksanaan, dan dokumen pendukung.</p></div>
+          </div>
+          <div className="competition-form-grid">
+            <label>Jenis peserta <span className="required-mark">*</span>
+              <select value={form.participantType} onChange={update("participantType")} required>
+                <option value="">Pilih jenis peserta</option>
+                {participantTypeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label>Tingkat lomba <span className="required-mark">*</span>
-              <select value={form.scope} onChange={update("scope")} required>
-                <option value="">Pilih tingkat</option>
-                {scopeOptions.map((option) => <option key={option}>{option}</option>)}
+            <fieldset className="competition-target-fieldset">
+              <legend>Target peserta <span className="required-mark">*</span></legend>
+              <div className="competition-target-options">
+                {targetParticipantOptions.map((option) => (
+                  <label key={option}>
+                    <input
+                      type="checkbox"
+                      checked={form.targetParticipants.includes(option)}
+                      onChange={(event) => updateForm((current) => ({
+                        ...current,
+                        targetParticipants: event.target.checked
+                          ? [...current.targetParticipants, option]
+                          : current.targetParticipants.filter((target) => target !== option),
+                      }))}
+                    />
+                    {option}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label>Biaya pendaftaran <span className="required-mark">*</span>
+              <select value={form.feeType} onChange={update("feeType")} required>
+                <option value="">Pilih biaya</option>
+                <option>Gratis</option>
+                <option>Berbayar</option>
               </select>
             </label>
-            <label>Mode lomba <span className="required-mark">*</span>
-              <select value={form.mode} onChange={update("mode")} required>
+            {form.feeType === "Berbayar" && <label>Nominal biaya (Rp) <span className="required-mark">*</span>
+              <input type="number" min="0" step="1000" value={form.feeAmount} onChange={update("feeAmount")} placeholder="Contoh: 50000" required />
+            </label>}
+            <label>Tanggal pembukaan pendaftaran <span className="required-mark">*</span>
+              <input type="date" value={form.registrationOpensAt} onChange={update("registrationOpensAt")} required />
+            </label>
+            <label>Deadline pendaftaran <span className="required-mark">*</span>
+              <input type="date" value={form.registrationDeadline} onChange={update("registrationDeadline")} min={form.registrationOpensAt || undefined} required />
+            </label>
+            <label>Tanggal pelaksanaan <span className="optional-mark">(opsional)</span>
+              <input type="date" value={form.eventStartDate} onChange={update("eventStartDate")} />
+            </label>
+            <label>Mode pelaksanaan <span className="required-mark">*</span>
+              <select
+                value={form.mode}
+                onChange={(event) => {
+                  const mode = event.target.value;
+                  updateForm((current) => ({
+                    ...current,
+                    mode,
+                    location: mode === "Online" && current.location === "Online" ? "" : current.location,
+                  }));
+                }}
+                required
+              >
                 <option value="">Pilih mode</option>
                 {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            {form.mode !== "Online" && <label>Lokasi <span className="required-mark">*</span>
+            {(form.mode === "Offline" || form.mode === "Hybrid") && <label>Lokasi <span className="required-mark">*</span>
               <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />
             </label>}
-          </div>
-        </section>
-
-        <section id="competition-section-schedule" data-form-section className="competition-form-section" aria-labelledby="competition-section-schedule-heading">
-          <div className="competition-form-section-heading">
-            <span>02</span>
-            <div><h3 id="competition-section-schedule-heading">Jadwal & biaya</h3><p>Atur pendaftaran, biaya, pelaksanaan, dan tautan informasi.</p></div>
-          </div>
-          <div className="competition-form-grid">
-            <div className="competition-repeat-section competition-form-full">
-              <div className="competition-repeat-heading">
-                <div><strong>Batch pendaftaran <span className="required-mark">*</span></strong><span>Wajib minimal satu batch; batas akhir lomba mengikuti batch terakhir.</span></div>
-                <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => ({ ...current, registrationBatches: [...current.registrationBatches, emptyBatch()] }))}><Plus size={14} /> Tambah batch</button>
+            <label>Persyaratan lomba <span className="optional-mark">(opsional)</span>
+              <textarea rows="4" value={form.requirements} onChange={update("requirements")} maxLength={3000} />
+            </label>
+            <label>Hadiah / penghargaan <span className="optional-mark">(opsional)</span>
+              <textarea rows="4" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
+            </label>
+            <div className="competition-guidebook-field competition-form-full">
+              <label htmlFor="competition-guidebook">Panduan lomba / Juknis <span className="optional-mark">(opsional)</span></label>
+              <div className="competition-guidebook-controls">
+                <label className="button button-outline button-small" htmlFor="competition-guidebook"><Upload size={15} /> Unggah PDF</label>
+                <input id="competition-guidebook" className="sr-only" type="file" accept="application/pdf,.pdf" onChange={selectGuidebook} />
+                {(form.guidebookFile || (!form.removeGuidebook && form.guidebookUrl)) && (
+                  <>
+                    <span>{form.guidebookFile?.name || "Panduan tersimpan"}</span>
+                    <button
+                      type="button"
+                      className="competition-remove-cover"
+                      aria-label="Hapus panduan lomba"
+                      onClick={() => updateForm((current) => ({
+                        ...current,
+                        guidebookFile: null,
+                        guidebookNeedsReselect: false,
+                        removeGuidebook: true,
+                      }))}
+                    ><X size={15} /></button>
+                  </>
+                )}
               </div>
-              {form.registrationBatches.map((batch, index) => (
-                <div className="competition-repeat-row" key={`batch-${index}`}>
-                  <label>Nama batch <span className="required-mark">*</span><input value={batch.label} onChange={(event) => updateRow("registrationBatches", index, "label", event.target.value)} placeholder={`Batch ${index + 1}`} required /></label>
-                  <label>Mulai <span className="required-mark">*</span><input type="date" value={batch.startsAt} onChange={(event) => updateRow("registrationBatches", index, "startsAt", event.target.value)} required /></label>
-                  <label>Akhir <span className="required-mark">*</span><input type="date" value={batch.endsAt} onChange={(event) => updateRow("registrationBatches", index, "endsAt", event.target.value)} required /></label>
-                  {form.registrationBatches.length > 1 && <button className="competition-repeat-remove" type="button" aria-label={`Hapus batch ${index + 1}`} onClick={() => updateForm((current) => ({ ...current, registrationBatches: current.registrationBatches.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>}
-                </div>
-              ))}
+              <p className="competition-form-helper">Format PDF, maksimal 5 MB.</p>
             </div>
-            <div className="competition-repeat-section competition-form-full">
-              <div className="competition-repeat-heading">
-                <div><strong>Biaya pendaftaran</strong><span>Opsional; bisa dibedakan per kategori peserta atau batch.</span></div>
-                <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => ({ ...current, feeTiers: [...current.feeTiers, emptyFeeTier()] }))}><Plus size={14} /> Tambah biaya</button>
-              </div>
-              {form.feeTiers.length ? form.feeTiers.map((fee, index) => (
-                <div className="competition-repeat-row fee-row" key={`fee-${index}`}>
-                  <label>Kategori / keterangan <input value={fee.label} onChange={(event) => updateRow("feeTiers", index, "label", event.target.value)} placeholder="Contoh: Kategori A" /></label>
-                  <label>Biaya (Rp) <input type="number" min="0" step="1000" value={fee.amount} onChange={(event) => updateRow("feeTiers", index, "amount", event.target.value)} placeholder="0" /></label>
-                  <button className="competition-repeat-remove" type="button" aria-label={`Hapus biaya ${index + 1}`} onClick={() => updateForm((current) => ({ ...current, feeTiers: current.feeTiers.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>
-                </div>
-              )) : <p className="competition-form-muted">Belum ada biaya. Peserta akan menganggap pendaftaran gratis jika informasi ini kosong.</p>}
-            </div>
-            <label>Tanggal pelaksanaan mulai <span className="optional-mark">(opsional)</span>
-              <input type="date" value={form.eventStartDate} onChange={update("eventStartDate")} />
-            </label>
-            <label>Tanggal pelaksanaan akhir <span className="optional-mark">(opsional)</span>
-              <input type="date" value={form.eventEndDate} onChange={update("eventEndDate")} min={form.eventStartDate || undefined} />
-            </label>
-            <label>Link pendaftaran <span className="optional-mark">(opsional)</span>
-              <input type="url" value={form.registrationUrl} onChange={update("registrationUrl")} placeholder="https://" />
-            </label>
-            <label>Link info lebih lanjut <span className="optional-mark">(opsional)</span>
-              <input type="url" value={form.informationUrl} onChange={update("informationUrl")} placeholder="https://" />
-            </label>
-            <label className="competition-form-full">Guidebook / juknis / rulebook <span className="optional-mark">(opsional)</span>
-              <input type="url" value={form.rulebookUrl} onChange={update("rulebookUrl")} placeholder="https://" />
-            </label>
-          </div>
-        </section>
-
-        <section id="competition-section-organizer" data-form-section className="competition-form-section" aria-labelledby="competition-section-organizer-heading">
-          <div className="competition-form-section-heading">
-            <span>03</span>
-            <div><h3 id="competition-section-organizer-heading">Penyelenggara</h3><p>Lengkapi identitas dan kontak penyelenggara serta benefit peserta.</p></div>
-          </div>
-          <div className="competition-form-grid">
-            <label>Nama penyelenggara <span className="required-mark">*</span>
-              <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
-            </label>
-            <label>Jenis penyelenggara <span className="required-mark">*</span>
-              <select value={form.organizerType} onChange={update("organizerType")} required>
-                <option value="">Pilih jenis penyelenggara</option>
-                {organizerOptions.map((option) => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            <label>Tingkat penyelenggara <span className="required-mark">*</span>
-              <select value={form.organizerLevel} onChange={update("organizerLevel")} required>
-                <option value="">Pilih tingkat penyelenggara</option>
-                {organizerLevelOptions.map((option) => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            <label>Contact person <span className="required-mark">*</span>
-              <input value={form.contactPersonName} onChange={update("contactPersonName")} maxLength={120} required />
-            </label>
-            <label>Email contact person <span className="optional-mark">(opsional)</span>
-              <input type="email" value={form.contactPersonEmail} onChange={update("contactPersonEmail")} maxLength={160} />
-            </label>
-            <label>Telepon / WhatsApp <span className="optional-mark">(opsional)</span>
-              <input type="tel" value={form.contactPersonPhone} onChange={update("contactPersonPhone")} maxLength={40} />
-            </label>
-            <p className="competition-form-helper competition-form-full">Wajib isi minimal satu kontak: email atau nomor telepon / WhatsApp.</p>
-            <label className="competition-form-full">Hadiah <span className="optional-mark">(opsional)</span>
-              <textarea rows="3" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
-            </label>
-            <label className="competition-form-full">Benefit peserta <span className="optional-mark">(opsional)</span>
-              <textarea rows="3" value={form.benefits} onChange={update("benefits")} maxLength={1000} placeholder="Contoh: sertifikat, mentoring, publikasi karya" />
-            </label>
           </div>
         </section>
 

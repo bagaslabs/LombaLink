@@ -23,7 +23,11 @@ import {
   competitionFromRow,
   getCompetitionCoverUrl,
 } from "../data.js";
-import { removeCompetitionCover, uploadCompetitionCover } from "../competitionService.js";
+import {
+  removeCompetitionCover,
+  uploadCompetitionCover,
+  uploadCompetitionGuidebook,
+} from "../competitionService.js";
 
 const pageDetails = {
   "/lomba/tambahkan": { title: "Tambahkan lomba", eyebrow: "PUBLIKASIKAN PELUANG" },
@@ -95,7 +99,13 @@ export default function OrganizerPage({
       } else {
         setCompetitions((competitionResult.data ?? []).map((row) => {
           const item = competitionFromRow(row);
-          return { ...item, coverUrl: getCompetitionCoverUrl(supabaseClient, item.coverPath) };
+          return {
+            ...item,
+            coverUrl: getCompetitionCoverUrl(supabaseClient, item.coverPath),
+            guidebookUrl: item.guidebookPath
+              ? getCompetitionCoverUrl(supabaseClient, item.guidebookPath)
+              : item.rulebookUrl,
+          };
         }));
       }
 
@@ -160,6 +170,8 @@ export default function OrganizerPage({
     const competitionId = existing?.id || crypto.randomUUID();
     let coverPath = form.removeCover ? null : existing?.coverPath || null;
     let uploadedCoverPath = "";
+    let guidebookPath = form.removeGuidebook ? null : existing?.guidebookPath || null;
+    let uploadedGuidebookPath = "";
 
     if (form.coverFile) {
       const upload = await uploadCompetitionCover(supabaseClient, account.id, competitionId, form.coverFile);
@@ -167,11 +179,26 @@ export default function OrganizerPage({
       coverPath = upload.path;
       uploadedCoverPath = upload.path;
     }
+    if (form.guidebookFile) {
+      const upload = await uploadCompetitionGuidebook(supabaseClient, account.id, competitionId, form.guidebookFile);
+      if (upload.error) {
+        const cleanupError = uploadedCoverPath ? await removeCompetitionCover(supabaseClient, uploadedCoverPath) : "";
+        return `${upload.error}${cleanupError ? ` ${cleanupError}` : ""}`;
+      }
+      guidebookPath = upload.path;
+      uploadedGuidebookPath = upload.path;
+    }
 
     const saveAction = form.saveAction || "submit";
     const values = {
       ...competitionFieldsFromForm(form),
       cover_path: coverPath,
+      guidebook_path: guidebookPath,
+      rulebook_url: form.guidebookFile
+        ? getCompetitionCoverUrl(supabaseClient, guidebookPath)
+        : form.removeGuidebook
+          ? null
+          : form.rulebookUrl || (guidebookPath ? getCompetitionCoverUrl(supabaseClient, guidebookPath) : null),
       archived_at: saveAction === "archive"
         ? new Date().toISOString()
         : saveAction === "submit" && existing?.status === "draft"
@@ -203,19 +230,31 @@ export default function OrganizerPage({
           .select("id")
           .single();
     } catch (error) {
-      const cleanupError = uploadedCoverPath ? await removeCompetitionCover(supabaseClient, uploadedCoverPath) : "";
+      const cleanupErrors = await Promise.all([
+        uploadedCoverPath ? removeCompetitionCover(supabaseClient, uploadedCoverPath) : "",
+        uploadedGuidebookPath ? removeCompetitionCover(supabaseClient, uploadedGuidebookPath) : "",
+      ]);
       const message = error instanceof Error ? error.message : "kesalahan tidak diketahui.";
-      return `Lomba gagal disimpan: ${message}${cleanupError ? ` ${cleanupError}` : ""}`;
+      return `Lomba gagal disimpan: ${message}${cleanupErrors.filter(Boolean).join(" ") ? ` ${cleanupErrors.filter(Boolean).join(" ")}` : ""}`;
     }
 
     if (result.error) {
-      const cleanupError = uploadedCoverPath ? await removeCompetitionCover(supabaseClient, uploadedCoverPath) : "";
-      return `Lomba gagal disimpan: ${result.error.message}${cleanupError ? ` ${cleanupError}` : ""}`;
+      const cleanupErrors = await Promise.all([
+        uploadedCoverPath ? removeCompetitionCover(supabaseClient, uploadedCoverPath) : "",
+        uploadedGuidebookPath ? removeCompetitionCover(supabaseClient, uploadedGuidebookPath) : "",
+      ]);
+      const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
+      return `Lomba gagal disimpan: ${result.error.message}${cleanupMessage ? ` ${cleanupMessage}` : ""}`;
     }
 
-    if (existing?.coverPath && existing.coverPath !== coverPath) {
-      const cleanupError = await removeCompetitionCover(supabaseClient, existing.coverPath);
-      if (cleanupError) setNotice(`Informasi lomba tersimpan, tetapi ${cleanupError.toLowerCase()}`);
+    const replacedPaths = [
+      existing?.coverPath !== coverPath ? existing?.coverPath : "",
+      existing?.guidebookPath !== guidebookPath ? existing?.guidebookPath : "",
+    ].filter(Boolean);
+    if (replacedPaths.length) {
+      const cleanupErrors = await Promise.all(replacedPaths.map((path) => removeCompetitionCover(supabaseClient, path)));
+      const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
+      if (cleanupMessage) setNotice(`Informasi lomba tersimpan, tetapi ${cleanupMessage.toLowerCase()}`);
     }
 
     setReloadKey((current) => current + 1);
@@ -287,8 +326,12 @@ export default function OrganizerPage({
         return;
       }
 
-      const cleanupError = await removeCompetitionCover(supabaseClient, deleteTarget.coverPath);
-      setNotice(cleanupError ? `Lomba dihapus, tetapi ${cleanupError.toLowerCase()}` : "Lomba berhasil dihapus.");
+      const cleanupErrors = await Promise.all([
+        deleteTarget.coverPath ? removeCompetitionCover(supabaseClient, deleteTarget.coverPath) : "",
+        deleteTarget.guidebookPath ? removeCompetitionCover(supabaseClient, deleteTarget.guidebookPath) : "",
+      ]);
+      const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
+      setNotice(cleanupMessage ? `Lomba dihapus, tetapi ${cleanupMessage.toLowerCase()}` : "Lomba berhasil dihapus.");
       setDeleteTarget(null);
       setReloadKey((current) => current + 1);
       onCompetitionsChanged?.();

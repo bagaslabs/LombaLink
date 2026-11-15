@@ -22,7 +22,16 @@ export default function Navbar({ account, route, navigate, onSubmit, onLogout, t
     if (path === "/") setActiveSection("");
   };
   const goToSection = (sectionId) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: "instant", block: "start" });
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: "instant", block: "start" });
+    } else {
+      const routeBySection = {
+        cari: "/cari",
+        rekomendasi: "/rekomendasi",
+      };
+      navigate(routeBySection[sectionId] || `/?section=${encodeURIComponent(sectionId)}`);
+    }
     setActiveSection(sectionId);
     setMenuOpen(false);
   };

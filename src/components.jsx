@@ -19,7 +19,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { educationOptions, formatDate, organizerOptions, scopeOptions } from "./data.js";
+import { formatDate, organizerOptions, scopeOptions, targetParticipantOptions } from "./data.js";
 import { reportReasons } from "./reporting.js";
 
 export function Brand({ onClick }) {
@@ -31,15 +31,21 @@ export function Brand({ onClick }) {
   );
 }
 
-export function SiteFooter({ navigate }) {
+export function SiteFooter({ navigate, account }) {
   return (
     <footer className="site-footer content-width">
-      <Brand onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
+      <Brand onClick={() => {
+        if (window.location.pathname === "/" && !window.location.search) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          navigate("/");
+        }
+      }} />
       <span>© 2026 LombaLink. Tumbuh bersama kesempatan.</span>
-      <div>
+      {!account && <div>
         <button data-guest-access onClick={() => navigate("/login")}>Masuk</button>
         <button data-guest-access onClick={() => navigate("/register")}>Bergabung</button>
-      </div>
+      </div>}
     </footer>
   );
 }
@@ -110,7 +116,43 @@ export function CompetitionCard({ item, onDetails }) {
   );
 }
 
-export function CompetitionModal({ item, onClose, onTrackEvent, onReport, isLoggedIn, onRequireLogin, moderationActions }) {
+function renderDescriptionInline(value, keyPrefix) {
+  return value.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${keyPrefix}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={`${keyPrefix}-${index}`}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+}
+
+function CompetitionDescription({ value }) {
+  const content = [];
+  let listItems = [];
+  const flushList = () => {
+    if (!listItems.length) return;
+    content.push(<ul key={`list-${content.length}`}>{listItems}</ul>);
+    listItems = [];
+  };
+
+  String(value || "").split(/\r?\n/).forEach((line, index) => {
+    const listItem = line.match(/^\s*[-*]\s+(.+)$/);
+    if (listItem) {
+      listItems.push(<li key={`item-${index}`}>{renderDescriptionInline(listItem[1], `inline-${index}`)}</li>);
+      return;
+    }
+    flushList();
+    if (line.trim()) {
+      content.push(<p key={`paragraph-${index}`}>{renderDescriptionInline(line, `inline-${index}`)}</p>);
+    }
+  });
+  flushList();
+  return <div className="competition-description-content">{content}</div>;
+}
+
+export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLoggedIn, onRequireLogin, moderationActions }) {
   const [trackingError, setTrackingError] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState(reportReasons[0].value);
@@ -141,6 +183,9 @@ export function CompetitionModal({ item, onClose, onTrackEvent, onReport, isLogg
   if (!item) return null;
   const fees = Array.isArray(item.feeTiers) ? item.feeTiers : [];
   const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
+  const targetParticipants = Array.isArray(item.targetParticipants) && item.targetParticipants.length
+    ? item.targetParticipants.join(", ")
+    : item.audience || item.education;
   const trackRegistration = () => {
     if (!onTrackEvent) return;
     onTrackEvent(item.id, "registration_click").then((message) => {
@@ -172,32 +217,39 @@ export function CompetitionModal({ item, onClose, onTrackEvent, onReport, isLogg
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal-card detail-modal competition-detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
-        <button className="modal-close" onClick={onClose} aria-label="Tutup"><X size={19} /></button>
+    <div className="competition-detail-content">
+        {onClose && <button className="modal-close" onClick={onClose} aria-label="Tutup"><X size={19} /></button>}
         <span className="eyebrow"><Trophy size={14} /> INFORMASI LOMBA</span>
         {item.coverUrl && <img className="competition-detail-cover" src={item.coverUrl} alt={`Gambar ${item.title}`} />}
         <h2 id="detail-title">{item.title}</h2>
         {item.tagline && <p className="competition-detail-tagline">{item.tagline}</p>}
         <p className="detail-organizer"><Building2 size={16} /> {item.organizer}</p>
-        {item.description && <p className="competition-detail-description">{item.description}</p>}
+        {item.description && <div className="competition-detail-description"><CompetitionDescription value={item.description} /></div>}
         <div className="detail-grid">
-          <div><span>Jenjang</span><strong>{item.education}</strong></div>
-          {item.audience && <div><span>Peserta</span><strong>{item.audience}</strong></div>}
+          {item.competitionCategory && <div><span>Kategori</span><strong>{item.competitionCategory}</strong></div>}
+          {item.category && <div><span>Bidang</span><strong>{item.category}</strong></div>}
+          {item.participantType && <div><span>Jenis peserta</span><strong>{item.participantType}</strong></div>}
+          {targetParticipants && <div><span>Target peserta</span><strong>{targetParticipants}</strong></div>}
           <div><span>Cakupan</span><strong>{item.scope}</strong></div>
+          <div><span>Mode</span><strong>{item.mode}</strong></div>
           <div><span>Lokasi</span><strong>{item.location}</strong></div>
           <div><span>Batas pendaftaran</span><strong>{formatDate(item.deadline)}</strong></div>
-          <div><span>Kategori</span><strong>{item.category}</strong></div>
-          {item.competitionType && <div><span>Tipe lomba</span><strong>{item.competitionType}</strong></div>}
-          {item.organizerLevel && <div><span>Tingkat penyelenggara</span><strong>{item.organizerLevel}</strong></div>}
           {item.eventStartDate && <div><span>Pelaksanaan</span><strong>{formatDate(item.eventStartDate)}{item.eventEndDate && ` - ${formatDate(item.eventEndDate)}`}</strong></div>}
         </div>
         {batches.length > 0 && <section className="competition-detail-section"><h3>Jadwal pendaftaran</h3><ul>{batches.map((batch, index) => <li key={`${batch.label}-${index}`}><strong>{batch.label}</strong><span>{formatDate(batch.startsAt)} – {formatDate(batch.endsAt)}</span></li>)}</ul></section>}
-        {fees.length > 0 && <section className="competition-detail-section"><h3>Biaya pendaftaran</h3><ul>{fees.map((fee, index) => <li key={`${fee.label}-${index}`}><strong>{fee.label}</strong><span>Rp {Number(fee.amount).toLocaleString("id-ID")}</span></li>)}</ul></section>}
+        {(item.feeType || fees.length > 0) && <section className="competition-detail-section"><h3>Biaya pendaftaran</h3>
+          {item.feeType === "Berbayar" && item.feeAmount != null && item.feeAmount !== ""
+            ? <p>Rp {Number(item.feeAmount).toLocaleString("id-ID")}</p>
+            : item.feeType === "Gratis"
+              ? <p>Gratis</p>
+              : fees.length > 0
+                ? <ul>{fees.map((fee, index) => <li key={`${fee.label}-${index}`}><strong>{fee.label}</strong><span>Rp {Number(fee.amount).toLocaleString("id-ID")}</span></li>)}</ul>
+                : <p>Nominal belum ditentukan</p>}
+        </section>}
+        {item.requirements && <section className="competition-detail-section"><h3>Persyaratan</h3><p>{item.requirements}</p></section>}
         {item.prize && item.prize !== "Informasi hadiah belum ditambahkan" && <section className="competition-detail-section"><h3>Hadiah</h3><p>{item.prize}</p></section>}
-        {item.benefits && <section className="competition-detail-section"><h3>Benefit peserta</h3><p>{item.benefits}</p></section>}
         {item.keywords?.length > 0 && <div className="competition-detail-keywords">{item.keywords.map((keyword) => <span className="soft-tag" key={keyword}>{keyword}</span>)}</div>}
-        {(item.contactPersonName || item.contactPersonEmail || item.contactPersonPhone) && <section className="competition-detail-section"><h3>Contact person</h3><p>{item.contactPersonName}</p>{item.contactPersonEmail && <a href={`mailto:${item.contactPersonEmail}`}>{item.contactPersonEmail}</a>}{item.contactPersonPhone && <a href={`tel:${item.contactPersonPhone}`}>{item.contactPersonPhone}</a>}</section>}
+        {(item.contact || item.contactPersonName || item.contactPersonEmail || item.contactPersonPhone) && <section className="competition-detail-section"><h3>Kontak penyelenggara</h3><p>{item.contact || item.contactPersonName}</p>{!item.contact && item.contactPersonEmail && <a href={`mailto:${item.contactPersonEmail}`}>{item.contactPersonEmail}</a>}{!item.contact && item.contactPersonPhone && <a href={`tel:${item.contactPersonPhone}`}>{item.contactPersonPhone}</a>}</section>}
         <div className="competition-detail-links">
           {item.informationUrl && <a className="button button-outline" href={item.informationUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Info lomba</a>}
           {item.rulebookUrl && <a className="button button-outline" href={item.rulebookUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Guidebook</a>}
@@ -233,7 +285,18 @@ export function CompetitionModal({ item, onClose, onTrackEvent, onReport, isLogg
           </div>
           : item.registrationUrl
             ? <a className="button button-primary button-wide" href={item.registrationUrl} target="_blank" rel="noreferrer" onClick={trackRegistration}>Daftar lomba <ExternalLink size={15} /></a>
-            : <button className="button button-primary button-wide" onClick={onClose}>Mengerti <Check size={16} /></button>}
+            : onClose && <button className="button button-primary button-wide" onClick={onClose}>Mengerti <Check size={16} /></button>}
+    </div>
+  );
+}
+
+export function CompetitionModal({ item, onClose, ...detailsProps }) {
+  if (!item) return null;
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="modal-card detail-modal competition-detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <CompetitionDetails item={item} onClose={onClose} {...detailsProps} />
       </section>
     </div>
   );
@@ -267,14 +330,14 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
         <button className="button button-primary search-button" onClick={search}><Search size={17} /> Cari lomba</button>
       </div>
       <div className="filter-row">
-        <label className="filter-select"><GraduationCap size={16} /><span className="sr-only">Jenjang pendidikan</span>
-          <select value={filters.education} onChange={update("education")}><option value="">Semua jenjang</option>{educationOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
+        <label className="filter-select"><GraduationCap size={16} /><span className="sr-only">Target peserta</span>
+          <select value={filters.education} onChange={update("education")}><option value="">Semua target peserta</option>{targetParticipantOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
         <label className="filter-select"><Trophy size={15} /><span className="sr-only">Kategori lomba</span>
           <select value={filters.category} onChange={update("category")}><option value="">Semua kategori</option>{categoryOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
         <label className="filter-select"><Globe2 size={15} /><span className="sr-only">Cakupan lomba</span>
-          <select value={filters.scope} onChange={update("scope")}><option value="">Semua cakupan</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
+          <select value={filters.scope} onChange={update("scope")}><option value="">Semua cakupan</option><option value="Daerah">Daerah (data lama)</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
         <label className="filter-select"><Building2 size={15} /><span className="sr-only">Jenis penyelenggara</span>
           <select value={filters.organizerType} onChange={update("organizerType")}><option value="">Semua penyelenggara</option>{organizerOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />

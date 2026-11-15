@@ -17,6 +17,7 @@ import AdminPage from "./pages/AdminPage.jsx";
 import AuthPage from "./pages/AuthPage.jsx";
 import LandingPage from "./pages/LandingPage.jsx";
 import PersonalizationPage from "./pages/PersonalizationPage.jsx";
+import CompetitionDetailPage from "./pages/CompetitionDetailPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
@@ -337,7 +338,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (authReady && accountRoleReady && routePath === "/admin" && account?.role !== "moderator") {
+    if (authReady && accountRoleReady && ["/admin", "/admin/tambahkan-lomba"].includes(routePath) && account?.role !== "moderator") {
       navigate("/admin/login");
     }
   }, [account, accountRoleReady, authReady, navigate, routePath]);
@@ -701,7 +702,7 @@ export default function App() {
     }
     return <SettingsPage account={account} onLogout={logout} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (routePath === "/admin") {
+  if (routePath === "/admin" || routePath === "/admin/tambahkan-lomba") {
     if (account?.role !== "moderator") {
       return <AdminLoginPage
         navigate={navigate}
@@ -712,7 +713,7 @@ export default function App() {
         onToggleTheme={toggleTheme}
       />;
     }
-    return <AdminPage account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)} theme={theme} onToggleTheme={toggleTheme} suggestedKeywords={keywordSuggestions} />;
+    return <AdminPage routePath={routePath} account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)} theme={theme} onToggleTheme={toggleTheme} suggestedKeywords={keywordSuggestions} />;
   }
   if (routePath.startsWith("/lomba/")) {
     if (!account) {
@@ -733,29 +734,46 @@ export default function App() {
     />;
   }
 
+  const requestedSection = new URLSearchParams(route.split("?")[1] || "").get("section");
   const initialSection = routePath === "/cari"
     ? "cari"
-    : routePath === "/rekomendasi" ? "rekomendasi" : "";
-  const publicPage = <LandingPage
-    account={account}
-    navigate={navigate}
-    onSubmit={requestSubmission}
-    onRequireAccount={openAccountPrompt}
-    onTrackEvent={trackCompetitionEvent}
-    onReport={submitCompetitionReport}
-    competitions={competitions}
-    competitionsLoading={competitionsLoading}
-    competitionsError={competitionsError}
-    categoryOptions={categoryOptions}
-    initialSection={initialSection}
-  />;
+    : routePath === "/rekomendasi" ? "rekomendasi" : routePath === "/" ? requestedSection || "" : "";
+  const isCompetitionDetailRoute = routePath.startsWith("/kompetisi/");
+  const detailCompetitionId = isCompetitionDetailRoute ? routePath.slice("/kompetisi/".length) : "";
+  const detailCompetition = competitions.find((item) => item.id === detailCompetitionId);
+  const publicPage = isCompetitionDetailRoute
+    ? competitionsLoading
+      ? <main className="competition-detail-state" role="status"><LoaderCircle size={20} className="loading-icon" /> Memuat detail lomba...</main>
+      : competitionsError
+        ? <main className="competition-detail-state" role="alert"><div><h1>Detail lomba tidak dapat dimuat</h1><p>{competitionsError}</p><button className="button button-outline" onClick={() => navigate("/")}>Kembali ke beranda</button></div></main>
+        : detailCompetition
+          ? <CompetitionDetailPage
+            item={detailCompetition}
+            competitions={competitions}
+            account={account}
+            navigate={navigate}
+            onTrackEvent={trackCompetitionEvent}
+            onReport={submitCompetitionReport}
+          />
+          : <main className="competition-detail-state"><div><h1>Lomba tidak ditemukan</h1><p>Informasi lomba mungkin sudah dihapus atau tidak lagi tersedia.</p><button className="button button-outline" onClick={() => navigate("/")}>Kembali ke beranda</button></div></main>
+    : <LandingPage
+      account={account}
+      navigate={navigate}
+      onSubmit={requestSubmission}
+      onRequireAccount={openAccountPrompt}
+      competitions={competitions}
+      competitionsLoading={competitionsLoading}
+      competitionsError={competitionsError}
+      categoryOptions={categoryOptions}
+      initialSection={initialSection}
+    />;
 
   return (
     <>
       <Navbar account={account} route={route} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
       {authError && <div className="auth-error-banner" role="alert">{authError}<button onClick={() => setAuthError("")}>Tutup</button></div>}
       {publicPage}
-      <SiteFooter navigate={navigate} />
+      <SiteFooter navigate={navigate} account={account} />
       {promptOpen && <AccountPrompt onClose={() => { setPromptRequired(false); setPromptOpen(false); }} navigate={navigate} encourageShare={encourageShare} required={promptRequired} />}
     </>
   );

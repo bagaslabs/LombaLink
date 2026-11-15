@@ -1,9 +1,21 @@
 export const educationOptions = ["SMP", "SMA", "Kuliah", "Umum"];
-export const scopeOptions = ["Daerah", "Provinsi", "Nasional", "Internasional"];
+export const competitionCategoryOptions = ["Akademik", "Non-akademik"];
+export const competitionFieldOptions = [
+  "Teknologi",
+  "Sains",
+  "Matematika",
+  "Esai dan Karya Tulis",
+  "Desain dan Kreativitas",
+  "Bisnis dan Ekonomi",
+  "Olahraga",
+  "Seni dan Budaya",
+  "Lainnya",
+];
+export const participantTypeOptions = ["Individu", "Tim", "Individu dan Tim"];
+export const targetParticipantOptions = ["SD / MI", "SMP / MTs", "SMA / SMK / MA", "Mahasiswa", "Umum"];
+export const scopeOptions = ["Kabupaten/Kota", "Provinsi", "Nasional", "Internasional"];
 export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "Komunitas"];
 export const competitionModeOptions = ["Online", "Offline", "Hybrid"];
-export const competitionTypeOptions = ["Esai", "Olimpiade", "Tes kemampuan", "Hackathon", "Debat", "Desain", "Karya tulis", "Video", "Pitching", "Lainnya"];
-export const organizerLevelOptions = ["Sekolah", "Universitas", "Institut", "Lembaga", "Komunitas", "Kementerian", "Pemerintah", "Swasta", "Lainnya"];
 const validAccountTypes = ["participant", "organizer"];
 
 export const phoneCountryCodes = [
@@ -110,6 +122,13 @@ export function competitionFromRow(row) {
     organizer: row.organizer,
     organizerType: row.organizer_type,
     category: row.category,
+    competitionCategory: row.competition_category || "",
+    participantType: row.participant_type || "",
+    targetParticipants: Array.isArray(row.target_participants) ? row.target_participants : [],
+    requirements: row.requirements || "",
+    feeType: row.fee_type || (Array.isArray(row.fee_tiers) && row.fee_tiers.length ? "Berbayar" : "Gratis"),
+    feeAmount: row.fee_amount == null ? "" : String(row.fee_amount),
+    contact: row.contact || row.contact_person_phone || "",
     education: row.education,
     scope: row.scope,
     location: row.location,
@@ -120,6 +139,7 @@ export function competitionFromRow(row) {
     registrationUrl: row.registration_url,
     informationUrl: row.information_url || "",
     rulebookUrl: row.rulebook_url || "",
+    guidebookPath: row.guidebook_path || "",
     coverPath: row.cover_path || "",
     tagline: row.tagline || "",
     audience: row.audience || "",
@@ -149,6 +169,14 @@ export function getCompetitionCoverUrl(supabaseClient, coverPath) {
   return supabaseClient.storage.from("lombalink-competition-covers").getPublicUrl(coverPath).data.publicUrl;
 }
 
+function legacyEducation(targetParticipants) {
+  const firstParticipant = targetParticipants[0];
+  if (firstParticipant === "SMP / MTs") return "SMP";
+  if (firstParticipant === "SMA / SMK / MA") return "SMA";
+  if (firstParticipant === "Mahasiswa") return "Kuliah";
+  return "Umum";
+}
+
 export function getAnalyticsVisitorId() {
   const key = "lombalink.analytics-visitor";
   try {
@@ -164,36 +192,50 @@ export function getAnalyticsVisitorId() {
 }
 
 export function competitionFieldsFromForm(form) {
+  const keepLegacyRegistrationBatches = form.legacyRegistrationBatches?.length
+    && form.registrationOpensAt === form.legacyRegistrationOpensAt
+    && form.registrationDeadline === form.legacyRegistrationDeadline;
   return {
     title: form.title.trim(),
     tagline: form.tagline.trim(),
     description: form.description.trim(),
     organizer: form.organizer.trim(),
-    organizer_type: form.organizerType,
-    organizer_level: form.organizerLevel,
-    contact_person_name: form.contactPersonName.trim(),
-    contact_person_email: form.contactPersonEmail.trim() || null,
-    contact_person_phone: form.contactPersonPhone.trim() || null,
-    audience: form.audience.trim(),
-    education: form.education,
+    organizer_type: form.organizerType || "Lembaga umum",
+    organizer_level: form.organizerLevel || "Lembaga",
+    contact: form.contact.trim(),
+    contact_person_name: form.contactPersonName?.trim() || "Kontak Penyelenggara",
+    contact_person_email: form.contactPersonEmail || null,
+    contact_person_phone: form.contact.trim() || null,
+    audience: form.targetParticipants.join(", "),
+    education: legacyEducation(form.targetParticipants),
     scope: form.scope,
-    category: form.category.trim(),
+    category: form.field,
+    competition_category: form.competitionCategory,
+    participant_type: form.participantType,
+    target_participants: form.targetParticipants,
+    requirements: form.requirements.trim(),
     keywords: form.keywords,
-    competition_type: form.competitionType,
+    competition_type: form.legacyCompetitionType || "Lainnya",
     mode: form.mode,
     location: form.mode === "Online" ? "Online" : form.location.trim(),
-    fee_tiers: form.feeTiers,
+    fee_type: form.feeType,
+    fee_amount: form.feeType === "Berbayar" && form.feeAmount !== "" ? Number(form.feeAmount) : null,
+    fee_tiers: form.feeType === "Berbayar" && form.feeAmount !== ""
+      ? [{ label: "Biaya pendaftaran", amount: Number(form.feeAmount) }]
+      : [],
     prize: form.prize.trim() || "Informasi hadiah belum ditambahkan",
-    registration_batches: form.registrationBatches,
-    deadline: form.registrationBatches.reduce(
-      (latest, batch) => batch.endsAt > latest ? batch.endsAt : latest,
-      "",
-    ) || null,
+    registration_batches: keepLegacyRegistrationBatches
+      ? form.legacyRegistrationBatches
+      : [{ label: "Pendaftaran", startsAt: form.registrationOpensAt, endsAt: form.registrationDeadline }],
+    deadline: form.registrationDeadline || null,
     event_start_date: form.eventStartDate || null,
-    event_end_date: form.eventEndDate || null,
+    event_end_date: form.eventStartDate && form.eventEndDate && form.eventEndDate >= form.eventStartDate
+      ? form.eventEndDate
+      : null,
     registration_url: form.registrationUrl.trim() || null,
-    information_url: form.informationUrl.trim() || null,
-    rulebook_url: form.rulebookUrl.trim() || null,
+    information_url: form.informationUrl || null,
+    rulebook_url: form.rulebookUrl || null,
+    guidebook_path: form.guidebookPath || null,
     benefits: form.benefits.trim(),
   };
 }

@@ -1,20 +1,17 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { CompetitionCard, CompetitionModal } from "../components.jsx";
+import { CompetitionCard } from "../components.jsx";
 import { defaultPreferences } from "../data.js";
 
 export default function RecommendationsPage({
   account,
   navigate,
   onRequireAccount,
-  onTrackEvent,
-  onReport,
   competitions,
   competitionsLoading,
   competitionsError,
   onShowAllCompetitions,
 }) {
-  const [detail, setDetail] = useState(null);
   const preferences = account?.preferences || defaultPreferences;
   const hasPreferences = Object.values(preferences).some((value) => value.trim());
   const recommendations = useMemo(() => {
@@ -38,7 +35,7 @@ export default function RecommendationsPage({
   } else if (!hasPreferences) {
     results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Atur minat lombamu</h3><p>Pilih bidang, jenjang, dan cakupan yang kamu minati untuk mendapatkan rekomendasi.</p><button className="button button-primary" onClick={() => navigate("/personalization")}>Atur personalisasi <ArrowRight size={15} /></button></div>;
   } else if (recommendations.length) {
-    results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{recommendations.map((item) => <CompetitionCard key={item.id} item={item} onDetails={setDetail} />)}</div>;
+    results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{recommendations.map((item) => <CompetitionCard key={item.id} item={item} onDetails={() => navigate(`/kompetisi/${encodeURIComponent(item.id)}`)} />)}</div>;
   } else {
     results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Belum ada rekomendasi yang cocok</h3><p>Coba sesuaikan minatmu atau lihat semua lomba.</p><button className="button button-outline" onClick={onShowAllCompetitions}>Cari semua lomba <ArrowRight size={15} /></button></div>;
   }
@@ -54,14 +51,6 @@ export default function RecommendationsPage({
         {account && hasPreferences && !competitionsLoading && !competitionsError && <p className="discovery-result-count">{recommendations.length} rekomendasi untukmu.</p>}
         {results}
       </section>
-      <CompetitionModal
-        item={detail}
-        onClose={() => setDetail(null)}
-        onTrackEvent={onTrackEvent}
-        onReport={onReport}
-        isLoggedIn={Boolean(account)}
-        onRequireLogin={() => navigate("/login")}
-      />
     </section>
   );
 }

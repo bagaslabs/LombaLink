@@ -16,8 +16,6 @@ export default function LandingPage({
   navigate,
   onSubmit,
   onRequireAccount,
-  onTrackEvent,
-  onReport,
   competitions,
   competitionsLoading,
   competitionsError,
@@ -62,8 +60,6 @@ export default function LandingPage({
         account={account}
         navigate={navigate}
         onRequireAccount={onRequireAccount}
-        onTrackEvent={onTrackEvent}
-        onReport={onReport}
         competitions={competitions}
         competitionsLoading={competitionsLoading}
         competitionsError={competitionsError}
@@ -73,8 +69,6 @@ export default function LandingPage({
         account={account}
         navigate={navigate}
         onRequireAccount={onRequireAccount}
-        onTrackEvent={onTrackEvent}
-        onReport={onReport}
         competitions={competitions}
         competitionsLoading={competitionsLoading}
         competitionsError={competitionsError}
