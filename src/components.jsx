@@ -11,6 +11,8 @@ import {
   FileText,
   Flag,
   MapPin,
+  UsersRound,
+  Wallet,
   Moon,
   Search,
   SlidersHorizontal,
@@ -84,6 +86,19 @@ export function CompetitionCard({ item, onDetails }) {
   const registrationDate = nearestBatch?.label
     ? `${nearestBatch.label} · ${batchDates}`
     : batchDates;
+  const audience = item.audience || item.education;
+  const location = item.location && item.location !== item.mode ? item.location : "";
+  const execution = [item.mode, location].filter(Boolean).join(" · ");
+  const feeType = nearestBatch?.feeType || item.feeType || "Gratis";
+  const feeAmount = nearestBatch?.feeAmount ?? item.feeAmount;
+  const feeLabel = feeType === "Berbayar"
+    ? feeAmount != null && feeAmount !== "" ? `Rp ${Number(feeAmount).toLocaleString("id-ID")}` : "Berbayar"
+    : "Gratis";
+  const eventStart = item.eventStartDate ? formatDate(item.eventStartDate) : "";
+  const eventDates = eventStart
+    ? `${eventStart}${item.eventEndDate && item.eventEndDate !== item.eventStartDate ? ` – ${formatDate(item.eventEndDate)}` : ""}`
+    : "";
+  const tags = [...new Set([item.competitionCategory, item.category, ...(item.keywords || [])].filter(Boolean))].slice(0, 3);
 
   return (
     <article className="competition-card">
@@ -93,17 +108,26 @@ export function CompetitionCard({ item, onDetails }) {
       </div>
       <div className="card-content">
         <h3>{item.title}</h3>
+        {item.organizer && <p className="competition-card-organizer"><Building2 size={14} /> {item.organizer}</p>}
+        {tags.length > 0 && <div className="competition-card-tags">{tags.map((tag) => <span className="soft-tag" key={tag}>{tag}</span>)}</div>}
         <div className="competition-card-info">
           <div className="competition-card-registration">
             <CalendarDays size={14} />
             <span><small>Pendaftaran terdekat</small><strong>{registrationDate}</strong></span>
           </div>
-          {(item.audience || item.education) && (
-            <div className="competition-card-audience">
-              <small>Untuk siapa</small>
-              <strong>{item.audience || item.education}</strong>
+          {audience && (
+            <div className="competition-card-fact">
+              <UsersRound size={14} />
+              <span>
+                <small>Untuk siapa</small>
+                <strong>{audience}</strong>
+              </span>
             </div>
           )}
+          {item.scope && <div className="competition-card-fact"><Globe2 size={14} /><span><small>Cakupan</small><strong>{item.scope}</strong></span></div>}
+          {execution && <div className="competition-card-fact"><MapPin size={14} /><span><small>Pelaksanaan</small><strong>{execution}</strong></span></div>}
+          {eventDates && <div className="competition-card-fact"><CalendarDays size={14} /><span><small>Tanggal lomba</small><strong>{eventDates}</strong></span></div>}
+          <div className="competition-card-fact"><Wallet size={14} /><span><small>Biaya pendaftaran</small><strong>{feeLabel}</strong></span></div>
         </div>
         {item.tagline && <p className="competition-card-tagline">{item.tagline}</p>}
         <div className="card-bottom">
