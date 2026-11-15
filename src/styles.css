@@ -796,14 +796,48 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
   .organizer-thanks { margin-top: 0; padding: 32px 18px; }
 }
 html[data-theme="dark"] .competition-form-actions { background: #111b2d; }
-.competition-card { display: flex; flex-direction: column; align-items: stretch; }
+.competition-card { display: grid; grid-template-columns: minmax(108px,38%) minmax(0,1fr); align-items: stretch; }
 .card-art { width: 100%; height: auto; min-height: 0; aspect-ratio: 210 / 297; align-self: stretch; }
 .card-art.has-cover::before,.card-art.has-cover::after { display: none; }
 .card-cover-image { object-fit: cover; opacity: 1; background: #f5f7fc; }
+.card-content { display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 13px; }
+.competition-card h3 { min-height: 0; margin: 0; font-size: 14px; }
+.competition-card-info { display: grid; gap: 8px; color: #78859b; font-size: 10px; }
+.competition-card-registration { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.competition-card-registration svg { flex: 0 0 auto; margin-top: 2px; color: #8996ad; }
+.competition-card-info small,.competition-card-info strong { display: block; }
+.competition-card-info small { margin-bottom: 2px; color: #929db0; font-size: 9px; font-weight: 500; }
+.competition-card-info strong { color: #526079; font-size: 10px; font-weight: 600; line-height: 1.45; }
+.competition-card-audience { min-width: 0; }
+.competition-card-tagline { display: -webkit-box; overflow: hidden; margin: 0; color: #78859b; font-size: 10px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+.competition-card .card-bottom { justify-content: flex-end; margin-top: auto; padding-top: 0; border-top: 0; }
+.competition-card-details-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 29px; padding: 5px 9px; border: 1px solid #dfe5f2; border-radius: 8px; color: #526dc1; background: #f7f8fc; font-size: 9px; font-weight: 700; line-height: 1.2; }
+.competition-card-details-button:hover { border-color: #b7c7ff; background: #eff2ff; }
+html[data-theme="dark"] .competition-card-info small { color: #95a2b7; }
+html[data-theme="dark"] .competition-card-info strong { color: #c3cee0; }
+html[data-theme="dark"] .competition-card-tagline { color: #9eabc0; }
+html[data-theme="dark"] .competition-card-details-button { border-color: #2b3a56; color: #c3cee0; background: #162239; }
+html[data-theme="dark"] .competition-card-details-button:hover { border-color: #526da9; background: #1a2a46; }
 .organizer-competition-art { width: 46px; height: 69px; flex-basis: 46px; }
 html[data-theme="dark"] .card-cover-image { background: #111b2d; }
+@media (max-width: 767px) {
+  .competition-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .competition-card { display: flex; flex-direction: column; align-items: stretch; }
+  .competition-card .card-art { width: 100%; height: auto; aspect-ratio: 210 / 297; }
+  .competition-card .card-content { gap: 7px; padding: 9px; }
+  .competition-card h3 { font-size: 12px; line-height: 1.35; }
+  .competition-card-info { gap: 6px; }
+  .competition-card-info small { font-size: 8px; }
+  .competition-card-info strong,.competition-card-tagline { font-size: 9px; }
+  .competition-card-details-button { width: 100%; min-height: 27px; padding-inline: 3px; font-size: 8px; }
+}
 @media (max-width: 680px) {
   .organizer-competition-art { width: 40px; height: 60px; flex-basis: 40px; }
+}
+@media (min-width: 768px) {
+  .competition-grid { grid-template-columns: minmax(0,1fr); }
+  .competition-card { grid-template-columns: clamp(120px,15vw,180px) minmax(0,1fr); }
+  .competition-card-info { grid-template-columns: minmax(0,1fr) minmax(140px,.7fr); gap: 8px 24px; }
 }
 .competition-keyword-field { display: grid; gap: 7px; min-width: 0; color: #526079; font-size: 10px; font-weight: 700; }
 .competition-keyword-entry { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; padding: 6px 8px; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; }

@@ -60,31 +60,50 @@ export function ThemeToggle({ theme, onToggleTheme }) {
   );
 }
 
+function getNearestRegistrationBatch(item) {
+  const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  return batches
+    .filter((batch) => typeof batch.endsAt === "string" && batch.endsAt >= today)
+    .sort((first, second) => (first.startsAt || first.endsAt).localeCompare(second.startsAt || second.endsAt))[0] || null;
+}
+
 export function CompetitionCard({ item, onDetails }) {
+  const nearestBatch = getNearestRegistrationBatch(item);
+  const batchDates = nearestBatch
+    ? `${formatDate(nearestBatch.startsAt)}${nearestBatch.endsAt !== nearestBatch.startsAt ? ` - ${formatDate(nearestBatch.endsAt)}` : ""}`
+    : `Tutup ${formatDate(item.deadline)}`;
+  const registrationDate = nearestBatch?.label
+    ? `${nearestBatch.label} · ${batchDates}`
+    : batchDates;
+
   return (
     <article className="competition-card">
       <div className={`card-art ${item.color || "blue"}${item.coverUrl ? " has-cover" : ""}`}>
         {item.coverUrl && <img className="card-cover-image" src={item.coverUrl} alt="" />}
-        <span className="card-category">{item.category}</span>
         {!item.coverUrl && <span className="card-art-icon"><Trophy size={25} /></span>}
-        {item.scope === "Internasional" && <span className="international-tag"><Globe2 size={12} /> Internasional</span>}
       </div>
       <div className="card-content">
-        <div className="organizer-line"><Building2 size={14} /> {item.organizer}</div>
         <h3>{item.title}</h3>
+        <div className="competition-card-info">
+          <div className="competition-card-registration">
+            <CalendarDays size={14} />
+            <span><small>Pendaftaran terdekat</small><strong>{registrationDate}</strong></span>
+          </div>
+          {(item.audience || item.education) && (
+            <div className="competition-card-audience">
+              <small>Untuk siapa</small>
+              <strong>{item.audience || item.education}</strong>
+            </div>
+          )}
+        </div>
         {item.tagline && <p className="competition-card-tagline">{item.tagline}</p>}
-        <div className="tag-row">
-          <span className="soft-tag">{item.education}</span>
-          <span className="soft-tag">{item.scope}</span>
-          <span className="soft-tag">{item.mode || "Terbuka"}</span>
-        </div>
-        <div className="card-meta">
-          <span><MapPin size={14} /> {item.location}</span>
-          <span><CalendarDays size={14} /> Tutup {formatDate(item.deadline)}</span>
-        </div>
         <div className="card-bottom">
-          <span className="prize-label"><Sparkles size={14} /> {item.prize}</span>
-          <button className="round-arrow" aria-label={`Lihat ${item.title}`} onClick={() => onDetails(item)}><ArrowRight size={17} /></button>
+          <button className="competition-card-details-button" type="button" onClick={() => onDetails(item)}>
+            Detail selengkapnya <ArrowRight size={14} />
+          </button>
         </div>
       </div>
     </article>
