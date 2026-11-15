@@ -33,14 +33,14 @@ const formSections = [
 ];
 const descriptionEmojis = ["🎉", "🏆", "📅", "✨", "📢", "🎁", "✅", "📍"];
 const coverCropWidth = 900;
-const coverCropRatios = [
+const coverCropPresetRatios = [
   { label: "4:6", width: 4, height: 6 },
   { label: "4:5", width: 4, height: 5 },
   { label: "9:16", width: 9, height: 16 },
 ];
 
 function getCoverCropBounds(image, zoom, ratio) {
-  const cropHeight = Math.round(coverCropWidth * ratio.height / ratio.width);
+  const cropHeight = Math.max(1, Math.round(coverCropWidth * ratio.height / ratio.width));
   const scale = Math.max(
     coverCropWidth / image.naturalWidth,
     cropHeight / image.naturalHeight,
@@ -62,7 +62,7 @@ function clampCoverCropOffset(offset, image, zoom, ratio) {
 function drawCoverCrop(canvas, image, zoom, offset, ratio) {
   const context = canvas.getContext("2d");
   if (!context) return false;
-  const cropHeight = Math.round(canvas.width * ratio.height / ratio.width);
+  const cropHeight = Math.max(1, Math.round(canvas.width * ratio.height / ratio.width));
 
   const scale = Math.max(
     canvas.width / image.naturalWidth,
@@ -325,6 +325,7 @@ export default function CompetitionForm({
   const [coverEditorOpen, setCoverEditorOpen] = useState(false);
   const [coverEditorZoom, setCoverEditorZoom] = useState(1);
   const [coverCropRatioLabel, setCoverCropRatioLabel] = useState("9:16");
+  const [coverOriginalCropRatio, setCoverOriginalCropRatio] = useState(null);
   const [coverCropOffset, setCoverCropOffset] = useState({ x: 0, y: 0 });
   const [coverEditorImageLoaded, setCoverEditorImageLoaded] = useState(false);
   const [coverEditorError, setCoverEditorError] = useState("");
@@ -352,11 +353,15 @@ export default function CompetitionForm({
   const showCustomKeyword = normalizedKeywordInput
     && !form.keywords.includes(normalizedKeywordInput)
     && !keywordSuggestions.includes(normalizedKeywordInput);
-  const selectedCoverCropRatio = coverCropRatios.find(({ label }) => label === coverCropRatioLabel)
-    || coverCropRatios[2];
-  const coverCropCanvasHeight = Math.round(
+  const selectedCoverCropRatio = coverCropRatioLabel === "Asli"
+    ? coverOriginalCropRatio || coverCropPresetRatios[2]
+    : coverCropPresetRatios.find(({ label }) => label === coverCropRatioLabel) || coverCropPresetRatios[2];
+  const availableCoverCropRatios = coverOriginalCropRatio
+    ? [...coverCropPresetRatios, coverOriginalCropRatio]
+    : coverCropPresetRatios;
+  const coverCropCanvasHeight = Math.max(1, Math.round(
     coverCropWidth * selectedCoverCropRatio.height / selectedCoverCropRatio.width,
-  );
+  ));
 
   const updateForm = (updater) => {
     setForm((current) => {
@@ -593,6 +598,7 @@ export default function CompetitionForm({
     setError("");
     setCoverEditorFile(file);
     setCoverEditorZoom(1);
+    setCoverOriginalCropRatio(null);
     setCoverCropOffset({ x: 0, y: 0 });
     setCoverEditorError("");
     setCoverEditorOpen(true);
@@ -602,6 +608,7 @@ export default function CompetitionForm({
     if (!file) return;
     setCoverEditorFile(file);
     setCoverEditorZoom(1);
+    setCoverOriginalCropRatio(null);
     setCoverCropOffset({ x: 0, y: 0 });
     setCoverEditorError("");
     setCoverEditorOpen(true);
@@ -1329,7 +1336,13 @@ export default function CompetitionForm({
                     className="competition-cover-editor-source"
                     src={coverEditorUrl}
                     alt=""
-                    onLoad={() => setCoverEditorImageLoaded(true)}
+                    onLoad={(event) => {
+                      const { naturalWidth, naturalHeight } = event.currentTarget;
+                      if (naturalWidth && naturalHeight) {
+                        setCoverOriginalCropRatio({ label: "Asli", width: naturalWidth, height: naturalHeight });
+                      }
+                      setCoverEditorImageLoaded(true);
+                    }}
                     onError={() => setCoverEditorError("Gambar tidak dapat dibaca. Coba pilih file gambar lain.")}
                   />
                   <canvas
@@ -1349,7 +1362,7 @@ export default function CompetitionForm({
                   <fieldset className="competition-cover-ratio-picker">
                     <legend>Ukuran poster</legend>
                     <div>
-                      {coverCropRatios.map((ratio) => (
+                      {availableCoverCropRatios.map((ratio) => (
                         <button
                           key={ratio.label}
                           type="button"
