@@ -130,13 +130,16 @@ function normalizeContactPerson(person = {}) {
   let phone = String(person.phone || "").replace(/\D/g, "");
   if (phone.startsWith("62")) phone = phone.slice(2);
   else if (phone.startsWith("0")) phone = phone.slice(1);
-  const contactMethods = Array.isArray(person.contactMethods)
+  const savedContactMethods = Array.isArray(person.contactMethods)
     ? [...new Set(person.contactMethods.filter((method) => contactPlatforms.some((platform) => platform.id === method)))]
+    : [];
+  const contactMethods = savedContactMethods.length
+    ? savedContactMethods
     : [
       ...(person.instagramUsername || person.instagramUrl ? ["instagram"] : []),
       ...(person.email ? ["gmail"] : []),
       ...(person.tiktokUsername || person.tiktokUrl ? ["tiktok"] : []),
-      ...(person.whatsappUrl ? ["whatsapp"] : []),
+      ...(person.phone || person.whatsappUrl ? ["whatsapp"] : []),
     ];
   return {
     name: person.name || "",
@@ -149,6 +152,16 @@ function normalizeContactPerson(person = {}) {
     whatsappUrl: person.whatsappUrl || "",
     contactMethods,
   };
+}
+
+function hasContactMethodDetails(person) {
+  return person.contactMethods.some((method) => {
+    if (method === "instagram") return Boolean(person.instagramUsername.trim() || person.instagramUrl.trim());
+    if (method === "gmail") return Boolean(person.email.trim());
+    if (method === "tiktok") return Boolean(person.tiktokUsername.trim() || person.tiktokUrl.trim());
+    if (method === "whatsapp") return isValidIndonesianPhone(person.phone);
+    return false;
+  });
 }
 
 function getTeamMemberRange(minimum, maximum) {
@@ -420,6 +433,7 @@ export default function CompetitionForm({
   const [activeSection, setActiveSection] = useState(formSections[0].id);
   const [emojiPickerField, setEmojiPickerField] = useState("");
   const [fieldSuggestionsOpen, setFieldSuggestionsOpen] = useState(false);
+  const [typeSuggestionsOpen, setTypeSuggestionsOpen] = useState(false);
   const [organizerSuggestionsOpen, setOrganizerSuggestionsOpen] = useState(false);
   const formRef = useRef(null);
   const descriptionRef = useRef(null);
@@ -437,6 +451,9 @@ export default function CompetitionForm({
   const canArchiveFromForm = !isEditing || initialCompetition.status === "draft";
   const normalizedKeywordInput = normalizeKeywordTag(form.keywordInput);
   const fieldInputValue = form.field === "Lainnya" ? form.customField : form.field;
+  const competitionTypeInputValue = form.competitionType === "Lainnya"
+    ? form.customCompetitionType
+    : form.competitionType;
   const { keywordUsageCounts, fieldUsageCounts, organizerUsageCounts } = useMemo(() => {
     const keywordUsers = new Map();
     const fieldUsers = new Map();
@@ -495,6 +512,12 @@ export default function CompetitionForm({
     .slice(0, 6);
   const showCustomField = fieldInputValue.trim()
     && !fieldSuggestions.some(({ field }) => field.toLocaleLowerCase("id-ID") === fieldInputValue.trim().toLocaleLowerCase("id-ID"));
+  const typeSuggestions = competitionTypeOptions
+    .filter((type) => type !== "Lainnya")
+    .filter((type) => !competitionTypeInputValue || type.toLocaleLowerCase("id-ID").includes(competitionTypeInputValue.trim().toLocaleLowerCase("id-ID")))
+    .slice(0, 7);
+  const showCustomType = competitionTypeInputValue.trim()
+    && !typeSuggestions.some((type) => type.toLocaleLowerCase("id-ID") === competitionTypeInputValue.trim().toLocaleLowerCase("id-ID"));
   const organizerQuery = form.organizer.trim().toLocaleLowerCase("id-ID");
   const organizerSuggestions = [...organizerUsageCounts.values()]
     .filter(({ name }) => !organizerQuery || name.toLocaleLowerCase("id-ID").includes(organizerQuery))
@@ -665,26 +688,33 @@ export default function CompetitionForm({
   };
 
   const toggleContactMethod = (index, method) => {
-    const fieldsByMethod = {
-      instagram: ["instagramUsername", "instagramUrl"],
-      gmail: ["email"],
-      tiktok: ["tiktokUsername", "tiktokUrl"],
-      whatsapp: ["whatsappUrl"],
-    };
+    const channelFields = [
+      "email",
+      "instagramUsername",
+      "instagramUrl",
+      "tiktokUsername",
+      "tiktokUrl",
+      "whatsappUrl",
+    ];
     updateForm((current) => ({
       ...current,
       contactPeople: current.contactPeople.map((person, personIndex) => {
         if (personIndex !== index) return person;
-        const isEnabled = person.contactMethods.includes(method);
-        if (!isEnabled) {
-          return { ...person, contactMethods: [...person.contactMethods, method] };
-        }
-        const clearedFields = Object.fromEntries(fieldsByMethod[method].map((field) => [field, ""]));
-        return {
-          ...person,
-          ...clearedFields,
-          contactMethods: person.contactMethods.filter((activeMethod) => activeMethod !== method),
-        };
+        const isSelected = person.contactMethods.length === 1 && person.contactMethods[0] === method;
+        const clearedFields = Object.fromEntries(channelFields.map((field) => [field, ""]));
+        return isSelected
+          ? {
+            ...person,
+            ...clearedFields,
+            phone: "",
+            contactMethods: [],
+          }
+          : {
+            ...person,
+            ...clearedFields,
+            phone: "",
+            contactMethods: [method],
+          };
       }),
     }));
   };
@@ -751,6 +781,18 @@ export default function CompetitionForm({
     setFieldSuggestionsOpen(false);
   };
 
+  const selectCompetitionType = (value) => {
+    const knownType = competitionTypeOptions.find((type) => (
+      type !== "Lainnya" && type.toLocaleLowerCase("id-ID") === value.trim().toLocaleLowerCase("id-ID")
+    ));
+    updateForm((current) => ({
+      ...current,
+      competitionType: knownType || "Lainnya",
+      customCompetitionType: knownType ? "" : value.trim(),
+    }));
+    setTypeSuggestionsOpen(false);
+  };
+
   const selectOrganizer = (value) => {
     updateForm((current) => ({ ...current, organizer: value }));
     setOrganizerSuggestionsOpen(false);
@@ -765,8 +807,12 @@ export default function CompetitionForm({
       || !form.contactPeople.length) {
       return "Lengkapi nama, deskripsi, penyelenggara, kategori, tipe lomba, bidang, tingkat, link pendaftaran, dan kontak.";
     }
-    if (!form.contactPeople.every((person) => person.name.trim() && isValidIndonesianPhone(person.phone))) {
-      return "Setiap kontak wajib memiliki nama dan nomor telepon yang valid.";
+    if (!form.contactPeople.every((person) => (
+      person.name.trim()
+      && person.contactMethods.length > 0
+      && hasContactMethodDetails(person)
+    ))) {
+      return "Setiap kontak wajib memiliki nama, memilih kanal, dan mengisi detail kontaknya.";
     }
     if (form.contactPeople.some((person) => (
       (person.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email))
@@ -1310,29 +1356,58 @@ export default function CompetitionForm({
                 {competitionCategoryOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label>Tipe lomba <span className="required-mark">*</span>
-              <select
-                value={form.competitionType}
-                onChange={(event) => updateForm((current) => ({
-                  ...current,
-                  competitionType: event.target.value,
-                  customCompetitionType: event.target.value === "Lainnya" ? current.customCompetitionType : "",
-                }))}
-                required
-              >
-                <option value="">Pilih tipe lomba</option>
-                {competitionTypeOptions.map((option) => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            {form.competitionType === "Lainnya" && <label>Tipe lomba lainnya <span className="required-mark">*</span>
+            <div className="competition-form-field">
+              <label htmlFor="competition-type">Tipe lomba <span className="required-mark">*</span></label>
               <input
-                value={form.customCompetitionType}
-                onChange={update("customCompetitionType")}
+                id="competition-type"
+                value={competitionTypeInputValue}
+                onFocus={() => setTypeSuggestionsOpen(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.closest(".competition-form-field")?.contains(event.relatedTarget)) {
+                    setTypeSuggestionsOpen(false);
+                  }
+                }}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const knownType = competitionTypeOptions.find((type) => (
+                    type !== "Lainnya" && type.toLocaleLowerCase("id-ID") === value.trim().toLocaleLowerCase("id-ID")
+                  ));
+                  updateForm((current) => ({
+                    ...current,
+                    competitionType: knownType || (value.trim() ? "Lainnya" : ""),
+                    customCompetitionType: knownType ? "" : value,
+                  }));
+                  setTypeSuggestionsOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && typeSuggestionsOpen && typeSuggestions.length) {
+                    event.preventDefault();
+                    selectCompetitionType(typeSuggestions[0]);
+                  }
+                }}
                 maxLength={80}
-                placeholder="Contoh: cerdas cermat"
+                placeholder="Ketik atau pilih tipe lomba"
+                autoComplete="off"
+                aria-autocomplete="list"
+                aria-controls="competition-type-suggestions"
                 required
               />
-            </label>}
+              <p className="competition-form-helper">Pilih rekomendasi atau ketik tipe lomba lainnya.</p>
+              {typeSuggestionsOpen && (typeSuggestions.length > 0 || showCustomType) && (
+                <div id="competition-type-suggestions" className="competition-autocomplete-list" role="listbox" aria-label="Rekomendasi tipe lomba">
+                  {typeSuggestions.map((type) => (
+                    <button type="button" role="option" aria-selected={false} key={type} onMouseDown={(event) => event.preventDefault()} onClick={() => selectCompetitionType(type)}>
+                      <span>{type}</span>
+                    </button>
+                  ))}
+                  {showCustomType && (
+                    <button type="button" role="option" aria-selected={false} className="competition-autocomplete-create" onMouseDown={(event) => event.preventDefault()} onClick={() => selectCompetitionType(competitionTypeInputValue)}>
+                      Gunakan tipe “{competitionTypeInputValue.trim()}”
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="competition-form-field">
               <div className="competition-field-heading">
                 <label htmlFor="competition-field">Bidang lomba <span className="required-mark">*</span></label>
@@ -1396,7 +1471,7 @@ export default function CompetitionForm({
             </label>
             <section className="competition-contact-people competition-form-full" aria-label="Kontak penyelenggara">
               <div className="competition-repeat-heading">
-                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Isi nama dan nomor telepon, lalu pilih kanal kontak tambahan.</span></div>
+                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Isi nama dan pilih satu kanal kontak yang ingin digunakan.</span></div>
                 <button className="button button-outline button-small" type="button" onClick={addContactPerson}>Tambah kontak</button>
               </div>
               {form.contactPeople.map((person, index) => (
@@ -1408,12 +1483,6 @@ export default function CompetitionForm({
                   <div className="competition-contact-grid">
                     <label>Nama <span className="required-mark">*</span>
                       <input value={person.name} onChange={(event) => updateContactPerson(index, "name", event.target.value)} maxLength={120} required />
-                    </label>
-                    <label>Nomor telepon / WhatsApp <span className="required-mark">*</span>
-                      <span className="competition-phone-input">
-                        <span aria-hidden="true">+62</span>
-                        <input type="tel" inputMode="numeric" value={person.phone} onChange={(event) => updateContactPerson(index, "phone", event.target.value)} maxLength={13} pattern="[2-9][0-9]{6,12}" title="Masukkan nomor Indonesia tanpa +62, misalnya 8123456789" placeholder="8123456789" required />
-                      </span>
                     </label>
                     <div className="competition-contact-platforms" role="group" aria-label={`Pilih kanal kontak untuk ${person.name || `kontak ${index + 1}`}`}>
                       {contactPlatforms.map(({ id, label, Icon }) => {
@@ -1433,20 +1502,26 @@ export default function CompetitionForm({
                         );
                       })}
                     </div>
+                    {person.contactMethods.includes("whatsapp") && <label>Nomor WhatsApp <span className="required-mark">*</span>
+                      <span className="competition-phone-input">
+                        <span aria-hidden="true">+62</span>
+                        <input type="tel" inputMode="numeric" value={person.phone} onChange={(event) => updateContactPerson(index, "phone", event.target.value)} maxLength={13} pattern="[2-9][0-9]{6,12}" title="Masukkan nomor Indonesia tanpa +62, misalnya 8123456789" placeholder="8123456789" required />
+                      </span>
+                    </label>}
                     {person.contactMethods.includes("instagram") && <>
                       <label>Username Instagram <span className="optional-mark">(opsional)</span>
-                        <input value={person.instagramUsername} onChange={(event) => updateContactPerson(index, "instagramUsername", event.target.value)} maxLength={30} placeholder="@username" />
+                        <input value={person.instagramUsername} onChange={(event) => updateContactPerson(index, "instagramUsername", event.target.value)} maxLength={30} placeholder="@username" required={!person.instagramUrl} />
                       </label>
                       <label>Link Instagram <span className="optional-mark">(opsional)</span>
                         <input type="url" value={person.instagramUrl} onChange={(event) => updateContactPerson(index, "instagramUrl", event.target.value)} placeholder="https://instagram.com/username" />
                       </label>
                     </>}
-                    {person.contactMethods.includes("gmail") && <label>Alamat Gmail <span className="optional-mark">(opsional)</span>
-                      <input type="email" value={person.email} onChange={(event) => updateContactPerson(index, "email", event.target.value)} maxLength={254} placeholder="nama@gmail.com" />
+                    {person.contactMethods.includes("gmail") && <label>Alamat Gmail <span className="required-mark">*</span>
+                      <input type="email" value={person.email} onChange={(event) => updateContactPerson(index, "email", event.target.value)} maxLength={254} placeholder="nama@gmail.com" required />
                     </label>}
                     {person.contactMethods.includes("tiktok") && <>
                       <label>Username TikTok <span className="optional-mark">(opsional)</span>
-                        <input value={person.tiktokUsername} onChange={(event) => updateContactPerson(index, "tiktokUsername", event.target.value)} maxLength={30} placeholder="@username" />
+                        <input value={person.tiktokUsername} onChange={(event) => updateContactPerson(index, "tiktokUsername", event.target.value)} maxLength={30} placeholder="@username" required={!person.tiktokUrl} />
                       </label>
                       <label>Link TikTok <span className="optional-mark">(opsional)</span>
                         <input type="url" value={person.tiktokUrl} onChange={(event) => updateContactPerson(index, "tiktokUrl", event.target.value)} placeholder="https://tiktok.com/@username" />

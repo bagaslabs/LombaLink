@@ -305,7 +305,7 @@ export function competitionFieldsFromForm(form) {
   const firstBatch = registrationBatches[0];
   const contactPeople = (Array.isArray(form.contactPeople) ? form.contactPeople : []).map((person) => ({
     name: person.name.trim(),
-    phone: normalizePhoneNumber(person.phone, "+62"),
+    phone: person.contactMethods.includes("whatsapp") ? normalizePhoneNumber(person.phone, "+62") : "",
     email: person.email.trim() || "",
     instagramUsername: person.instagramUsername.trim().replace(/^@+/, ""),
     instagramUrl: person.instagramUrl.trim(),
