@@ -63,10 +63,10 @@ export function ThemeToggle({ theme, onToggleTheme }) {
 export function CompetitionCard({ item, onDetails }) {
   return (
     <article className="competition-card">
-      <div className={`card-art ${item.color || "blue"}`}>
+      <div className={`card-art ${item.color || "blue"}${item.coverUrl ? " has-cover" : ""}`}>
         {item.coverUrl && <img className="card-cover-image" src={item.coverUrl} alt="" />}
         <span className="card-category">{item.category}</span>
-        <span className="card-art-icon"><Trophy size={25} /></span>
+        {!item.coverUrl && <span className="card-art-icon"><Trophy size={25} /></span>}
         {item.scope === "Internasional" && <span className="international-tag"><Globe2 size={12} /> Internasional</span>}
       </div>
       <div className="card-content">

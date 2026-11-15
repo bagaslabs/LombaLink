@@ -26,7 +26,7 @@ import { removeCompetitionCover, uploadCompetitionCover } from "../competitionSe
 import AdminUsersPanel from "./AdminUsersPanel.jsx";
 import AdminReportsPanel from "./AdminReportsPanel.jsx";
 
-export default function AdminPage({ account, supabaseClient, navigate, onLogout, onCompetitionsChanged, theme, onToggleTheme }) {
+export default function AdminPage({ account, supabaseClient, navigate, onLogout, onCompetitionsChanged, theme, onToggleTheme, suggestedKeywords = [] }) {
   const [tab, setTab] = useState("pending");
   const [section, setSection] = useState("overview");
   const [competitions, setCompetitions] = useState([]);
@@ -272,7 +272,14 @@ export default function AdminPage({ account, supabaseClient, navigate, onLogout,
       {createModalOpen && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setCreateModalOpen(false)}>
         <section className="modal-card competition-admin-modal" role="dialog" aria-modal="true" aria-labelledby="create-competition-title">
           <button className="modal-close" onClick={() => setCreateModalOpen(false)} aria-label="Tutup"><X size={19} /></button>
-          <CompetitionForm mode="moderator" onSubmit={publishCompetition} onCancel={() => setCreateModalOpen(false)} onSuccess={() => setCreateModalOpen(false)} />
+          <CompetitionForm
+            mode="moderator"
+            suggestedKeywords={[...suggestedKeywords, ...competitions.flatMap((item) => item.keywords || [])]}
+            persistenceKey={`lombalink.competition-form.v1.${account.id}.moderator-new`}
+            onSubmit={publishCompetition}
+            onCancel={() => setCreateModalOpen(false)}
+            onSuccess={() => setCreateModalOpen(false)}
+          />
         </section>
       </div>}
       <CompetitionModal

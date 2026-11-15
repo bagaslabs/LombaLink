@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   ArrowRight,
@@ -50,6 +50,8 @@ export default function OrganizerPage({
   route,
   navigate,
   onLogout,
+  suggestedKeywords = [],
+  formPersistenceKey,
   onCompetitionsChanged,
   theme,
   onToggleTheme,
@@ -69,10 +71,11 @@ export default function OrganizerPage({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [actionId, setActionId] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(5);
+  const competitionsLoadedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    if (!competitionsLoadedRef.current) setLoading(true);
     setLoadError("");
     setAnalyticsError("");
 
@@ -108,7 +111,10 @@ export default function OrganizerPage({
     }).catch((error) => {
       if (active) setLoadError(error instanceof Error ? error.message : "Workspace lomba gagal dimuat.");
     }).finally(() => {
-      if (active) setLoading(false);
+      if (active) {
+        competitionsLoadedRef.current = true;
+        setLoading(false);
+      }
     });
 
     return () => { active = false; };
@@ -130,13 +136,16 @@ export default function OrganizerPage({
     () => competitions.find((item) => item.id === editId) || null,
     [competitions, editId],
   );
+  const competitionKeywordSuggestions = useMemo(
+    () => [...new Set([...suggestedKeywords, ...competitions.flatMap((item) => item.keywords || [])])],
+    [competitions, suggestedKeywords],
+  );
   const matchingCompetitions = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("id-ID");
     return competitions.filter((item) => {
       if (filter === "archived" ? !item.archivedAt : item.archivedAt) return false;
       if (filter === "drafts" && item.status !== "draft") return false;
       if (filter === "active" && (item.status === "rejected" || item.status === "draft")) return false;
-      if (filter === "needs-update" && item.status !== "rejected") return false;
       return !query || `${item.title} ${item.organizer} ${item.category} ${item.keywords.join(" ")}`.toLocaleLowerCase("id-ID").includes(query);
     });
   }, [competitions, filter, search]);
@@ -201,12 +210,7 @@ export default function OrganizerPage({
 
     if (result.error) {
       const cleanupError = uploadedCoverPath ? await removeCompetitionCover(supabaseClient, uploadedCoverPath) : "";
-      const isRowPolicyError = result.error.code === "42501"
-        || result.error.message?.toLowerCase().includes("row-level security policy");
-      const message = isRowPolicyError
-        ? "Akses penyimpanan ditolak. Simpan ulang profil agar data profil tersinkron ke database, lalu coba lagi. Jika masih gagal, terapkan migrasi Supabase terbaru (20261114200700_lombalink_competition_drafts.sql)."
-        : result.error.message;
-      return `Lomba gagal disimpan: ${message}${cleanupError ? ` ${cleanupError}` : ""}`;
+      return `Lomba gagal disimpan: ${result.error.message}${cleanupError ? ` ${cleanupError}` : ""}`;
     }
 
     if (existing?.coverPath && existing.coverPath !== coverPath) {
@@ -325,6 +329,8 @@ export default function OrganizerPage({
                 : <CompetitionForm
                   key={editId || "new"}
                   initialCompetition={editingCompetition}
+                  suggestedKeywords={competitionKeywordSuggestions}
+                  persistenceKey={formPersistenceKey}
                   onSubmit={saveCompetition}
                   onCancel={() => navigate("/lomba/manajemen")}
                   onSuccess={saveSucceeded}
@@ -351,7 +357,6 @@ export default function OrganizerPage({
                 <div className="organizer-tabs">
                   <button className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")}>Aktif</button>
                   <button className={filter === "drafts" ? "active" : ""} onClick={() => setFilter("drafts")}>Draft</button>
-                  <button className={filter === "needs-update" ? "active" : ""} onClick={() => setFilter("needs-update")}>Perlu perbaikan</button>
                   <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Semua</button>
                   <button className={filter === "archived" ? "active" : ""} onClick={() => setFilter("archived")}>Arsip</button>
                 </div>

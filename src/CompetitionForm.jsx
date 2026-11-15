@@ -11,11 +11,22 @@ import {
 
 const emptyBatch = () => ({ label: "", startsAt: "", endsAt: "" });
 const emptyFeeTier = () => ({ label: "", amount: "" });
+const popularKeywordTags = ["#pramuka", "#olimpiade", "#esai", "#sains", "#teknologi", "#seni", "#debat", "#pelajar", "#gratis"];
 const formSections = [
   { id: "competition-section-information", label: "Informasi Lomba" },
   { id: "competition-section-schedule", label: "Jadwal & Biaya" },
   { id: "competition-section-organizer", label: "Penyelenggara" },
 ];
+
+function normalizeKeywordTag(value) {
+  const tag = String(value || "")
+    .trim()
+    .replace(/^#+/, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^\p{L}\p{N}_-]/gu, "")
+    .toLocaleLowerCase("id-ID");
+  return tag ? `#${tag}` : "";
+}
 
 function toForm(competition) {
   return {
@@ -25,7 +36,10 @@ function toForm(competition) {
     audience: competition?.audience || "",
     education: competition?.education || "",
     category: competition?.category || "",
-    keywords: (competition?.keywords || []).join(", "),
+    keywords: Array.isArray(competition?.keywords)
+      ? [...new Set(competition.keywords.map(normalizeKeywordTag).filter(Boolean))]
+      : [],
+    keywordInput: "",
     scope: competition?.scope || "",
     competitionType: competition?.competitionType || "",
     mode: competition?.mode || "",
@@ -50,8 +64,42 @@ function toForm(competition) {
     coverPath: competition?.coverPath || "",
     coverUrl: competition?.coverUrl || "",
     coverFile: null,
+    coverNeedsReselect: false,
     removeCover: false,
   };
+}
+
+function restoreFormDraft(storageKey, competition) {
+  const initialForm = toForm(competition);
+  if (!storageKey) return { form: initialForm, notice: "" };
+
+  try {
+    const savedDraft = window.localStorage.getItem(storageKey);
+    if (!savedDraft) return { form: initialForm, notice: "" };
+    const savedForm = JSON.parse(savedDraft);
+    if (!savedForm || typeof savedForm !== "object" || Array.isArray(savedForm)) {
+      throw new Error("Format draft lokal tidak valid.");
+    }
+    const savedKeywords = Array.isArray(savedForm.keywords)
+      ? savedForm.keywords
+      : typeof savedForm.keywords === "string" ? savedForm.keywords.split(",") : [];
+
+    return {
+      form: {
+        ...initialForm,
+        ...savedForm,
+        keywords: [...new Set(savedKeywords.map(normalizeKeywordTag).filter(Boolean))],
+        coverFile: null,
+        coverNeedsReselect: Boolean(savedForm.coverNeedsReselect),
+      },
+      notice: "Draft formulir dipulihkan dari penyimpanan perangkat.",
+    };
+  } catch (error) {
+    return {
+      form: initialForm,
+      notice: `Draft lokal gagal dipulihkan: ${error instanceof Error ? error.message : "kesalahan penyimpanan."}`,
+    };
+  }
 }
 
 function isValidUrl(value) {
@@ -67,22 +115,65 @@ function isValidUrl(value) {
 export default function CompetitionForm({
   mode = "organizer",
   initialCompetition = null,
+  suggestedKeywords = [],
+  persistenceKey = "",
   onSubmit,
   onCancel,
   onSuccess,
 }) {
-  const [form, setForm] = useState(() => toForm(initialCompetition));
+  const [restoredForm] = useState(() => restoreFormDraft(persistenceKey, initialCompetition));
+  const [form, setForm] = useState(restoredForm.form);
   const [error, setError] = useState("");
+  const [storageNotice, setStorageNotice] = useState(restoredForm.notice);
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [activeSection, setActiveSection] = useState(formSections[0].id);
   const formRef = useRef(null);
+  const formStateRef = useRef(form);
   const submitButtonRef = useRef(null);
   const saveActionRef = useRef("submit");
   const isModerator = mode === "moderator";
   const isEditing = Boolean(initialCompetition?.id);
   const canSaveAsDraft = !isModerator && (!isEditing || initialCompetition.status === "draft");
   const canArchiveFromForm = !isEditing || initialCompetition.status === "draft";
+  const normalizedKeywordInput = normalizeKeywordTag(form.keywordInput);
+  const keywordSuggestions = [...new Set([...suggestedKeywords.map(normalizeKeywordTag), ...popularKeywordTags])]
+    .filter((tag) => tag && !form.keywords.includes(tag))
+    .filter((tag) => !normalizedKeywordInput || tag.includes(normalizedKeywordInput.slice(1)))
+    .slice(0, 7);
+  const showCustomKeyword = normalizedKeywordInput
+    && !form.keywords.includes(normalizedKeywordInput)
+    && !keywordSuggestions.includes(normalizedKeywordInput);
+
+  const updateForm = (updater) => {
+    setForm((current) => {
+      const next = updater(current);
+      formStateRef.current = next;
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!persistenceKey) return undefined;
+    const persistForm = () => {
+      try {
+        const { coverFile, ...savedForm } = formStateRef.current;
+        window.localStorage.setItem(persistenceKey, JSON.stringify({
+          ...savedForm,
+          coverNeedsReselect: Boolean(coverFile) || savedForm.coverNeedsReselect,
+        }));
+        setStorageNotice((current) => current.startsWith("Draft lokal gagal")
+          ? current
+          : "Perubahan tersimpan otomatis di perangkat ini.");
+      } catch (persistError) {
+        setStorageNotice(`Draft lokal gagal disimpan: ${persistError instanceof Error ? persistError.message : "kesalahan penyimpanan."}`);
+      }
+    };
+
+    persistForm();
+    window.addEventListener("pagehide", persistForm);
+    return () => window.removeEventListener("pagehide", persistForm);
+  }, [form, persistenceKey]);
 
   useEffect(() => {
     if (!form.coverFile) {
@@ -110,7 +201,7 @@ export default function CompetitionForm({
   }, []);
 
   const scrollToSection = (sectionId) => {
-    const section = formRef.current?.querySelector(`[data-form-section="${sectionId}"]`);
+    const section = formRef.current?.querySelector(`#${sectionId}`);
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
     setActiveSection(sectionId);
   };
@@ -122,13 +213,23 @@ export default function CompetitionForm({
 
   const update = (key) => (event) => {
     const value = event.target.value;
-    setForm((current) => ({ ...current, [key]: value }));
+    updateForm((current) => ({ ...current, [key]: value }));
   };
 
   const updateRow = (key, index, field, value) => {
-    setForm((current) => ({
+    updateForm((current) => ({
       ...current,
       [key]: current[key].map((item, rowIndex) => rowIndex === index ? { ...item, [field]: value } : item),
+    }));
+  };
+
+  const addKeywordTag = (value = form.keywordInput) => {
+    const tag = normalizeKeywordTag(value);
+    if (!tag) return;
+    updateForm((current) => ({
+      ...current,
+      keywords: current.keywords.includes(tag) ? current.keywords : [...current.keywords, tag],
+      keywordInput: "",
     }));
   };
 
@@ -183,7 +284,7 @@ export default function CompetitionForm({
       return;
     }
     setError("");
-    setForm((current) => ({ ...current, coverFile: file, removeCover: false }));
+    updateForm((current) => ({ ...current, coverFile: file, coverNeedsReselect: false, removeCover: false }));
   };
 
   const submit = async (event) => {
@@ -207,7 +308,8 @@ export default function CompetitionForm({
     const payload = {
       ...form,
       saveAction,
-      keywords: form.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
+      keywords: [...new Set([...form.keywords, normalizeKeywordTag(form.keywordInput)].filter(Boolean))],
+      keywordInput: "",
       feeTiers: form.feeTiers
         .filter((fee) => fee.label.trim() && fee.amount !== "")
         .map((fee) => ({ label: fee.label.trim(), amount: Number(fee.amount) })),
@@ -223,6 +325,14 @@ export default function CompetitionForm({
       if (message) {
         setError(message);
         return;
+      }
+      if (persistenceKey) {
+        try {
+          window.localStorage.removeItem(persistenceKey);
+          setStorageNotice("");
+        } catch (storageError) {
+          setStorageNotice(`Lomba tersimpan, tetapi draft lokal gagal dibersihkan: ${storageError instanceof Error ? storageError.message : "kesalahan penyimpanan."}`);
+        }
       }
       onSuccess?.(saveAction);
     } catch (submitError) {
@@ -258,6 +368,7 @@ export default function CompetitionForm({
             </button>
           ))}
         </nav>
+        {storageNotice && <p className="competition-form-helper" role="status">{storageNotice}{form.coverNeedsReselect && " Gambar yang belum tersimpan perlu dipilih ulang."}</p>}
 
         <section id="competition-section-information" data-form-section className="competition-form-section" aria-labelledby="competition-section-information-heading">
           <div className="competition-form-section-heading">
@@ -274,14 +385,14 @@ export default function CompetitionForm({
               <div>
                 <label className="button button-outline button-small" htmlFor="competition-cover"><Upload size={15} /> Tambahkan gambar</label>
                 <input id="competition-cover" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectCover} />
-                <p>JPG, PNG, atau WebP · maksimal 5 MB · opsional</p>
+                <p>Poster vertikal rasio 2:3 · contoh 1080 × 1620 px · JPG, PNG, atau WebP · maksimal 5 MB · opsional</p>
               </div>
               {(previewUrl || (!form.removeCover && form.coverUrl)) && (
                 <button
                   type="button"
                   className="competition-remove-cover"
                   aria-label="Hapus gambar lomba"
-                  onClick={() => setForm((current) => ({ ...current, coverFile: null, removeCover: true }))}
+                  onClick={() => updateForm((current) => ({ ...current, coverFile: null, coverNeedsReselect: false, removeCover: true }))}
                 >
                   <X size={15} />
                 </button>
@@ -305,9 +416,49 @@ export default function CompetitionForm({
                 {competitionTypeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label className="competition-form-full">Keyword <span className="optional-mark">(pisahkan dengan koma)</span>
-              <input value={form.keywords} onChange={update("keywords")} maxLength={300} placeholder="Contoh: pelajar, gratis, coding" />
-            </label>
+            <div className="competition-form-full competition-keyword-field">
+              <label htmlFor="competition-keyword-input">Tag lomba <span className="optional-mark">(opsional)</span></label>
+              <div className="competition-keyword-entry">
+                {form.keywords.map((tag) => (
+                  <span className="competition-keyword-chip" key={tag}>
+                    {tag}
+                    <button type="button" aria-label={`Hapus tag ${tag}`} onClick={() => updateForm((current) => ({
+                      ...current,
+                      keywords: current.keywords.filter((keyword) => keyword !== tag),
+                    }))}><X size={12} /></button>
+                  </span>
+                ))}
+                <input
+                  id="competition-keyword-input"
+                  aria-label="Tambah tag lomba"
+                  value={form.keywordInput}
+                  maxLength={60}
+                  onChange={update("keywordInput")}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === ",") {
+                      event.preventDefault();
+                      addKeywordTag();
+                    } else if (event.key === "Backspace" && !form.keywordInput && form.keywords.length) {
+                      updateForm((current) => ({ ...current, keywords: current.keywords.slice(0, -1) }));
+                    }
+                  }}
+                  placeholder="Ketik tag, misalnya pramuka"
+                />
+              </div>
+              <p className="competition-form-helper">Pilih rekomendasi atau ketik tag sendiri, lalu tekan Enter.</p>
+              {(keywordSuggestions.length > 0 || showCustomKeyword) && (
+                <div className="competition-keyword-suggestions" aria-label="Rekomendasi tag">
+                  {keywordSuggestions.map((tag) => (
+                    <button type="button" key={tag} onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(tag)}>{tag}</button>
+                  ))}
+                  {showCustomKeyword && (
+                    <button type="button" className="competition-keyword-create" onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(form.keywordInput)}>
+                      Tambahkan {normalizedKeywordInput}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
             <label>Untuk siapa <span className="required-mark">*</span>
               <textarea rows="3" value={form.audience} onChange={update("audience")} maxLength={500} placeholder="Contoh: siswa SMA/SMK sederajat" required />
             </label>
@@ -344,27 +495,27 @@ export default function CompetitionForm({
             <div className="competition-repeat-section competition-form-full">
               <div className="competition-repeat-heading">
                 <div><strong>Batch pendaftaran <span className="required-mark">*</span></strong><span>Wajib minimal satu batch; batas akhir lomba mengikuti batch terakhir.</span></div>
-                <button className="button button-outline button-small" type="button" onClick={() => setForm((current) => ({ ...current, registrationBatches: [...current.registrationBatches, emptyBatch()] }))}><Plus size={14} /> Tambah batch</button>
+                <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => ({ ...current, registrationBatches: [...current.registrationBatches, emptyBatch()] }))}><Plus size={14} /> Tambah batch</button>
               </div>
               {form.registrationBatches.map((batch, index) => (
                 <div className="competition-repeat-row" key={`batch-${index}`}>
                   <label>Nama batch <span className="required-mark">*</span><input value={batch.label} onChange={(event) => updateRow("registrationBatches", index, "label", event.target.value)} placeholder={`Batch ${index + 1}`} required /></label>
                   <label>Mulai <span className="required-mark">*</span><input type="date" value={batch.startsAt} onChange={(event) => updateRow("registrationBatches", index, "startsAt", event.target.value)} required /></label>
                   <label>Akhir <span className="required-mark">*</span><input type="date" value={batch.endsAt} onChange={(event) => updateRow("registrationBatches", index, "endsAt", event.target.value)} required /></label>
-                  {form.registrationBatches.length > 1 && <button className="competition-repeat-remove" type="button" aria-label={`Hapus batch ${index + 1}`} onClick={() => setForm((current) => ({ ...current, registrationBatches: current.registrationBatches.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>}
+                  {form.registrationBatches.length > 1 && <button className="competition-repeat-remove" type="button" aria-label={`Hapus batch ${index + 1}`} onClick={() => updateForm((current) => ({ ...current, registrationBatches: current.registrationBatches.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>}
                 </div>
               ))}
             </div>
             <div className="competition-repeat-section competition-form-full">
               <div className="competition-repeat-heading">
                 <div><strong>Biaya pendaftaran</strong><span>Opsional; bisa dibedakan per kategori peserta atau batch.</span></div>
-                <button className="button button-outline button-small" type="button" onClick={() => setForm((current) => ({ ...current, feeTiers: [...current.feeTiers, emptyFeeTier()] }))}><Plus size={14} /> Tambah biaya</button>
+                <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => ({ ...current, feeTiers: [...current.feeTiers, emptyFeeTier()] }))}><Plus size={14} /> Tambah biaya</button>
               </div>
               {form.feeTiers.length ? form.feeTiers.map((fee, index) => (
                 <div className="competition-repeat-row fee-row" key={`fee-${index}`}>
                   <label>Kategori / keterangan <input value={fee.label} onChange={(event) => updateRow("feeTiers", index, "label", event.target.value)} placeholder="Contoh: Kategori A" /></label>
                   <label>Biaya (Rp) <input type="number" min="0" step="1000" value={fee.amount} onChange={(event) => updateRow("feeTiers", index, "amount", event.target.value)} placeholder="0" /></label>
-                  <button className="competition-repeat-remove" type="button" aria-label={`Hapus biaya ${index + 1}`} onClick={() => setForm((current) => ({ ...current, feeTiers: current.feeTiers.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>
+                  <button className="competition-repeat-remove" type="button" aria-label={`Hapus biaya ${index + 1}`} onClick={() => updateForm((current) => ({ ...current, feeTiers: current.feeTiers.filter((_, rowIndex) => rowIndex !== index) }))}><Trash2 size={15} /></button>
                 </div>
               )) : <p className="competition-form-muted">Belum ada biaya. Peserta akan menganggap pendaftaran gratis jika informasi ini kosong.</p>}
             </div>

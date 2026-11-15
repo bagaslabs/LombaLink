@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { AccountPrompt, SiteFooter } from "./components.jsx";
 import Navbar from "./Navbar.jsx";
@@ -66,6 +66,7 @@ export default function App() {
   const [competitionsLoading, setCompetitionsLoading] = useState(true);
   const [competitionsError, setCompetitionsError] = useState("");
   const [competitionReloadKey, setCompetitionReloadKey] = useState(0);
+  const competitionsLoadedRef = useRef(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptRequired, setPromptRequired] = useState(false);
   const [encourageShare, setEncourageShare] = useState(false);
@@ -101,6 +102,7 @@ export default function App() {
       setSupabaseClient(client);
       if (!client) {
         setCompetitionsLoading(false);
+        competitionsLoadedRef.current = true;
         setCompetitionsError("Supabase belum dikonfigurasi. Data lomba tidak dapat dimuat.");
         setAuthReady(true);
         return;
@@ -189,13 +191,14 @@ export default function App() {
   useEffect(() => {
     if (!supabaseClient) return undefined;
     let active = true;
-    setCompetitionsLoading(true);
+    if (!competitionsLoadedRef.current) setCompetitionsLoading(true);
     setCompetitionsError("");
 
     supabaseClient
       .from("lombalink_competitions")
       .select("*")
       .eq("status", "approved")
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(1000)
       .then(({ data, error }) => {
@@ -216,11 +219,24 @@ export default function App() {
         setCompetitionsError(error instanceof Error ? error.message : "Data lomba gagal dimuat.");
       })
       .finally(() => {
-        if (active) setCompetitionsLoading(false);
+        if (active) {
+          competitionsLoadedRef.current = true;
+          setCompetitionsLoading(false);
+        }
       });
 
     return () => { active = false; };
   }, [competitionReloadKey, supabaseClient]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        setCompetitionReloadKey((current) => current + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => document.removeEventListener("visibilitychange", refreshWhenVisible);
+  }, []);
 
   useEffect(() => {
     if (authReady && accountRoleReady && routePath === "/admin" && account?.role !== "moderator") {
@@ -539,6 +555,10 @@ export default function App() {
     () => [...new Set(competitions.map((item) => item.category))].sort(),
     [competitions],
   );
+  const keywordSuggestions = useMemo(
+    () => [...new Set(competitions.flatMap((item) => item.keywords || []))],
+    [competitions],
+  );
 
   if (!authReady || (account && !accountRoleReady)) {
     return <main className="auth-loading" role="status"><LoaderCircle size={20} className="loading-icon" /> Memuat sesi akun...</main>;
@@ -586,7 +606,7 @@ export default function App() {
         onToggleTheme={toggleTheme}
       />;
     }
-    return <AdminPage account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)} theme={theme} onToggleTheme={toggleTheme} />;
+    return <AdminPage account={account} supabaseClient={supabaseClient} navigate={navigate} onLogout={logout} onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)} theme={theme} onToggleTheme={toggleTheme} suggestedKeywords={keywordSuggestions} />;
   }
   if (routePath.startsWith("/lomba/")) {
     if (!account) {
@@ -599,6 +619,8 @@ export default function App() {
       route={route}
       navigate={navigate}
       onLogout={logout}
+      suggestedKeywords={keywordSuggestions}
+      formPersistenceKey={`lombalink.competition-form.v1.${account.id}.${new URLSearchParams(route.slice(route.indexOf("?") + 1)).get("edit") || "new"}`}
       onCompetitionsChanged={() => setCompetitionReloadKey((current) => current + 1)}
       theme={theme}
       onToggleTheme={toggleTheme}
