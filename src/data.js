@@ -15,6 +15,18 @@ export const participantTypeOptions = ["Individu", "Tim"];
 export const targetParticipantOptions = ["SD / MI", "SMP / MTs", "SMA / SMK / MA", "Mahasiswa", "Umum"];
 export const scopeOptions = ["Kabupaten/Kota", "Provinsi", "Nasional", "Internasional"];
 export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "Komunitas"];
+export const organizerLevelOptions = [
+  "SD",
+  "SMP",
+  "SMA",
+  "Perguruan Tinggi / Universitas",
+  "Pemerintah Daerah",
+  "Kementerian Pendidikan Dasar",
+  "Kemdikti",
+  "Lembaga/Organisasi",
+  "Komunitas",
+  "Lainnya",
+];
 export const competitionModeOptions = ["Online", "Offline", "Hybrid"];
 const validAccountTypes = ["participant", "organizer"];
 
@@ -228,7 +240,7 @@ export function competitionFieldsFromForm(form) {
   const firstBatch = registrationBatches[0];
   const contactPeople = (Array.isArray(form.contactPeople) ? form.contactPeople : []).map((person) => ({
     name: person.name.trim(),
-    phone: normalizePhoneNumber(person.phone),
+    phone: normalizePhoneNumber(person.phone, "+62"),
     email: person.email.trim() || "",
     instagramUsername: person.instagramUsername.trim().replace(/^@+/, ""),
     instagramUrl: person.instagramUrl.trim(),
@@ -238,6 +250,15 @@ export function competitionFieldsFromForm(form) {
     phone: "",
     email: "",
   };
+  const teamMemberRange = String(form.teamMemberRange || "").match(/^\s*(\d+)\s*[-–]\s*(\d+)\s*$/);
+  const governmentOrganizerLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar", "Kemdikti"];
+  const organizerType = form.organizerType || (
+    governmentOrganizerLevels.includes(form.organizerLevel)
+      ? "Pemerintah"
+      : form.organizerLevel === "Perguruan Tinggi / Universitas"
+        ? "Universitas"
+        : form.organizerLevel === "Komunitas" ? "Komunitas" : "Lembaga umum"
+  );
   const latestRegistrationDeadline = registrationBatches
     .map((batch) => batch.endsAt)
     .filter(Boolean)
@@ -253,7 +274,7 @@ export function competitionFieldsFromForm(form) {
     tagline: descriptionSummary,
     description: form.description.trim(),
     organizer: form.organizer.trim(),
-    organizer_type: form.organizerType || "Lembaga umum",
+    organizer_type: organizerType,
     organizer_level: form.organizerLevel || "Lembaga",
     contact: primaryContact.phone,
     contact_person_name: primaryContact.name,
@@ -263,11 +284,11 @@ export function competitionFieldsFromForm(form) {
     audience: form.targetParticipants.join(", "),
     education: legacyEducation(form.targetParticipants),
     scope: form.scope,
-    category: form.field,
+    category: form.field === "Lainnya" ? (form.customField.trim() || "Lainnya") : form.field,
     competition_category: form.competitionCategory,
     participant_type: form.participantType,
-    team_min_members: form.participantType === "Tim" ? Number(form.teamMinMembers) : null,
-    team_max_members: form.participantType === "Tim" ? Number(form.teamMaxMembers) : null,
+    team_min_members: form.participantType === "Tim" && teamMemberRange ? Number(teamMemberRange[1]) : null,
+    team_max_members: form.participantType === "Tim" && teamMemberRange ? Number(teamMemberRange[2]) : null,
     target_participants: form.targetParticipants,
     requirements: form.requirements.trim(),
     keywords: form.keywords,

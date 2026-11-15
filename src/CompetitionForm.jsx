@@ -1,10 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Archive, ArrowRight, Bold, Camera, Italic, List, Save, Upload, X } from "lucide-react";
+import {
+  Archive,
+  ArrowRight,
+  Bold,
+  Camera,
+  Italic,
+  List,
+  ListOrdered,
+  Save,
+  Smile,
+  Upload,
+  X,
+} from "lucide-react";
 import {
   competitionCategoryOptions,
   competitionFieldOptions,
   competitionModeOptions,
   normalizePhoneNumber,
+  organizerLevelOptions,
   participantTypeOptions,
   scopeOptions,
   targetParticipantOptions,
@@ -15,6 +28,7 @@ const formSections = [
   { id: "competition-section-general", label: "Umum" },
   { id: "competition-section-technical", label: "Spesifik" },
 ];
+const descriptionEmojis = ["🎉", "🏆", "📅", "✨", "📢", "🎁", "✅", "📍"];
 
 function normalizeKeywordTag(value) {
   const tag = String(value || "")
@@ -45,13 +59,28 @@ function normalizeRegistrationBatch(batch, index, fallbackFeeType = "Gratis", fa
 }
 
 function normalizeContactPerson(person = {}) {
+  let phone = String(person.phone || "").replace(/\D/g, "");
+  if (phone.startsWith("62")) phone = phone.slice(2);
+  else if (phone.startsWith("0")) phone = phone.slice(1);
   return {
     name: person.name || "",
-    phone: person.phone || "",
+    phone: phone.slice(0, 13),
     email: person.email || "",
     instagramUsername: person.instagramUsername || "",
     instagramUrl: person.instagramUrl || "",
   };
+}
+
+function getTeamMemberRange(minimum, maximum) {
+  return minimum != null && minimum !== "" && maximum != null && maximum !== ""
+    ? `${minimum}-${maximum}`
+    : "";
+}
+
+function parseTeamMemberRange(value) {
+  const match = String(value || "").match(/^\s*(\d+)\s*[-–]\s*(\d+)\s*$/);
+  if (!match) return null;
+  return { minimum: Number(match[1]), maximum: Number(match[2]) };
 }
 
 function toForm(competition) {
@@ -84,11 +113,14 @@ function toForm(competition) {
     phone: legacyPhone,
     email: competition?.contactPersonEmail || "",
   }]).map(normalizeContactPerson);
+  const savedField = competition?.category || "";
+  const customField = savedField && !competitionFieldOptions.includes(savedField) ? savedField : "";
   return {
     title: competition?.title || "",
     description: competition?.description || "",
     competitionCategory: competition?.competitionCategory || "",
-    field: competition?.category || "",
+    field: customField ? "Lainnya" : savedField,
+    customField,
     keywords: Array.isArray(competition?.keywords)
       ? [...new Set(competition.keywords.map(normalizeKeywordTag).filter(Boolean))]
       : [],
@@ -104,8 +136,7 @@ function toForm(competition) {
     organizerType: competition?.organizerType || "",
     organizerLevel: competition?.organizerLevel || "",
     contactPeople,
-    teamMinMembers: competition?.teamMinMembers == null ? "" : String(competition.teamMinMembers),
-    teamMaxMembers: competition?.teamMaxMembers == null ? "" : String(competition.teamMaxMembers),
+    teamMemberRange: competition?.teamMemberRange || getTeamMemberRange(competition?.teamMinMembers, competition?.teamMaxMembers),
     legacyCompetitionType: competition?.competitionType || "",
     registrationBatches,
     prize: competition?.prize === "Informasi hadiah belum ditambahkan" ? "" : competition?.prize || "",
@@ -155,6 +186,9 @@ function restoreFormDraft(storageKey, competition) {
       : targetParticipantOptions.filter((target) => String(savedForm.audience || "").includes(target)).length
         ? targetParticipantOptions.filter((target) => String(savedForm.audience || "").includes(target))
         : legacyTargets[savedForm.education] || [];
+    const savedField = savedForm.field ?? savedForm.category ?? "";
+    const customField = savedForm.customField
+      ?? (savedField && !competitionFieldOptions.includes(savedField) ? savedField : "");
     const fallbackFeeType = savedForm.feeType ?? (savedFeeTiers.length ? "Berbayar" : "Gratis");
     const registrationBatches = (savedBatches.length ? savedBatches : [{
       startsAt: savedForm.registrationOpensAt || "",
@@ -176,12 +210,13 @@ function restoreFormDraft(storageKey, competition) {
         ...initialForm,
         ...savedForm,
         competitionCategory: savedForm.competitionCategory ?? "",
-        field: savedForm.field ?? savedForm.category ?? "",
+        field: customField ? "Lainnya" : savedField,
+        customField,
         participantType: savedForm.participantType === "Individu dan Tim" ? "" : savedForm.participantType ?? "",
         targetParticipants,
         contactPeople: savedContactPeople.map(normalizeContactPerson),
-        teamMinMembers: savedForm.teamMinMembers ?? "",
-        teamMaxMembers: savedForm.teamMaxMembers ?? "",
+        teamMemberRange: savedForm.teamMemberRange
+          ?? getTeamMemberRange(savedForm.teamMinMembers, savedForm.teamMaxMembers),
         registrationBatches,
         keywords: [...new Set(savedKeywords.map(normalizeKeywordTag).filter(Boolean))],
         coverFile: null,
@@ -207,6 +242,11 @@ function isValidUrl(value) {
   }
 }
 
+function isValidIndonesianPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return /^[2-9]\d{6,12}$/.test(digits) && Boolean(normalizePhoneNumber(digits, "+62"));
+}
+
 export default function CompetitionForm({
   mode = "organizer",
   initialCompetition = null,
@@ -223,8 +263,11 @@ export default function CompetitionForm({
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [activeSection, setActiveSection] = useState(formSections[0].id);
+  const [emojiPickerField, setEmojiPickerField] = useState("");
   const formRef = useRef(null);
   const descriptionRef = useRef(null);
+  const requirementsRef = useRef(null);
+  const prizeRef = useRef(null);
   const formStateRef = useRef(form);
   const submitButtonRef = useRef(null);
   const saveActionRef = useRef("submit");
@@ -320,10 +363,18 @@ export default function CompetitionForm({
   };
 
   const updateContactPerson = (index, key, value) => {
+    const updatedValue = key === "phone"
+      ? (() => {
+        let digits = String(value).replace(/\D/g, "");
+        if (digits.startsWith("62")) digits = digits.slice(2);
+        else if (digits.startsWith("0")) digits = digits.slice(1);
+        return digits.slice(0, 13);
+      })()
+      : value;
     updateForm((current) => ({
       ...current,
       contactPeople: current.contactPeople.map((person, personIndex) => (
-        personIndex === index ? { ...person, [key]: value } : person
+        personIndex === index ? { ...person, [key]: updatedValue } : person
       )),
     }));
   };
@@ -380,11 +431,13 @@ export default function CompetitionForm({
 
   const validateForm = () => {
     if (!form.title.trim() || !form.description.trim() || !form.organizer.trim()
-      || !form.competitionCategory || !form.field || !form.scope || !form.registrationUrl.trim()
+      || !form.organizerLevel || !form.competitionCategory || !form.field
+      || (form.field === "Lainnya" && !form.customField.trim())
+      || !form.scope || !form.registrationUrl.trim()
       || !form.contactPeople.length) {
       return "Lengkapi nama, deskripsi, penyelenggara, kategori, bidang, tingkat, link pendaftaran, dan kontak.";
     }
-    if (!form.contactPeople.every((person) => person.name.trim() && normalizePhoneNumber(person.phone))) {
+    if (!form.contactPeople.every((person) => person.name.trim() && isValidIndonesianPhone(person.phone))) {
       return "Setiap kontak wajib memiliki nama dan nomor telepon yang valid.";
     }
     if (form.contactPeople.some((person) => (
@@ -397,12 +450,11 @@ export default function CompetitionForm({
       return "Pilih jenis peserta, minimal satu target peserta, dan mode pelaksanaan.";
     }
     if (form.participantType === "Tim" && (
-      !Number.isInteger(Number(form.teamMinMembers))
-      || !Number.isInteger(Number(form.teamMaxMembers))
-      || Number(form.teamMinMembers) < 1
-      || Number(form.teamMaxMembers) < Number(form.teamMinMembers)
+      !parseTeamMemberRange(form.teamMemberRange)
+      || parseTeamMemberRange(form.teamMemberRange).minimum < 1
+      || parseTeamMemberRange(form.teamMemberRange).maximum < parseTeamMemberRange(form.teamMemberRange).minimum
     )) {
-      return "Isi jumlah minimal dan maksimal anggota tim dengan benar.";
+      return "Isi rentang jumlah anggota tim dengan benar, contoh 3-5.";
     }
     if (form.mode !== "Online" && !form.location.trim()) {
       return "Lokasi wajib diisi untuk lomba Offline atau Hybrid.";
@@ -448,35 +500,101 @@ export default function CompetitionForm({
     updateForm((current) => ({ ...current, coverFile: file, coverNeedsReselect: false, removeCover: false }));
   };
 
-  const formatDescription = (before, after = before) => {
-    const field = descriptionRef.current;
+  const insertText = (fieldKey, fieldRef, insertedText) => {
+    const field = fieldRef.current;
     if (!field) return;
     const start = field.selectionStart;
     const end = field.selectionEnd;
-    const selected = form.description.slice(start, end);
-    const nextDescription = `${form.description.slice(0, start)}${before}${selected || "teks"}${after}${form.description.slice(end)}`;
-    updateForm((current) => ({ ...current, description: nextDescription }));
+    const value = String(form[fieldKey] || "");
+    const nextValue = `${value.slice(0, start)}${insertedText}${value.slice(end)}`;
+    updateForm((current) => ({ ...current, [fieldKey]: nextValue }));
     requestAnimationFrame(() => {
       field.focus();
-      const selectionStart = start + before.length;
-      field.setSelectionRange(selectionStart, selectionStart + (selected || "teks").length);
+      const cursor = start + insertedText.length;
+      field.setSelectionRange(cursor, cursor);
     });
   };
 
-  const formatDescriptionList = () => {
-    const field = descriptionRef.current;
+  const formatText = (fieldKey, fieldRef, before, after = before) => {
+    const field = fieldRef.current;
     if (!field) return;
     const start = field.selectionStart;
     const end = field.selectionEnd;
-    const selected = form.description.slice(start, end) || "Item daftar";
-    const list = selected.split("\n").map((line) => `- ${line}`).join("\n");
-    const nextDescription = `${form.description.slice(0, start)}${list}${form.description.slice(end)}`;
-    updateForm((current) => ({ ...current, description: nextDescription }));
+    const value = String(form[fieldKey] || "");
+    const selected = value.slice(start, end);
+    const selectedText = selected || "teks";
+    const replacement = `${before}${selectedText}${after}`;
+    const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+    updateForm((current) => ({ ...current, [fieldKey]: nextValue }));
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(start + before.length, start + before.length + selectedText.length);
+    });
+  };
+
+  const formatList = (fieldKey, fieldRef, ordered = false) => {
+    const field = fieldRef.current;
+    if (!field) return;
+    const start = field.selectionStart;
+    const end = field.selectionEnd;
+    const value = String(form[fieldKey] || "");
+    const selected = value.slice(start, end) || "Item daftar";
+    const list = selected.split(/\r?\n/).map((line, index) => (
+      `${ordered ? `${index + 1}.` : "-"} ${line}`
+    )).join("\n");
+    const nextValue = `${value.slice(0, start)}${list}${value.slice(end)}`;
+    updateForm((current) => ({ ...current, [fieldKey]: nextValue }));
     requestAnimationFrame(() => {
       field.focus();
       field.setSelectionRange(start, start + list.length);
     });
   };
+
+  const renderRichToolbar = (fieldKey, fieldRef) => (
+    <div className="competition-rich-tools">
+      <div className="competition-rich-toolbar" aria-label="Pemformatan teks">
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "**")} aria-label="Tebalkan">
+          <Bold size={15} />
+        </button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "*")} aria-label="Miringkan">
+          <Italic size={15} />
+        </button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatList(fieldKey, fieldRef)} aria-label="Buat daftar berpoin">
+          <List size={15} />
+        </button>
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatList(fieldKey, fieldRef, true)} aria-label="Buat daftar bernomor">
+          <ListOrdered size={15} />
+        </button>
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setEmojiPickerField((current) => current === fieldKey ? "" : fieldKey)}
+          aria-label="Tambahkan emoji"
+          aria-expanded={emojiPickerField === fieldKey}
+        >
+          <Smile size={15} />
+        </button>
+      </div>
+      {emojiPickerField === fieldKey && (
+        <div className="competition-emoji-picker" role="group" aria-label="Pilih emoji">
+          {descriptionEmojis.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                insertText(fieldKey, fieldRef, `${emoji} `);
+                setEmojiPickerField("");
+              }}
+              aria-label={`Tambahkan ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   const submit = async (event) => {
     event.preventDefault();
@@ -500,7 +618,7 @@ export default function CompetitionForm({
       targetParticipants: [...form.targetParticipants],
       contactPeople: form.contactPeople.map((person) => ({
         ...person,
-        phone: normalizePhoneNumber(person.phone),
+        phone: normalizePhoneNumber(person.phone, "+62"),
       })),
       registrationBatches: form.registrationBatches.map((batch) => ({
         ...batch,
@@ -598,18 +716,40 @@ export default function CompetitionForm({
                 </label>
                 <div className="competition-rich-editor competition-rich-editor-cover">
                   <label htmlFor="competition-description">Deskripsi Lomba <span className="required-mark">*</span></label>
-                  <div className="competition-rich-toolbar" aria-label="Format deskripsi">
-                    <button type="button" aria-label="Tebalkan teks terpilih" title="Tebal" onClick={() => formatDescription("**")}><Bold size={15} /></button>
-                    <button type="button" aria-label="Miringkan teks terpilih" title="Miring" onClick={() => formatDescription("*")}><Italic size={15} /></button>
-                    <button type="button" aria-label="Buat daftar" title="Daftar" onClick={formatDescriptionList}><List size={15} /></button>
-                  </div>
+                  {renderRichToolbar("description", descriptionRef)}
                   <textarea id="competition-description" ref={descriptionRef} rows="6" value={form.description} onChange={update("description")} maxLength={5000} required />
                 </div>
               </div>
             </div>
-            <label className="competition-form-full">Nama penyelenggara <span className="required-mark">*</span>
-              <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
-            </label>
+            <fieldset className="competition-organizer-box competition-form-full">
+              <legend>Informasi penyelenggara</legend>
+              <div className="competition-organizer-grid">
+                <label>Nama penyelenggara <span className="required-mark">*</span>
+                  <input value={form.organizer} onChange={update("organizer")} maxLength={160} required />
+                </label>
+                <label>Asal / jenis penyelenggara <span className="required-mark">*</span>
+                  <select
+                    value={form.organizerLevel}
+                    onChange={(event) => {
+                      const organizerLevel = event.target.value;
+                      const governmentLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar", "Kemdikti"];
+                      const organizerType = governmentLevels.includes(organizerLevel)
+                        ? "Pemerintah"
+                        : organizerLevel === "Perguruan Tinggi / Universitas"
+                          ? "Universitas"
+                          : organizerLevel === "Komunitas" ? "Komunitas" : "Lembaga umum";
+                      updateForm((current) => ({ ...current, organizerLevel, organizerType }));
+                    }}
+                    required
+                  >
+                    <option value="">Pilih asal penyelenggara</option>
+                    {form.organizerLevel && !organizerLevelOptions.includes(form.organizerLevel)
+                      && <option value={form.organizerLevel}>{form.organizerLevel} (data tersimpan)</option>}
+                    {organizerLevelOptions.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+              </div>
+            </fieldset>
             <label>Kategori lomba <span className="required-mark">*</span>
               <select value={form.competitionCategory} onChange={update("competitionCategory")} required>
                 <option value="">Pilih kategori</option>
@@ -617,12 +757,22 @@ export default function CompetitionForm({
               </select>
             </label>
             <label>Bidang lomba <span className="required-mark">*</span>
-              <select value={form.field} onChange={update("field")} required>
+              <select
+                value={form.field}
+                onChange={(event) => updateForm((current) => ({
+                  ...current,
+                  field: event.target.value,
+                  customField: event.target.value === "Lainnya" ? current.customField : "",
+                }))}
+                required
+              >
                 <option value="">Pilih bidang</option>
-                {form.field && !competitionFieldOptions.includes(form.field) && <option value={form.field}>{form.field} (data tersimpan)</option>}
                 {competitionFieldOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
+            {form.field === "Lainnya" && <label>Nama bidang lomba <span className="required-mark">*</span>
+              <input value={form.customField} onChange={update("customField")} maxLength={80} placeholder="Contoh: Astronomi" required />
+            </label>}
             <label>Tingkat lomba <span className="required-mark">*</span>
               <select value={form.scope} onChange={update("scope")} required>
                 <option value="">Pilih tingkat</option>
@@ -649,7 +799,10 @@ export default function CompetitionForm({
                       <input value={person.name} onChange={(event) => updateContactPerson(index, "name", event.target.value)} maxLength={120} required />
                     </label>
                     <label>Nomor telepon / WhatsApp <span className="required-mark">*</span>
-                      <input type="tel" inputMode="tel" value={person.phone} onChange={(event) => updateContactPerson(index, "phone", event.target.value)} maxLength={24} placeholder="08xxxxxxxxxx" required />
+                      <span className="competition-phone-input">
+                        <span aria-hidden="true">+62</span>
+                        <input type="tel" inputMode="numeric" value={person.phone} onChange={(event) => updateContactPerson(index, "phone", event.target.value)} maxLength={13} pattern="[2-9][0-9]{6,12}" title="Masukkan nomor Indonesia tanpa +62, misalnya 8123456789" placeholder="8123456789" required />
+                      </span>
                     </label>
                     <label>Instagram username <span className="optional-mark">(opsional)</span>
                       <input value={person.instagramUsername} onChange={(event) => updateContactPerson(index, "instagramUsername", event.target.value)} maxLength={30} placeholder="@username" />
@@ -715,23 +868,28 @@ export default function CompetitionForm({
             <span>02</span>
             <div><h3 id="competition-section-technical-heading">Detail teknis kompetisi</h3><p>Peserta, jadwal, biaya, pelaksanaan, dan dokumen pendukung.</p></div>
           </div>
+          <div className="competition-technical-box">
           <div className="competition-form-grid">
             <label>Jenis peserta <span className="required-mark">*</span>
-              <select value={form.participantType} onChange={update("participantType")} required>
+              <select value={form.participantType} onChange={(event) => updateForm((current) => ({
+                ...current,
+                participantType: event.target.value,
+                teamMemberRange: event.target.value === "Tim" ? current.teamMemberRange : "",
+              }))} required>
                 <option value="">Pilih jenis peserta</option>
                 {participantTypeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            {form.participantType === "Tim" && (
-              <>
-                <label>Minimal anggota tim <span className="required-mark">*</span>
-                  <input type="number" min="1" step="1" value={form.teamMinMembers} onChange={update("teamMinMembers")} required />
-                </label>
-                <label>Maksimal anggota tim <span className="required-mark">*</span>
-                  <input type="number" min={form.teamMinMembers || 1} step="1" value={form.teamMaxMembers} onChange={update("teamMaxMembers")} required />
-                </label>
-              </>
-            )}
+            <label>Rentang jumlah anggota{form.participantType === "Tim" && <span className="required-mark"> *</span>}
+              <input
+                value={form.teamMemberRange}
+                onChange={update("teamMemberRange")}
+                placeholder="Contoh: 3-5"
+                maxLength={9}
+                disabled={form.participantType !== "Tim"}
+                required={form.participantType === "Tim"}
+              />
+            </label>
             <fieldset className="competition-target-fieldset">
               <legend>Target peserta <span className="required-mark">*</span></legend>
               <div className="competition-target-options">
@@ -790,35 +948,47 @@ export default function CompetitionForm({
                 </fieldset>
               ))}
             </section>
-            <label>Tanggal pelaksanaan <span className="optional-mark">(opsional)</span>
-              <input type="date" value={form.eventStartDate} onChange={update("eventStartDate")} />
-            </label>
-            <label>Mode pelaksanaan <span className="required-mark">*</span>
-              <select
-                value={form.mode}
-                onChange={(event) => {
-                  const mode = event.target.value;
-                  updateForm((current) => ({
-                    ...current,
-                    mode,
-                    location: mode === "Online" && current.location === "Online" ? "" : current.location,
-                  }));
-                }}
-                required
-              >
-                <option value="">Pilih mode</option>
-                {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
-              </select>
-            </label>
-            {(form.mode === "Offline" || form.mode === "Hybrid") && <label>Lokasi <span className="required-mark">*</span>
-              <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />
-            </label>}
-            <label>Persyaratan lomba <span className="optional-mark">(opsional)</span>
-              <textarea rows="4" value={form.requirements} onChange={update("requirements")} maxLength={3000} />
-            </label>
-            <label>Hadiah / penghargaan <span className="optional-mark">(opsional)</span>
-              <textarea rows="4" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
-            </label>
+            <fieldset className="competition-event-box competition-form-full">
+              <legend>Pelaksanaan <span className="optional-mark">(tanggal opsional)</span></legend>
+              <div className="competition-form-grid">
+                <label>Tanggal mulai pelaksanaan
+                  <input type="date" value={form.eventStartDate} onChange={update("eventStartDate")} />
+                </label>
+                <label>Tanggal selesai pelaksanaan <span className="optional-mark">(opsional)</span>
+                  <input type="date" value={form.eventEndDate} onChange={update("eventEndDate")} min={form.eventStartDate || undefined} />
+                </label>
+                <label>Mode pelaksanaan <span className="required-mark">*</span>
+                  <select
+                    value={form.mode}
+                    onChange={(event) => {
+                      const mode = event.target.value;
+                      updateForm((current) => ({
+                        ...current,
+                        mode,
+                        location: mode === "Online" && current.location === "Online" ? "" : current.location,
+                      }));
+                    }}
+                    required
+                  >
+                    <option value="">Pilih mode</option>
+                    {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+                {(form.mode === "Offline" || form.mode === "Hybrid") && <label>Lokasi <span className="required-mark">*</span>
+                  <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />
+                </label>}
+              </div>
+            </fieldset>
+            <fieldset className="competition-rich-fieldset competition-form-full">
+              <legend>Persyaratan lomba <span className="optional-mark">(opsional)</span></legend>
+              {renderRichToolbar("requirements", requirementsRef)}
+              <textarea aria-label="Persyaratan lomba" ref={requirementsRef} rows="4" value={form.requirements} onChange={update("requirements")} maxLength={3000} />
+            </fieldset>
+            <fieldset className="competition-rich-fieldset competition-form-full">
+              <legend>Hadiah / penghargaan <span className="optional-mark">(opsional)</span></legend>
+              {renderRichToolbar("prize", prizeRef)}
+              <textarea aria-label="Hadiah / penghargaan" ref={prizeRef} rows="4" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
+            </fieldset>
             <label className="competition-form-full">Link Panduan / Juknis <span className="optional-mark">(opsional)</span>
               <input type="url" value={form.guidebookUrl} onChange={(event) => updateForm((current) => ({
                 ...current,
@@ -826,6 +996,7 @@ export default function CompetitionForm({
                 guidebookPath: event.target.value === current.guidebookUrl ? current.guidebookPath : "",
               }))} placeholder="https://" />
             </label>
+          </div>
           </div>
         </section>
 

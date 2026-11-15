@@ -131,15 +131,23 @@ function renderDescriptionInline(value, keyPrefix) {
 function CompetitionDescription({ value }) {
   const content = [];
   let listItems = [];
+  let listType = "";
   const flushList = () => {
     if (!listItems.length) return;
-    content.push(<ul key={`list-${content.length}`}>{listItems}</ul>);
+    const ListTag = listType === "ordered" ? "ol" : "ul";
+    content.push(<ListTag key={`list-${content.length}`}>{listItems}</ListTag>);
     listItems = [];
+    listType = "";
   };
 
   String(value || "").split(/\r?\n/).forEach((line, index) => {
-    const listItem = line.match(/^\s*[-*]\s+(.+)$/);
+    const unorderedItem = line.match(/^\s*[-*]\s+(.+)$/);
+    const orderedItem = line.match(/^\s*\d+\.\s+(.+)$/);
+    const listItem = unorderedItem || orderedItem;
     if (listItem) {
+      const nextListType = orderedItem ? "ordered" : "unordered";
+      if (listItems.length && listType !== nextListType) flushList();
+      listType = nextListType;
       listItems.push(<li key={`item-${index}`}>{renderDescriptionInline(listItem[1], `inline-${index}`)}</li>);
       return;
     }
@@ -261,8 +269,8 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
                 ? <ul>{fees.map((fee, index) => <li key={`${fee.label}-${index}`}><strong>{fee.label}</strong><span>Rp {Number(fee.amount).toLocaleString("id-ID")}</span></li>)}</ul>
                 : <p>Nominal belum ditentukan</p>}
         </section>}
-        {item.requirements && <section className="competition-detail-section"><h3>Persyaratan</h3><p>{item.requirements}</p></section>}
-        {item.prize && item.prize !== "Informasi hadiah belum ditambahkan" && <section className="competition-detail-section"><h3>Hadiah</h3><p>{item.prize}</p></section>}
+        {item.requirements && <section className="competition-detail-section"><h3>Persyaratan</h3><CompetitionDescription value={item.requirements} /></section>}
+        {item.prize && item.prize !== "Informasi hadiah belum ditambahkan" && <section className="competition-detail-section"><h3>Hadiah</h3><CompetitionDescription value={item.prize} /></section>}
         {item.keywords?.length > 0 && <div className="competition-detail-keywords">{item.keywords.map((keyword) => <span className="soft-tag" key={keyword}>{keyword}</span>)}</div>}
         {contacts.length > 0 && <section className="competition-detail-section"><h3>Kontak penyelenggara</h3><div className="competition-detail-contacts">{contacts.map((contact, index) => <div className="competition-detail-contact" key={`${contact.name || "kontak"}-${index}`}>
           {contact.name && <strong>{contact.name}</strong>}

@@ -588,14 +588,19 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-detail-tagline { margin: -7px 0 12px; color: #697791; font-size: 13px; }
 .competition-detail-description { margin: 16px 0; color: #68758b; font-size: 12px; line-height: 1.7; }
 .competition-description-content { display: grid; gap: 8px; }
-.competition-description-content p,.competition-description-content ul { margin: 0; }
+.competition-description-content p,.competition-description-content ul,.competition-description-content ol { margin: 0; }
 .competition-description-content ul { display: grid; gap: 4px; padding-left: 21px; }
+.competition-description-content ol { display: grid; gap: 4px; padding-left: 24px; }
 .competition-description-content li { padding-left: 2px; }
 .competition-detail-section { display: grid; gap: 8px; margin-top: 16px; }
 .competition-detail-section h3 { margin: 0; color: #38455e; font-size: 12px; }
 .competition-detail-section p { margin: 0; color: #68758b; font-size: 11px; line-height: 1.6; white-space: pre-line; }
+.competition-detail-section .competition-description-content { color: #68758b; font-size: 11px; line-height: 1.6; }
 .competition-detail-section a { color: #5574e9; font-size: 11px; }
 .competition-detail-section ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.competition-detail-section .competition-description-content ul { display: grid; gap: 4px; margin: 0; padding-left: 21px; list-style: disc; }
+.competition-detail-section .competition-description-content ol { display: grid; gap: 4px; margin: 0; padding-left: 24px; list-style: decimal; }
+.competition-detail-section .competition-description-content li { display: list-item; padding-left: 2px; }
 .competition-detail-section li { display: flex; justify-content: space-between; gap: 14px; padding: 8px 10px; border: 1px solid #e8ecf3; border-radius: 8px; color: #65728a; font-size: 10px; }
 .competition-detail-section li strong { color: #3c4961; }
 .competition-detail-section li>div { display: grid; gap: 3px; }
@@ -628,8 +633,17 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-form-grid label>input,.competition-form-grid label>select,.competition-form-grid label>textarea { grid-column: 1 / -1; }
 .competition-form-grid input,.competition-form-grid select,.competition-form-grid textarea,.competition-contact-grid input { width: 100%; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid #e2e8f2; border-radius: 8px; outline: none; color: #34415b; background: #fff; font: inherit; font-size: 11px; font-weight: 400; }
 .competition-form-grid textarea { min-height: 88px; resize: vertical; }
+.competition-form-grid :is(input,select,textarea):disabled { cursor: not-allowed; opacity: .65; background: #f3f5f8; }
 .competition-form-grid :is(input,select,textarea):focus,.competition-contact-grid input:focus { border-color: #93aaff; box-shadow: 0 0 0 3px #ebefff; }
 .competition-form-full { grid-column: 1 / -1; }
+.competition-organizer-box,.competition-event-box,.competition-rich-fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 11px; border: 1px solid #e5eaf2; border-radius: 9px; }
+.competition-organizer-box legend,.competition-event-box legend,.competition-rich-fieldset legend { padding: 0 5px; color: #526079; font-size: 10px; font-weight: 700; }
+.competition-organizer-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; min-width: 0; }
+.competition-organizer-grid label { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; min-width: 0; color: #526079; font-size: 10px; font-weight: 700; }
+.competition-organizer-grid input,.competition-organizer-grid select { grid-column: 1 / -1; width: 100%; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid #e2e8f2; border-radius: 8px; outline: none; color: #34415b; background: #fff; font: inherit; font-size: 11px; font-weight: 400; }
+.competition-organizer-grid :is(input,select):focus { border-color: #93aaff; box-shadow: 0 0 0 3px #ebefff; }
+.competition-technical-box { display: grid; gap: 13px; min-width: 0; padding: 13px; border: 1px solid #e5eaf2; border-radius: 10px; background: #fbfcfe; }
+.competition-event-box .competition-form-grid { gap: 11px; }
 .competition-cover-picker { display: grid; grid-column: 1 / -1; grid-template-columns: 180px minmax(0,1fr); align-items: stretch; gap: 16px; padding: 11px; border: 1px solid #e5eaf2; border-radius: 10px; }
 .competition-cover-column { display: grid; align-content: start; gap: 8px; min-width: 0; }
 .competition-cover-preview { display: grid; place-items: center; width: 160px; height: auto; aspect-ratio: 210 / 297; overflow: hidden; border-radius: 9px; color: #6277cb; background: #f0f3ff; }
@@ -644,6 +658,10 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-rich-toolbar button { display: grid; place-items: center; width: 30px; height: 29px; border: 1px solid #e2e8f2; border-radius: 7px; color: #5c6e8e; background: #fff; }
 .competition-rich-toolbar button:hover { border-color: #bcc9ed; color: #4e66d3; background: #f3f5ff; }
 .competition-rich-toolbar span { color: #8793a7; font-size: 9px; font-weight: 400; }
+.competition-rich-tools { position: relative; display: grid; gap: 5px; }
+.competition-emoji-picker { position: absolute; top: 34px; left: 0; z-index: 4; display: flex; flex-wrap: wrap; gap: 3px; max-width: 190px; padding: 6px; border: 1px solid #e2e8f2; border-radius: 9px; background: #fff; box-shadow: 0 8px 22px #23385a1a; }
+.competition-emoji-picker button { display: grid; place-items: center; width: 29px; height: 29px; border: 0; border-radius: 6px; background: transparent; font-size: 15px; }
+.competition-emoji-picker button:hover { background: #f0f3ff; }
 .competition-form-grid .competition-rich-editor textarea { grid-column: 1 / -1; }
 .competition-contact-people { display: grid; gap: 10px; min-width: 0; }
 .competition-contact-people .competition-repeat-heading { margin-bottom: 0; }
@@ -656,6 +674,10 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-contact-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; min-width: 0; }
 .competition-contact-grid label { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; min-width: 0; color: #526079; font-size: 10px; font-weight: 700; }
 .competition-contact-grid label>input { grid-column: 1 / -1; }
+.competition-contact-grid .competition-phone-input { display: flex; grid-column: 1 / -1; align-items: center; overflow: hidden; min-width: 0; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; }
+.competition-phone-input>span { padding-left: 10px; color: #8793a7; font-size: 11px; font-weight: 500; }
+.competition-contact-grid .competition-phone-input input { min-height: 40px; padding-left: 8px; border: 0; border-radius: 0; box-shadow: none; }
+.competition-phone-input:focus-within { border-color: #93aaff; box-shadow: 0 0 0 3px #ebefff; }
 .competition-currency-input { display: flex; grid-column: 1 / -1; align-items: center; overflow: hidden; min-width: 0; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; }
 .competition-currency-input>span { padding-left: 10px; color: #8793a7; font-size: 11px; font-weight: 500; }
 .competition-form-grid .competition-currency-input input { border: 0; box-shadow: none; }
@@ -796,6 +818,7 @@ html[data-theme="dark"] .competition-detail-page .detail-grid { background: #1a2
 html[data-theme="dark"] .competition-detail-section h3 { color: #d3dcec; }
 html[data-theme="dark"] .competition-detail-section p,
 html[data-theme="dark"] .competition-detail-section li { color: #aab6c9; }
+html[data-theme="dark"] .competition-detail-section .competition-description-content { color: #aab6c9; }
 html[data-theme="dark"] .competition-detail-section li { border-color: #293650; background: #111b2d; }
 html[data-theme="dark"] .competition-detail-section li strong { color: #d3dcec; }
 html[data-theme="dark"] .competition-detail-contact { border-color: #293650; color: #aab6c9; }
@@ -805,18 +828,26 @@ html[data-theme="dark"] .organizer-page-heading h1,
 html[data-theme="dark"] .organizer-thanks h1 { color: #e4eaf5; }
 html[data-theme="dark"] .competition-form-grid label,
 html[data-theme="dark"] .competition-contact-grid label,
+html[data-theme="dark"] .competition-organizer-grid label,
 html[data-theme="dark"] .competition-contact-people .competition-repeat-heading strong,
 html[data-theme="dark"] .competition-contact-person legend,
 html[data-theme="dark"] .competition-registration-batch legend,
+html[data-theme="dark"] .competition-organizer-box legend,
+html[data-theme="dark"] .competition-event-box legend,
+html[data-theme="dark"] .competition-rich-fieldset legend,
 html[data-theme="dark"] .organizer-sidebar-account strong { color: #c3cee0; }
 html[data-theme="dark"] .competition-form-grid :is(input,select,textarea),
 html[data-theme="dark"] .competition-contact-grid input,
+html[data-theme="dark"] .competition-organizer-grid :is(input,select),
 html[data-theme="dark"] .organizer-search { border-color: #2b3a56; color: #d3dcec; background: #0c1525; }
+html[data-theme="dark"] .competition-form-grid :is(input,select,textarea):disabled { background: #172238; }
 html[data-theme="dark"] .competition-rich-editor,
 html[data-theme="dark"] .competition-target-fieldset,
 html[data-theme="dark"] .competition-guidebook-field { color: #c3cee0; }
 html[data-theme="dark"] .competition-rich-toolbar button { border-color: #2b3a56; color: #b7c3d8; background: #0c1525; }
 html[data-theme="dark"] .competition-rich-toolbar button:hover { border-color: #435586; color: #c3ceff; background: #202c49; }
+html[data-theme="dark"] .competition-emoji-picker { border-color: #2b3a56; background: #111b2d; }
+html[data-theme="dark"] .competition-emoji-picker button:hover { background: #202c49; }
 html[data-theme="dark"] .competition-target-fieldset { border-color: #2b3a56; }
 html[data-theme="dark"] .competition-form-grid .competition-target-options label,
 html[data-theme="dark"] .competition-guidebook-controls>span { color: #aab8cf; }
@@ -832,10 +863,17 @@ html[data-theme="dark"] .competition-form-section-heading h3 { color: #d3dcec; }
 html[data-theme="dark"] .competition-repeat-section,
 html[data-theme="dark"] .competition-cover-picker,
 html[data-theme="dark"] .competition-contact-person,
-html[data-theme="dark"] .competition-registration-batch { border-color: #293650; background: #111b2d; }
+html[data-theme="dark"] .competition-registration-batch,
+html[data-theme="dark"] .competition-organizer-box,
+html[data-theme="dark"] .competition-event-box,
+html[data-theme="dark"] .competition-rich-fieldset { border-color: #293650; background: #111b2d; }
+html[data-theme="dark"] .competition-technical-box { border-color: #293650; background: #0e192a; }
 html[data-theme="dark"] .competition-currency-input { border-color: #2b3a56; background: #0c1525; }
 html[data-theme="dark"] .competition-currency-input>span { color: #95a2b7; }
 html[data-theme="dark"] .competition-form-grid .competition-currency-input input { border: 0; }
+html[data-theme="dark"] .competition-contact-grid .competition-phone-input { border-color: #2b3a56; background: #0c1525; }
+html[data-theme="dark"] .competition-contact-grid .competition-phone-input input { border: 0; }
+html[data-theme="dark"] .competition-phone-input>span { color: #95a2b7; }
 html[data-theme="dark"] .competition-repeat-section>.competition-repeat-heading>div>span,
 html[data-theme="dark"] .competition-contact-people .competition-repeat-heading>div>span { color: #95a2b7; }
 html[data-theme="dark"] .competition-repeat-heading strong,
@@ -893,6 +931,7 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
 }
 @media (max-width: 540px) {
   .competition-form-grid { grid-template-columns: 1fr; gap: 12px; }
+  .competition-organizer-grid { grid-template-columns: 1fr; }
   .competition-target-options { grid-template-columns: 1fr; }
   .competition-form-full,.competition-cover-picker { grid-column: auto; }
   .competition-cover-picker { grid-template-columns: minmax(0,1fr); }
