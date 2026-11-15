@@ -319,6 +319,7 @@ export default function CompetitionForm({
   const [previewUrl, setPreviewUrl] = useState("");
   const [coverPreviewAspectRatio, setCoverPreviewAspectRatio] = useState("9 / 16");
   const [coverOriginalFile, setCoverOriginalFile] = useState(null);
+  const [loadingCoverForEdit, setLoadingCoverForEdit] = useState(false);
   const [coverEditorFile, setCoverEditorFile] = useState(null);
   const [coverEditorUrl, setCoverEditorUrl] = useState("");
   const [coverEditorOpen, setCoverEditorOpen] = useState(false);
@@ -604,6 +605,41 @@ export default function CompetitionForm({
     setCoverCropOffset({ x: 0, y: 0 });
     setCoverEditorError("");
     setCoverEditorOpen(true);
+  };
+
+  const editCurrentCover = async () => {
+    if (coverOriginalFile) {
+      openCoverEditor(coverOriginalFile);
+      return;
+    }
+
+    const coverUrl = previewUrl || (!form.removeCover && form.coverUrl);
+    if (!coverUrl) return;
+    setLoadingCoverForEdit(true);
+    setError("");
+    try {
+      const response = await fetch(coverUrl);
+      if (!response.ok) throw new Error(`server poster merespons ${response.status}.`);
+      const blob = await response.blob();
+      const extensionByType = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+      };
+      const extension = extensionByType[blob.type];
+      if (!extension) throw new Error("format poster lama tidak didukung. Unggah poster JPG, PNG, atau WebP.");
+      if (blob.size > 5 * 1024 * 1024) {
+        throw new Error("ukuran poster lama lebih dari 5 MB. Unggah ulang versi yang lebih kecil.");
+      }
+
+      const file = new File([blob], `poster.${extension}`, { type: blob.type });
+      setCoverOriginalFile(file);
+      openCoverEditor(file);
+    } catch (loadError) {
+      setError(`Poster tidak dapat dibuka untuk diedit: ${loadError instanceof Error ? loadError.message : "kesalahan jaringan atau browser."}`);
+    } finally {
+      setLoadingCoverForEdit(false);
+    }
   };
 
   const closeCoverEditor = () => {
@@ -917,9 +953,9 @@ export default function CompetitionForm({
                 <div className="competition-cover-controls">
                   <label className="button button-outline button-small" htmlFor="competition-cover"><Upload size={15} /> Unggah poster <span className="required-mark">*</span></label>
                   <input id="competition-cover" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectCover} />
-                  {coverOriginalFile && (previewUrl || (!form.removeCover && form.coverUrl)) && (
-                    <button className="button button-outline button-small" type="button" onClick={() => openCoverEditor(coverOriginalFile)}>
-                      <Crop size={15} /> Edit poster
+                  {(previewUrl || (!form.removeCover && form.coverUrl)) && (
+                    <button className="button button-outline button-small" type="button" disabled={loadingCoverForEdit} onClick={editCurrentCover}>
+                      <Crop size={15} /> {loadingCoverForEdit ? "Memuat poster..." : "Edit poster"}
                     </button>
                   )}
                   {(previewUrl || (!form.removeCover && form.coverUrl)) && (
@@ -1256,7 +1292,13 @@ export default function CompetitionForm({
             {canArchiveFromForm && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => submitWithAction("archive")}><Archive size={15} /> Simpan ke arsip</button>}
           </div>
           <button ref={submitButtonRef} className="button button-primary" type="submit" disabled={busy}>
-            {busy ? "Menyimpan..." : isEditing ? "Simpan perubahan" : isModerator ? "Terbitkan lomba" : "Kirim untuk ditinjau"}
+            {busy
+              ? "Menyimpan..."
+              : isModerator
+                ? isEditing ? "Simpan perubahan" : "Terbitkan lomba"
+                : isEditing && initialCompetition.status !== "draft"
+                  ? "Kirim untuk ditinjau ulang"
+                  : "Kirim untuk ditinjau"}
             {!busy && <ArrowRight size={15} />}
           </button>
         </div>

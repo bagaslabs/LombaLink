@@ -185,11 +185,11 @@ export default function OrganizerPage({
       rulebook_url: form.guidebookUrl?.trim() || null,
       archived_at: saveAction === "archive"
         ? new Date().toISOString()
-        : saveAction === "submit" && existing?.status === "draft"
+        : saveAction === "submit" && existing
           ? null
           : existing?.archivedAt || null,
     };
-    if (existing?.status === "draft" && saveAction === "submit") {
+    if (existing && saveAction === "submit") {
       values.status = "pending";
       values.reviewed_by = null;
       values.reviewed_at = null;
