@@ -1256,7 +1256,7 @@ export default function CompetitionForm({
             {canArchiveFromForm && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => submitWithAction("archive")}><Archive size={15} /> Simpan ke arsip</button>}
           </div>
           <button ref={submitButtonRef} className="button button-primary" type="submit" disabled={busy}>
-            {busy ? "Menyimpan..." : isModerator ? "Terbitkan lomba" : isEditing && initialCompetition.status !== "draft" ? "Kirim perubahan" : "Kirim untuk ditinjau"}
+            {busy ? "Menyimpan..." : isEditing ? "Simpan perubahan" : isModerator ? "Terbitkan lomba" : "Kirim untuk ditinjau"}
             {!busy && <ArrowRight size={15} />}
           </button>
         </div>

@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  Pencil,
   Plus,
   ShieldCheck,
   SlidersHorizontal,
@@ -45,6 +46,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
   const [reloadKey, setReloadKey] = useState(0);
   const [createNotice, setCreateNotice] = useState("");
   const [reviewItem, setReviewItem] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleteError, setDeleteError] = useState("");
   const isCreatePage = routePath === "/admin/tambahkan-lomba";
@@ -261,6 +263,60 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     }
   };
 
+  const updateModeratedCompetition = async (form) => {
+    if (!supabaseClient || !account?.id || !editingItem) return "Sesi moderator tidak tersedia. Silakan masuk kembali.";
+    const existing = editingItem;
+    let coverPath = form.removeCover ? null : existing.coverPath || null;
+    let uploadedCoverPath = "";
+    const guidebookPath = form.guidebookPath || null;
+
+    if (form.coverFile) {
+      const upload = await uploadCompetitionCover(supabaseClient, account.id, existing.id, form.coverFile);
+      if (upload.error) return upload.error;
+      coverPath = upload.path;
+      uploadedCoverPath = upload.path;
+    }
+
+    try {
+      const { error: updateError } = await supabaseClient
+        .from("lombalink_competitions")
+        .update({
+          ...competitionFieldsFromForm(form),
+          cover_path: coverPath,
+          guidebook_path: guidebookPath,
+          rulebook_url: form.guidebookUrl?.trim() || null,
+        })
+        .eq("id", existing.id)
+        .select("id")
+        .single();
+      if (updateError) {
+        const cleanupMessage = uploadedCoverPath
+          ? await removeCompetitionCover(supabaseClient, uploadedCoverPath)
+          : "";
+        return `Perubahan lomba gagal disimpan: ${updateError.message}${cleanupMessage ? ` ${cleanupMessage}` : ""}`;
+      }
+    } catch (updateError) {
+      const cleanupMessage = uploadedCoverPath
+        ? await removeCompetitionCover(supabaseClient, uploadedCoverPath)
+        : "";
+      const message = updateError instanceof Error ? updateError.message : "kesalahan tidak diketahui.";
+      return `Perubahan lomba gagal disimpan: ${message}${cleanupMessage ? ` ${cleanupMessage}` : ""}`;
+    }
+
+    const replacedPaths = [
+      existing.coverPath !== coverPath ? existing.coverPath : "",
+      existing.guidebookPath !== guidebookPath ? existing.guidebookPath : "",
+    ].filter(Boolean);
+    const cleanupErrors = await Promise.all(replacedPaths.map((path) => removeCompetitionCover(supabaseClient, path)));
+    const cleanupMessage = cleanupErrors.filter(Boolean).join(" ");
+    setCreateNotice(cleanupMessage
+      ? `Lomba diperbarui, tetapi ${cleanupMessage.toLowerCase()}`
+      : "Perubahan lomba berhasil disimpan.");
+    setReloadKey((current) => current + 1);
+    onCompetitionsChanged?.();
+    return "";
+  };
+
   const openCreatePage = () => {
     setSection("overview");
     setCreateNotice("");
@@ -353,6 +409,17 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
                 <span className={`status-pill ${item.archivedAt ? "status-archived" : `status-${item.status}`}`}>{item.archivedAt ? "Diarsipkan" : item.status === "draft" ? "Draft" : item.status === "pending" ? <><i></i> Menunggu</> : item.status === "approved" ? <><Check size={12} /> Disetujui</> : "Ditolak"}</span>
                 <div className="submission-actions">
                   <button title={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} className="archive-action" disabled={actionId === item.id} onClick={() => toggleArchive(item)}><span className="sr-only">{item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"}</span><Archive size={16} /></button>
+                  <button
+                    type="button"
+                    title="Edit lomba"
+                    aria-label={`Edit lomba ${item.title}`}
+                    className="edit-action"
+                    disabled={Boolean(actionId)}
+                    onClick={() => {
+                      setReviewItem(null);
+                      setEditingItem(item);
+                    }}
+                  ><Pencil size={15} /></button>
                   {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : <span className="reviewed-label">{item.status === "draft" ? "Belum dikirim" : "Ditinjau"}</span>}
                   <button
                     title="Hapus lomba"
@@ -379,6 +446,27 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           onReject: () => updateStatus(reviewItem.id, "rejected"),
         }}
       />
+      {editingItem && (
+        <div className="admin-competition-edit-backdrop">
+          <section className="admin-competition-edit-dialog" role="dialog" aria-modal="true" aria-label={`Edit lomba ${editingItem.title}`}>
+            <div className="admin-competition-edit-toolbar">
+              <span className="eyebrow">EDIT LOMBA</span>
+              <button type="button" className="admin-competition-edit-close" aria-label="Tutup pengeditan" onClick={() => setEditingItem(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <CompetitionForm
+              mode="moderator"
+              initialCompetition={editingItem}
+              suggestedKeywords={[...suggestedKeywords, ...competitions.flatMap((item) => item.keywords || [])]}
+              persistenceKey={`lombalink.competition-form.v1.${account.id}.moderator-edit.${editingItem.id}`}
+              onSubmit={updateModeratedCompetition}
+              onCancel={() => setEditingItem(null)}
+              onSuccess={() => setEditingItem(null)}
+            />
+          </section>
+        </div>
+      )}
       {deleteItem && <div
         className="modal-backdrop"
         onMouseDown={(event) => {
