@@ -796,8 +796,8 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
   .organizer-thanks { margin-top: 0; padding: 32px 18px; }
 }
 html[data-theme="dark"] .competition-form-actions { background: #111b2d; }
-.competition-card { display: grid; grid-template-columns: 115px minmax(0,1fr); align-items: start; }
-.card-art { width: 100%; height: auto; min-height: 0; aspect-ratio: 2 / 3; align-self: start; }
+.competition-card { display: flex; flex-direction: column; align-items: stretch; }
+.card-art { width: 100%; height: clamp(190px,52vw,280px); min-height: 0; aspect-ratio: auto; align-self: stretch; }
 .card-art.has-cover::before,.card-art.has-cover::after { display: none; }
 .card-cover-image { object-fit: contain; opacity: 1; background: #f5f7fc; }
 .organizer-competition-art { width: 46px; height: 69px; flex-basis: 46px; }

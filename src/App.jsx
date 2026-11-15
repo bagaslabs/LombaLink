@@ -24,6 +24,8 @@ import RoleSelectionPage from "./pages/RoleSelectionPage.jsx";
 import { reportReasons } from "./reporting.js";
 
 const profilePhotoBucket = "lombalink-profile-photos";
+const scrollPositionStorageKey = "lombalink.scroll-position.v1";
+const competitionRefreshCooldown = 30_000;
 
 function useRoute() {
   const getCurrentRoute = () => `${window.location.pathname}${window.location.search}`;
@@ -67,6 +69,8 @@ export default function App() {
   const [competitionsError, setCompetitionsError] = useState("");
   const [competitionReloadKey, setCompetitionReloadKey] = useState(0);
   const competitionsLoadedRef = useRef(false);
+  const lastCompetitionRefreshAtRef = useRef(0);
+  const scrollRestorationAttemptedRef = useRef(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptRequired, setPromptRequired] = useState(false);
   const [encourageShare, setEncourageShare] = useState(false);
@@ -191,6 +195,7 @@ export default function App() {
   useEffect(() => {
     if (!supabaseClient) return undefined;
     let active = true;
+    lastCompetitionRefreshAtRef.current = Date.now();
     if (!competitionsLoadedRef.current) setCompetitionsLoading(true);
     setCompetitionsError("");
 
@@ -229,8 +234,78 @@ export default function App() {
   }, [competitionReloadKey, supabaseClient]);
 
   useEffect(() => {
+    let persistTimeout;
+    const persistScrollPosition = () => {
+      window.clearTimeout(persistTimeout);
+      window.sessionStorage.setItem(scrollPositionStorageKey, JSON.stringify({
+        route: `${window.location.pathname}${window.location.search}`,
+        left: window.scrollX,
+        top: window.scrollY,
+      }));
+    };
+    const scheduleScrollPersistence = () => {
+      window.clearTimeout(persistTimeout);
+      persistTimeout = window.setTimeout(persistScrollPosition, 150);
+    };
+    const persistWhenHidden = () => {
+      if (document.visibilityState === "hidden") persistScrollPosition();
+    };
+
+    window.addEventListener("scroll", scheduleScrollPersistence, { passive: true });
+    window.addEventListener("pagehide", persistScrollPosition);
+    document.addEventListener("visibilitychange", persistWhenHidden);
+    return () => {
+      window.clearTimeout(persistTimeout);
+      window.removeEventListener("scroll", scheduleScrollPersistence);
+      window.removeEventListener("pagehide", persistScrollPosition);
+      document.removeEventListener("visibilitychange", persistWhenHidden);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (scrollRestorationAttemptedRef.current || !authReady || (account && !accountRoleReady)) return undefined;
+    const isPublicRoute = routePath === "/" || routePath === "/cari" || routePath === "/rekomendasi";
+    if (isPublicRoute && competitionsLoading) return undefined;
+
+    scrollRestorationAttemptedRef.current = true;
+    const savedPosition = window.sessionStorage.getItem(scrollPositionStorageKey);
+    if (!savedPosition) return undefined;
+
+    let position;
+    try {
+      position = JSON.parse(savedPosition);
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+      window.sessionStorage.removeItem(scrollPositionStorageKey);
+      return undefined;
+    }
+
+    const currentRoute = `${window.location.pathname}${window.location.search}`;
+    if (
+      !position
+      || position.route !== currentRoute
+      || !Number.isFinite(position.left)
+      || !Number.isFinite(position.top)
+    ) return undefined;
+
+    let secondFrame;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        window.scrollTo({ left: position.left, top: position.top, behavior: "instant" });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [account, accountRoleReady, authReady, competitionsLoading, routePath]);
+
+  useEffect(() => {
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") {
+      if (
+        document.visibilityState === "visible"
+        && Date.now() - lastCompetitionRefreshAtRef.current >= competitionRefreshCooldown
+      ) {
         setCompetitionReloadKey((current) => current + 1);
       }
     };
