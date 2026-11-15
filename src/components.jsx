@@ -552,14 +552,12 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
         <label className="filter-select"><Building2 size={15} /><span className="sr-only">Jenis penyelenggara</span>
           <select value={filters.organizerType} onChange={update("organizerType")}><option value="">Semua penyelenggara</option>{organizerOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
-        <label className="filter-select location-filter"><MapPin size={15} /><span className="sr-only">Daerah atau provinsi</span>
-          {filters.scope === "Provinsi"
-            ? <select value={filters.location} onChange={update("location")} aria-label="Pilih provinsi">
-              <option value="">Semua provinsi</option>
-              {provinceOptions.map((province) => <option key={province}>{province}</option>)}
-            </select>
-            : <input value={filters.location} onChange={update("location")} placeholder="Daerah / provinsi" />}
-          {filters.scope === "Provinsi" && <ChevronDown size={14} aria-hidden="true" />}
+        <label className="filter-select location-filter"><MapPin size={15} /><span className="sr-only">Provinsi</span>
+          <select value={filters.location} onChange={update("location")} aria-label="Pilih provinsi">
+            <option value="">Pilih provinsi</option>
+            {provinceOptions.map((province) => <option key={province}>{province}</option>)}
+          </select>
+          <ChevronDown size={14} aria-hidden="true" />
         </label>
       </div>
       <div className="search-hint">
