@@ -59,6 +59,41 @@ function asString(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function getUserLabel(user: AuthUserRecord) {
+  const metadata = user.user_metadata ?? {};
+  const name = asString(metadata.full_name ?? metadata.name);
+  return name && user.email ? `${name} · ${user.email}` : name || user.email || user.id;
+}
+
+async function recordAdminActivity(
+  moderator: AuthUserRecord,
+  action: string,
+  entityId: string,
+  entityLabel: string,
+  details: JsonRecord = {},
+) {
+  const metadata = moderator.user_metadata ?? {};
+  const actorName = asString(metadata.full_name ?? metadata.name) || moderator.email || "Moderator";
+  try {
+    const { error } = await adminClient.from("lombalink_admin_activity_logs").insert({
+      actor_id: moderator.id,
+      actor_name: actorName,
+      action,
+      entity_type: "user",
+      entity_id: entityId,
+      entity_label: entityLabel,
+      details,
+    });
+    return error?.message ?? "";
+  } catch (error) {
+    return error instanceof Error ? error.message : "Kesalahan tidak diketahui.";
+  }
+}
+
+function getAuditWarning(auditError: string) {
+  return auditError ? `Log aktivitas gagal disimpan: ${auditError}` : "";
+}
+
 function toManagedUser(user: AuthUserRecord) {
   const metadata = user.user_metadata ?? {};
   const appMetadata = user.app_metadata ?? {};
@@ -222,11 +257,30 @@ Deno.serve(async (request) => {
       ...normalizedProfile,
       region,
     });
+    const auditError = await recordAdminActivity(
+      moderator,
+      "user_profile_updated",
+      userId,
+      getUserLabel(data.user),
+      {
+        updated_fields: Object.keys(normalizedProfile),
+        outcome: profileError ? "partial" : "success",
+      },
+    );
     if (profileError) {
-      if (profileError.code === "23505") return jsonResponse({ error: "Username sudah digunakan. Pilih username lain." }, 409);
-      return jsonResponse({ error: `Metadata Auth berhasil diperbarui, tetapi profil database gagal diperbarui: ${profileError.message}` }, 500);
+      if (profileError.code === "23505") {
+        return jsonResponse({
+          error: `Username sudah digunakan. Pilih username lain.${auditError ? ` ${getAuditWarning(auditError)}` : ""}`,
+        }, 409);
+      }
+      return jsonResponse({
+        error: `Metadata Auth berhasil diperbarui, tetapi profil database gagal diperbarui: ${profileError.message}${auditError ? ` ${getAuditWarning(auditError)}` : ""}`,
+      }, 500);
     }
-    return jsonResponse({ user: toManagedUser(data.user) });
+    return jsonResponse({
+      user: toManagedUser(data.user),
+      ...(auditError ? { auditWarning: getAuditWarning(auditError) } : {}),
+    });
   }
 
   if (body.action === "delete") {
@@ -240,7 +294,11 @@ Deno.serve(async (request) => {
     }
     const { error } = await adminClient.auth.admin.deleteUser(userId);
     if (error) return jsonResponse({ error: error.message }, 400);
-    return jsonResponse({ deletedUserId: userId });
+    const auditError = await recordAdminActivity(moderator, "user_deleted", userId, getUserLabel(user));
+    return jsonResponse({
+      deletedUserId: userId,
+      ...(auditError ? { auditWarning: getAuditWarning(auditError) } : {}),
+    });
   }
 
   if (body.action === "suspend" || body.action === "ban") {
@@ -273,7 +331,17 @@ Deno.serve(async (request) => {
     });
     if (error) return jsonResponse({ error: error.message }, 400);
     if (!data.user) return jsonResponse({ error: "Akun pengguna tidak ditemukan setelah perubahan." }, 404);
-    return jsonResponse({ user: toManagedUser(data.user) });
+    const auditError = await recordAdminActivity(
+      moderator,
+      body.action === "suspend" ? "user_suspended" : "user_banned",
+      userId,
+      getUserLabel(data.user),
+      { reason, ...(durationDays ? { duration_days: durationDays } : {}) },
+    );
+    return jsonResponse({
+      user: toManagedUser(data.user),
+      ...(auditError ? { auditWarning: getAuditWarning(auditError) } : {}),
+    });
   }
 
   if (body.action === "reactivate") {
@@ -293,7 +361,11 @@ Deno.serve(async (request) => {
     if (updatedUser.status !== "active") {
       return jsonResponse({ error: "Batasan login belum berhasil dihapus dari akun." }, 500);
     }
-    return jsonResponse({ user: updatedUser });
+    const auditError = await recordAdminActivity(moderator, "user_reactivated", userId, getUserLabel(refreshedData.user));
+    return jsonResponse({
+      user: updatedUser,
+      ...(auditError ? { auditWarning: getAuditWarning(auditError) } : {}),
+    });
   }
 
   return jsonResponse({ error: "Aksi tidak dikenali." }, 400);

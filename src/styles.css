@@ -415,6 +415,28 @@ html[data-theme="dark"] .admin-auth-layout .auth-demo-note { color: #9eabc0; }
   .main-nav a::after,.nav-link::after { transition: none; }
 }
 .admin-mobile-section { display: none; align-items: center; gap: 6px; min-height: 31px; padding: 0 9px; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; color: #53627a; font-size: 10px; font-weight: 700; }
+.admin-activity { display: grid; gap: 14px; min-width: 0; }
+.admin-activity-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+.admin-activity-heading h1 { margin: 5px 0; color: #34415a; font: 800 24px Manrope,sans-serif; }
+.admin-activity-heading p { margin: 0; color: #8390a5; font-size: 11px; }
+.admin-activity-card { overflow: hidden; border: 1px solid #e8ecf3; border-radius: 12px; background: #fff; }
+.admin-activity-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 17px; border-bottom: 1px solid #eef0f5; color: #8490a4; font-size: 10px; }
+.admin-activity-toolbar label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.admin-activity-toolbar select { min-height: 32px; padding: 0 9px; border: 1px solid #e2e8f2; border-radius: 7px; color: #53627a; background: #fff; font: inherit; }
+.admin-activity-list { display: grid; }
+.admin-activity-row { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 15px 17px; border-bottom: 1px solid #f0f2f6; }
+.admin-activity-row:last-child { border-bottom: 0; }
+.admin-activity-icon { display: grid; place-items: center; width: 35px; height: 35px; flex: 0 0 35px; border-radius: 10px; color: #5774df; background: #eef2ff; }
+.admin-activity-copy { display: grid; flex: 1; gap: 5px; min-width: 0; }
+.admin-activity-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-activity-main strong { color: #3a4760; font-size: 10px; }
+.admin-activity-main time { flex: 0 0 auto; color: #929daf; font-size: 9px; }
+.admin-activity-copy p { margin: 0; color: #65728a; font-size: 10px; font-weight: 600; overflow-wrap: anywhere; }
+.admin-activity-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; color: #929daf; font-size: 9px; }
+.admin-activity-meta span { display: inline-flex; align-items: center; gap: 4px; overflow-wrap: anywhere; }
+.admin-activity-meta svg { color: #6984e3; }
+.admin-activity-copy>small { color: #78859b; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-activity-limit { margin: 0; padding: 10px 17px; border-top: 1px solid #eef0f5; color: #929daf; font-size: 9px; }
 .admin-users { display: grid; gap: 14px; min-width: 0; }
 .admin-users-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
 .admin-users-heading h2 { margin: 5px 0 4px; color: #26334c; font: 800 23px Manrope,sans-serif; letter-spacing: -.7px; }
@@ -474,6 +496,14 @@ html[data-theme="dark"] .admin-auth-layout .auth-demo-note { color: #9eabc0; }
 .admin-user-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .admin-user-confirm-actions .button { min-height: 37px; font-size: 10px; }
 html[data-theme="dark"] .admin-mobile-section { border-color: #2b3a56; background: #162239; color: #c3cee0; }
+html[data-theme="dark"] :is(.admin-activity-heading h1,.admin-activity-main strong) { color: #e4eaf5; }
+html[data-theme="dark"] :is(.admin-activity-heading p,.admin-activity-toolbar,.admin-activity-main time,.admin-activity-meta,.admin-activity-limit) { color: #9eabc0; }
+html[data-theme="dark"] .admin-activity-card { border-color: #293650; background: #111b2d; }
+html[data-theme="dark"] :is(.admin-activity-toolbar,.admin-activity-row,.admin-activity-limit) { border-color: #293650; }
+html[data-theme="dark"] .admin-activity-toolbar select { border-color: #2b3a56; color: #d3dcec; background: #0c1525; }
+html[data-theme="dark"] .admin-activity-icon { color: #c3ceff; background: #202c49; }
+html[data-theme="dark"] .admin-activity-copy p { color: #c3cee0; }
+html[data-theme="dark"] .admin-activity-copy>small { color: #9eabc0; }
 html[data-theme="dark"] :is(.admin-users-heading h2,.admin-users-table td,.admin-user-identity strong,.admin-user-modal h2) { color: #e4eaf5; }
 html[data-theme="dark"] :is(.admin-users-heading p,.admin-users-table-caption,.admin-user-identity small,.admin-user-profile,.admin-user-date,.admin-user-modal-email,.admin-user-confirm-copy) { color: #9eabc0 !important; }
 html[data-theme="dark"] :is(.admin-users-search,.admin-users-table-card) { border-color: #293650; background: #111b2d; }
@@ -499,6 +529,13 @@ html[data-theme="dark"] .admin-user-confirm-actions .button-outline { border-col
   .admin-topbar { justify-content: flex-start; gap: 9px; }
   .admin-mobile-section { display: inline-flex; }
   .admin-top-actions { gap: 8px; margin-left: auto; }
+  .admin-activity-heading { align-items: flex-start; }
+  .admin-activity-heading h1 { font-size: 19px; }
+  .admin-activity-heading p { max-width: 230px; font-size: 9px; }
+  .admin-activity-toolbar { padding-inline: 11px; }
+  .admin-activity-row { gap: 8px; padding: 12px 10px; }
+  .admin-activity-icon { width: 30px; height: 30px; flex-basis: 30px; }
+  .admin-activity-main { flex-direction: column; gap: 4px; }
   .admin-users-heading { align-items: stretch; flex-direction: column; gap: 12px; }
   .admin-users-search { width: 100%; }
   .admin-users-table-caption { padding-inline: 11px; }
@@ -649,7 +686,7 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-event-box .competition-form-grid { gap: 11px; }
 .competition-cover-picker { display: grid; grid-column: 1 / -1; grid-template-columns: 180px minmax(0,1fr); align-items: stretch; gap: 16px; padding: 11px; border: 1px solid #e5eaf2; border-radius: 10px; }
 .competition-cover-column { display: grid; align-content: start; gap: 8px; min-width: 0; }
-.competition-cover-preview { display: grid; place-items: center; width: 160px; height: auto; aspect-ratio: 210 / 297; overflow: hidden; border-radius: 9px; color: #6277cb; background: #f0f3ff; }
+.competition-cover-preview { display: grid; place-items: center; width: 160px; height: auto; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 9px; color: #6277cb; background: #f0f3ff; }
 .competition-cover-preview img { width: 100%; height: 100%; object-fit: contain; }
 .competition-cover-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-width: 0; }
 .competition-cover-controls p { flex-basis: 100%; margin: 0; color: #8b96a8; font-size: 9px; line-height: 1.5; }
@@ -938,7 +975,7 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
   .competition-target-options { grid-template-columns: 1fr; }
   .competition-form-full,.competition-cover-picker { grid-column: auto; }
   .competition-cover-picker { grid-template-columns: minmax(0,1fr); }
-  .competition-cover-preview { width: min(180px,100%); height: auto; aspect-ratio: 210 / 297; }
+  .competition-cover-preview { width: min(180px,100%); height: auto; aspect-ratio: 9 / 16; }
   .competition-cover-fields { min-height: 260px; }
   .competition-contact-grid { grid-template-columns: 1fr; }
   .competition-repeat-row,.competition-repeat-row.fee-row { grid-template-columns: 1fr 1fr; }
@@ -954,7 +991,7 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
 }
 html[data-theme="dark"] .competition-form-actions { background: #111b2d; }
 .competition-card { display: grid; grid-template-columns: minmax(108px,38%) minmax(0,1fr); align-items: stretch; }
-.card-art { width: 100%; height: auto; min-height: 0; aspect-ratio: 210 / 297; align-self: stretch; }
+.card-art { width: 100%; height: auto; min-height: 0; aspect-ratio: 9 / 16; align-self: stretch; }
 .card-art.has-cover::before,.card-art.has-cover::after { display: none; }
 .card-cover-image { object-fit: cover; opacity: 1; background: #f5f7fc; }
 .card-content { display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 13px; }
@@ -980,7 +1017,7 @@ html[data-theme="dark"] .card-cover-image { background: #111b2d; }
 @media (max-width: 767px) {
   .competition-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .competition-card { display: flex; flex-direction: column; align-items: stretch; }
-  .competition-card .card-art { width: 100%; height: auto; aspect-ratio: 210 / 297; }
+  .competition-card .card-art { width: 100%; height: auto; aspect-ratio: 9 / 16; }
   .competition-card .card-content { gap: 7px; padding: 9px; }
   .competition-card h3 { font-size: 12px; line-height: 1.35; }
   .competition-card-info { gap: 6px; }

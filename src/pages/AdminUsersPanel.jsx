@@ -159,7 +159,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
       }
       setUsers((current) => current.map((user) => user.id === editingUser.id ? result.user : user));
       setEditingUser(null);
-      setNotice(`Profil ${editingUser.fullName || editingUser.email} berhasil diperbarui.`);
+      setNotice(`Profil ${editingUser.fullName || editingUser.email} berhasil diperbarui.${result.auditWarning ? ` ${result.auditWarning}` : ""}`);
     } catch (saveError) {
       setFormError(saveError instanceof Error ? saveError.message : "Profil gagal diperbarui.");
     } finally {
@@ -209,7 +209,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
           : pendingAction.action === "delete"
             ? "dihapus permanen"
             : "diaktifkan kembali";
-      setNotice(`Akun ${pendingAction.user.email} berhasil ${label}.`);
+      setNotice(`Akun ${pendingAction.user.email} berhasil ${label}.${result.auditWarning ? ` ${result.auditWarning}` : ""}`);
       setPendingAction(null);
       if (pendingAction.action === "delete") setReloadKey((current) => current + 1);
     } catch (actionError) {

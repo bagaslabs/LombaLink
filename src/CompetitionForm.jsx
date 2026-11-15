@@ -707,7 +707,7 @@ export default function CompetitionForm({
                       <X size={15} />
                     </button>
                   )}
-                  <p>Wajib · JPG, PNG, atau WebP · maksimal 5 MB · disarankan poster A4 vertikal.</p>
+                  <p>Wajib · JPG, PNG, atau WebP · maksimal 5 MB · disarankan rasio 9:16.</p>
                 </div>
               </div>
               <div className="competition-cover-fields">

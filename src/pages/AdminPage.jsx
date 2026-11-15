@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ClipboardList,
   Clock3,
   Eye,
   Flag,
@@ -29,6 +30,7 @@ import {
 } from "../competitionService.js";
 import AdminUsersPanel from "./AdminUsersPanel.jsx";
 import AdminReportsPanel from "./AdminReportsPanel.jsx";
+import AdminActivityPanel from "./AdminActivityPanel.jsx";
 
 export default function AdminPage({ routePath = "/admin", account, supabaseClient, navigate, onLogout, onCompetitionsChanged, theme, onToggleTheme, suggestedKeywords = [] }) {
   const [tab, setTab] = useState("pending");
@@ -57,6 +59,8 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
       ? "Pengguna"
       : section === "reports"
         ? "Laporan"
+        : section === "logs"
+          ? "Log Admin"
         : ({
           archived: "Arsip",
           draft: "Draft",
@@ -280,18 +284,19 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "pending" ? "active" : ""}`} onClick={() => showAdminSection("overview", "pending")}><Clock3 size={17} /> Verifikasi <span className="sidebar-count">{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
         <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "approved" ? "active" : ""}`} onClick={() => showAdminSection("overview", "approved")}><CheckCircle2 size={17} /> Lomba terbit</button>
         <button className={`sidebar-item ${!isCreatePage && section === "reports" ? "active" : ""}`} onClick={() => showAdminSection("reports")}><Flag size={17} /> Laporan <span className="sidebar-count">{reportPendingCount === null ? "—" : reportPendingCount.toLocaleString("id-ID")}</span></button>
+        <button className={`sidebar-item ${!isCreatePage && section === "logs" ? "active" : ""}`} onClick={() => showAdminSection("logs")}><ClipboardList size={17} /> Log Admin</button>
         <div className="sidebar-label sidebar-label-bottom">AKUN</div>
         <button className="sidebar-item" onClick={() => navigate("/")}><ArrowLeft size={17} /> Kembali ke situs</button>
         <div className="sidebar-user"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span><span><strong>{moderatorName}</strong><small>Moderator LombaLink</small></span><ShieldCheck size={15} /></div>
       </aside>
       <section className="admin-main">
-        <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{sectionLabel}</strong></div><label className="sr-only" htmlFor="admin-mobile-section">Pilih bagian panel moderator</label><select id="admin-mobile-section" className="admin-mobile-section" value={isCreatePage ? "create" : section === "users" || section === "reports" ? section : tab} onChange={(event) => {
+        <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{sectionLabel}</strong></div><label className="sr-only" htmlFor="admin-mobile-section">Pilih bagian panel moderator</label><select id="admin-mobile-section" className="admin-mobile-section" value={isCreatePage ? "create" : ["users", "reports", "logs"].includes(section) ? section : tab} onChange={(event) => {
           const value = event.target.value;
           if (value === "create") {
             openCreatePage();
             return;
           }
-          if (value === "users" || value === "reports") {
+          if (value === "users" || value === "reports" || value === "logs") {
             showAdminSection(value);
           } else {
             showAdminSection("overview", value);
@@ -306,6 +311,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           <option value="rejected">Lomba ditolak</option>
           <option value="users">Pengguna</option>
           <option value="reports">Laporan</option>
+          <option value="logs">Log Admin</option>
         </select><div className="admin-top-actions"><ThemeToggle theme={theme} onToggleTheme={onToggleTheme} /><span className="admin-user-pill"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span> {moderatorName}</span><button className="icon-button" title="Keluar dari panel moderator" aria-label="Keluar" onClick={onLogout}><LogOut size={17} /></button></div></div>
         <div className="admin-content">
           {isCreatePage
@@ -324,6 +330,8 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
               ? <AdminUsersPanel supabaseClient={supabaseClient} moderatorId={account.id} />
               : section === "reports"
                 ? <AdminReportsPanel supabaseClient={supabaseClient} moderatorId={account.id} onPendingCountChange={setReportPendingCount} />
+                : section === "logs"
+                  ? <AdminActivityPanel supabaseClient={supabaseClient} />
                 : <>
           <div className="admin-welcome"><div><span className="eyebrow">{new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date()).toLocaleUpperCase("id-ID")}</span><h1>Ruang kendali moderator</h1><p>Tinjau informasi baru dan bantu komunitas menemukan peluang yang terpercaya.</p></div><div className="admin-welcome-actions"><button className="button button-outline" onClick={() => navigate("/")}><ArrowLeft size={16} /> Lihat situs</button><button className="button button-primary" onClick={openCreatePage}><Plus size={16} /> Tambah Lomba</button></div></div>
           {createNotice && <div className="admin-users-notice admin-publish-notice" role="status"><CheckCircle2 size={16} /> {createNotice}<button onClick={() => setCreateNotice("")} aria-label="Tutup pemberitahuan"><X size={15} /></button></div>}
