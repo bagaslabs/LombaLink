@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Building2,
@@ -80,6 +80,8 @@ function getNearestRegistrationBatch(item) {
 
 export function CompetitionCard({ item, onDetails }) {
   const [coverAspectRatio, setCoverAspectRatio] = useState("9 / 16");
+  const cardRef = useRef(null);
+  const contentRef = useRef(null);
   const nearestBatch = getNearestRegistrationBatch(item);
   const batchDates = nearestBatch
     ? `${formatDate(nearestBatch.startsAt)}${nearestBatch.endsAt !== nearestBatch.startsAt ? ` - ${formatDate(nearestBatch.endsAt)}` : ""}`
@@ -101,8 +103,32 @@ export function CompetitionCard({ item, onDetails }) {
     : "";
   const tags = [...new Set([item.competitionCategory, item.category, ...(item.keywords || [])].filter(Boolean))].slice(0, 3);
 
+  useEffect(() => {
+    const card = cardRef.current;
+    const content = contentRef.current;
+    if (!card || !content) return;
+    if (!item.coverUrl) {
+      card.style.removeProperty("--card-cover-column-width");
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
+
+    const [aspectWidth, aspectHeight] = coverAspectRatio.split("/").map(Number);
+    const aspect = aspectWidth / aspectHeight;
+    const resizeObserver = new ResizeObserver(() => {
+      const cardWidth = card.getBoundingClientRect().width;
+      const contentHeight = content.getBoundingClientRect().height;
+      const columnWidth = Math.max(144, Math.min(cardWidth * 0.38, contentHeight * aspect));
+      card.style.setProperty("--card-cover-column-width", `${columnWidth}px`);
+    });
+
+    resizeObserver.observe(card);
+    resizeObserver.observe(content);
+    return () => resizeObserver.disconnect();
+  }, [coverAspectRatio, item.coverUrl]);
+
   return (
-    <article className="competition-card">
+    <article className="competition-card" ref={cardRef}>
       <div
         className={`card-art ${item.color || "blue"}${item.coverUrl ? " has-cover" : ""}`}
         style={item.coverUrl ? { "--card-cover-aspect": coverAspectRatio } : undefined}
@@ -120,7 +146,7 @@ export function CompetitionCard({ item, onDetails }) {
         )}
         {!item.coverUrl && <span className="card-art-icon"><Trophy size={25} /></span>}
       </div>
-      <div className="card-content">
+      <div className="card-content" ref={contentRef}>
         <h3>{item.title}</h3>
         {item.organizer && <p className="competition-card-organizer"><Building2 size={14} /> {item.organizer}</p>}
         {tags.length > 0 && <div className="competition-card-tags">{tags.map((tag) => <span className="soft-tag" key={tag}>{tag}</span>)}</div>}

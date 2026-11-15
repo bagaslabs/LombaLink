@@ -1096,7 +1096,7 @@ html[data-theme="dark"] .card-cover-image { background: #111b2d; }
 }
 @media (min-width: 768px) {
   .competition-grid { grid-template-columns: minmax(0,1fr); }
-  .competition-card { grid-template-columns: clamp(180px,22vw,300px) minmax(0,1fr); }
+  .competition-card { grid-template-columns: var(--card-cover-column-width,clamp(144px,16vw,210px)) minmax(0,1fr); }
   .competition-card .card-art.has-cover { aspect-ratio: auto; }
 }
 html[data-theme="dark"] .competition-card-organizer { color: #9eabc0; }
