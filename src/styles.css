@@ -111,6 +111,7 @@ h1,h2,h3,p { margin-top: 0; }
 .search-hint span { display: inline-flex; gap: 5px; align-items: center; }
 .search-quota { color: #7282a4; font-weight: 600; }
 .discovery-page { min-height: 0; scroll-margin-top: 88px; padding-top: 48px; padding-bottom: 64px; }
+#cari.discovery-page { padding-top: clamp(120px,15vh,150px); }
 .discovery-heading { margin-bottom: 22px; }
 .discovery-heading h2 { margin: 7px 0; color: #29364f; font: 800 29px Manrope,sans-serif; letter-spacing: -.8px; }
 .discovery-heading p { margin: 0; color: #8490a4; font-size: 12px; }
