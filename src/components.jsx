@@ -179,7 +179,7 @@ export function CompetitionCard({ item, onDetails }) {
     const resizeObserver = new ResizeObserver(() => {
       const cardWidth = card.getBoundingClientRect().width;
       const contentHeight = content.getBoundingClientRect().height;
-      const columnWidth = Math.max(144, Math.min(cardWidth * 0.38, contentHeight * aspect));
+      const columnWidth = Math.max(144, Math.min(cardWidth * 0.38, contentHeight * aspect, 220));
       card.style.setProperty("--card-cover-column-width", `${columnWidth}px`);
     });
 
