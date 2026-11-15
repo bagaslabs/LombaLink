@@ -28,6 +28,7 @@ import {
   normalizePhoneNumber,
   organizerLevelOptions,
   participantTypeOptions,
+  provinceOptions,
   scopeOptions,
   targetParticipantOptions,
 } from "./data.js";
@@ -164,6 +165,39 @@ function parseTeamMemberRange(value) {
   return { minimum: Number(match[1]), maximum: Number(match[2] || match[1]) };
 }
 
+function getCompetitionLocationFields(location, scope) {
+  const value = String(location || "").trim();
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+  const matchProvince = (part) => provinceOptions.find((province) => (
+    province.toLocaleLowerCase("id-ID") === part.toLocaleLowerCase("id-ID")
+  ));
+  if (scope === "Provinsi") {
+    const province = [...parts].reverse().map(matchProvince).find(Boolean);
+    return { locationArea: "", locationProvince: province || value };
+  }
+  if (scope === "Kabupaten/Kota" || scope === "Daerah") {
+    if (parts.length > 1) {
+      return {
+        locationArea: parts.slice(0, -1).join(", "),
+        locationProvince: matchProvince(parts.at(-1)) || parts.at(-1),
+      };
+    }
+    const province = matchProvince(value);
+    return province
+      ? { locationArea: "", locationProvince: province }
+      : { locationArea: value, locationProvince: "" };
+  }
+  return { locationArea: "", locationProvince: "" };
+}
+
+function combineCompetitionLocation(scope, locationArea, locationProvince, fallback = "") {
+  if (scope === "Provinsi") return String(locationProvince || "").trim();
+  if (scope === "Kabupaten/Kota" || scope === "Daerah") {
+    return [locationArea, locationProvince].map((part) => String(part || "").trim()).filter(Boolean).join(", ");
+  }
+  return fallback;
+}
+
 function normalizeCompetitionType(value, customValue = "") {
   const type = String(value || "").trim();
   const customType = String(customValue || "").trim();
@@ -213,6 +247,7 @@ function toForm(competition) {
   const savedField = competition?.category || "";
   const customField = savedField && !competitionFieldOptions.includes(savedField) ? savedField : "";
   const competitionTypeFields = normalizeCompetitionType(competition?.competitionType);
+  const location = competition?.location || "";
   return {
     title: competition?.title || "",
     description: competition?.description || "",
@@ -229,7 +264,8 @@ function toForm(competition) {
       ? competition.targetParticipants
       : legacyTargets[competition?.education] || [],
     mode: competition?.mode || "",
-    location: competition?.location || "",
+    location,
+    ...getCompetitionLocationFields(location, competition?.scope || ""),
     organizer: competition?.organizer || "",
     organizerType: competition?.organizerType || "",
     organizerLevel: competition?.organizerLevel || "",
@@ -291,6 +327,7 @@ function restoreFormDraft(storageKey, competition) {
       savedForm.competitionType ?? savedForm.legacyCompetitionType ?? savedForm.competition_type,
       savedForm.customCompetitionType,
     );
+    const locationFields = getCompetitionLocationFields(savedForm.location, savedForm.scope);
     const fallbackFeeType = savedForm.feeType ?? (savedFeeTiers.length ? "Berbayar" : "Gratis");
     const registrationBatches = (savedBatches.length ? savedBatches : [{
       startsAt: savedForm.registrationOpensAt || "",
@@ -313,6 +350,8 @@ function restoreFormDraft(storageKey, competition) {
         ...savedForm,
         competitionCategory: savedForm.competitionCategory ?? "",
         ...competitionTypeFields,
+        locationArea: savedForm.locationArea ?? locationFields.locationArea,
+        locationProvince: savedForm.locationProvince ?? locationFields.locationProvince,
         field: customField ? "Lainnya" : savedField,
         customField,
         participantType: savedForm.participantType === "Individu dan Tim" ? "" : savedForm.participantType ?? "",
@@ -574,6 +613,39 @@ export default function CompetitionForm({
     const value = event.target.value;
     updateForm((current) => ({ ...current, [key]: value }));
   };
+  const updateCompetitionScope = (event) => {
+    const scope = event.target.value;
+    updateForm((current) => {
+      const locationFields = getCompetitionLocationFields(current.location, scope);
+      return {
+        ...current,
+        scope,
+        ...locationFields,
+        location: combineCompetitionLocation(
+          scope,
+          locationFields.locationArea,
+          locationFields.locationProvince,
+          current.location,
+        ),
+      };
+    });
+  };
+  const updateLocationArea = (event) => {
+    const locationArea = event.target.value;
+    updateForm((current) => ({
+      ...current,
+      locationArea,
+      location: combineCompetitionLocation(current.scope, locationArea, current.locationProvince, current.location),
+    }));
+  };
+  const updateLocationProvince = (event) => {
+    const locationProvince = event.target.value;
+    updateForm((current) => ({
+      ...current,
+      locationProvince,
+      location: combineCompetitionLocation(current.scope, current.locationArea, locationProvince, current.location),
+    }));
+  };
 
   const updateContactPerson = (index, key, value) => {
     const updatedValue = key === "phone"
@@ -714,7 +786,15 @@ export default function CompetitionForm({
     )) {
       return "Isi jumlah anggota tim dengan benar, contoh 5 atau 3-5.";
     }
-    if (form.mode !== "Online" && !form.location.trim()) {
+    if (form.scope === "Provinsi" && !form.locationProvince) {
+      return "Pilih provinsi cakupan lomba.";
+    }
+    if ((form.scope === "Kabupaten/Kota" || form.scope === "Daerah")
+      && (!form.locationArea.trim() || !form.locationProvince)) {
+      return "Isi daerah dan pilih provinsi cakupan lomba.";
+    }
+    if (form.mode !== "Online" && form.scope !== "Provinsi"
+      && form.scope !== "Kabupaten/Kota" && form.scope !== "Daerah" && !form.location.trim()) {
       return "Lokasi wajib diisi untuk lomba Offline atau Hybrid.";
     }
     if (!form.registrationBatches.length) {
@@ -1305,7 +1385,7 @@ export default function CompetitionForm({
               )}
             </div>
             <label>Tingkat lomba <span className="required-mark">*</span>
-              <select value={form.scope} onChange={update("scope")} required>
+              <select value={form.scope} onChange={updateCompetitionScope} required>
                 <option value="">Pilih tingkat</option>
                 {form.scope && !scopeOptions.includes(form.scope) && <option value={form.scope}>{form.scope} (data tersimpan)</option>}
                 {scopeOptions.map((option) => <option key={option}>{option}</option>)}
@@ -1538,9 +1618,29 @@ export default function CompetitionForm({
                     {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
                   </select>
                 </label>
-                {(form.mode === "Offline" || form.mode === "Hybrid") && <label>Lokasi <span className="required-mark">*</span>
-                  <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />
+                {form.scope === "Provinsi" && <label>Provinsi <span className="required-mark">*</span>
+                  <select value={form.locationProvince} onChange={updateLocationProvince} required>
+                    <option value="">Pilih provinsi</option>
+                    {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
+                    {provinceOptions.map((province) => <option key={province}>{province}</option>)}
+                  </select>
                 </label>}
+                {(form.scope === "Kabupaten/Kota" || form.scope === "Daerah") && <>
+                    <label>Daerah / kabupaten / kota <span className="required-mark">*</span>
+                      <input value={form.locationArea} onChange={updateLocationArea} maxLength={120} placeholder="Contoh: Jember" required />
+                    </label>
+                    <label>Provinsi <span className="required-mark">*</span>
+                      <select value={form.locationProvince} onChange={updateLocationProvince} required>
+                        <option value="">Pilih provinsi</option>
+                        {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
+                        {provinceOptions.map((province) => <option key={province}>{province}</option>)}
+                      </select>
+                    </label>
+                  </>}
+                {(form.mode === "Offline" || form.mode === "Hybrid")
+                  && form.scope !== "Provinsi" && form.scope !== "Kabupaten/Kota" && form.scope !== "Daerah" && <label>Lokasi <span className="required-mark">*</span>
+                    <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />
+                  </label>}
               </div>
             </fieldset>
             <fieldset className="competition-rich-fieldset competition-form-full">
