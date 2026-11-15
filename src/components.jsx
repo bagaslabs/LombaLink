@@ -79,6 +79,7 @@ function getNearestRegistrationBatch(item) {
 }
 
 export function CompetitionCard({ item, onDetails }) {
+  const [coverAspectRatio, setCoverAspectRatio] = useState("9 / 16");
   const nearestBatch = getNearestRegistrationBatch(item);
   const batchDates = nearestBatch
     ? `${formatDate(nearestBatch.startsAt)}${nearestBatch.endsAt !== nearestBatch.startsAt ? ` - ${formatDate(nearestBatch.endsAt)}` : ""}`
@@ -102,8 +103,21 @@ export function CompetitionCard({ item, onDetails }) {
 
   return (
     <article className="competition-card">
-      <div className={`card-art ${item.color || "blue"}${item.coverUrl ? " has-cover" : ""}`}>
-        {item.coverUrl && <img className="card-cover-image" src={item.coverUrl} alt="" />}
+      <div
+        className={`card-art ${item.color || "blue"}${item.coverUrl ? " has-cover" : ""}`}
+        style={item.coverUrl ? { "--card-cover-aspect": coverAspectRatio } : undefined}
+      >
+        {item.coverUrl && (
+          <img
+            className="card-cover-image"
+            src={item.coverUrl}
+            alt=""
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth && naturalHeight) setCoverAspectRatio(`${naturalWidth} / ${naturalHeight}`);
+            }}
+          />
+        )}
         {!item.coverUrl && <span className="card-art-icon"><Trophy size={25} /></span>}
       </div>
       <div className="card-content">

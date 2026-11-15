@@ -4,13 +4,16 @@ import {
   ArrowRight,
   Bold,
   Camera,
+  Crop,
   Italic,
   List,
   ListOrdered,
+  RotateCcw,
   Save,
   Smile,
   Upload,
   X,
+  ZoomIn,
 } from "lucide-react";
 import {
   competitionCategoryOptions,
@@ -29,6 +32,58 @@ const formSections = [
   { id: "competition-section-technical", label: "Spesifik" },
 ];
 const descriptionEmojis = ["🎉", "🏆", "📅", "✨", "📢", "🎁", "✅", "📍"];
+const coverCropWidth = 900;
+const coverCropRatios = [
+  { label: "4:6", width: 4, height: 6 },
+  { label: "4:5", width: 4, height: 5 },
+  { label: "9:16", width: 9, height: 16 },
+];
+
+function getCoverCropBounds(image, zoom, ratio) {
+  const cropHeight = Math.round(coverCropWidth * ratio.height / ratio.width);
+  const scale = Math.max(
+    coverCropWidth / image.naturalWidth,
+    cropHeight / image.naturalHeight,
+  ) * zoom;
+  return {
+    x: Math.max(0, (image.naturalWidth * scale - coverCropWidth) / 2),
+    y: Math.max(0, (image.naturalHeight * scale - cropHeight) / 2),
+  };
+}
+
+function clampCoverCropOffset(offset, image, zoom, ratio) {
+  const bounds = getCoverCropBounds(image, zoom, ratio);
+  return {
+    x: Math.min(bounds.x, Math.max(-bounds.x, offset.x)),
+    y: Math.min(bounds.y, Math.max(-bounds.y, offset.y)),
+  };
+}
+
+function drawCoverCrop(canvas, image, zoom, offset, ratio) {
+  const context = canvas.getContext("2d");
+  if (!context) return false;
+  const cropHeight = Math.round(canvas.width * ratio.height / ratio.width);
+
+  const scale = Math.max(
+    canvas.width / image.naturalWidth,
+    cropHeight / image.naturalHeight,
+  ) * zoom;
+  const cropOffset = clampCoverCropOffset(offset, image, zoom, ratio);
+  const width = image.naturalWidth * scale;
+  const height = image.naturalHeight * scale;
+
+  if (canvas.height !== cropHeight) canvas.height = cropHeight;
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, canvas.width, cropHeight);
+  context.drawImage(
+    image,
+    (canvas.width - width) / 2 + cropOffset.x,
+    (canvas.height - height) / 2 + cropOffset.y,
+    width,
+    height,
+  );
+  return true;
+}
 
 function normalizeKeywordTag(value) {
   const tag = String(value || "")
@@ -262,12 +317,25 @@ export default function CompetitionForm({
   const [storageNotice, setStorageNotice] = useState(restoredForm.notice);
   const [busy, setBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [coverPreviewAspectRatio, setCoverPreviewAspectRatio] = useState("9 / 16");
+  const [coverOriginalFile, setCoverOriginalFile] = useState(null);
+  const [coverEditorFile, setCoverEditorFile] = useState(null);
+  const [coverEditorUrl, setCoverEditorUrl] = useState("");
+  const [coverEditorOpen, setCoverEditorOpen] = useState(false);
+  const [coverEditorZoom, setCoverEditorZoom] = useState(1);
+  const [coverCropRatioLabel, setCoverCropRatioLabel] = useState("9:16");
+  const [coverCropOffset, setCoverCropOffset] = useState({ x: 0, y: 0 });
+  const [coverEditorImageLoaded, setCoverEditorImageLoaded] = useState(false);
+  const [coverEditorError, setCoverEditorError] = useState("");
   const [activeSection, setActiveSection] = useState(formSections[0].id);
   const [emojiPickerField, setEmojiPickerField] = useState("");
   const formRef = useRef(null);
   const descriptionRef = useRef(null);
   const requirementsRef = useRef(null);
   const prizeRef = useRef(null);
+  const coverEditorImageRef = useRef(null);
+  const coverCropCanvasRef = useRef(null);
+  const coverCropDragRef = useRef(null);
   const formStateRef = useRef(form);
   const submitButtonRef = useRef(null);
   const saveActionRef = useRef("submit");
@@ -283,6 +351,11 @@ export default function CompetitionForm({
   const showCustomKeyword = normalizedKeywordInput
     && !form.keywords.includes(normalizedKeywordInput)
     && !keywordSuggestions.includes(normalizedKeywordInput);
+  const selectedCoverCropRatio = coverCropRatios.find(({ label }) => label === coverCropRatioLabel)
+    || coverCropRatios[2];
+  const coverCropCanvasHeight = Math.round(
+    coverCropWidth * selectedCoverCropRatio.height / selectedCoverCropRatio.width,
+  );
 
   const updateForm = (updater) => {
     setForm((current) => {
@@ -330,6 +403,26 @@ export default function CompetitionForm({
     setPreviewUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [form.coverFile]);
+
+  useEffect(() => {
+    if (!coverEditorFile) {
+      setCoverEditorUrl("");
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(coverEditorFile);
+    setCoverEditorUrl(objectUrl);
+    setCoverEditorImageLoaded(false);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [coverEditorFile]);
+
+  useEffect(() => {
+    const image = coverEditorImageRef.current;
+    const canvas = coverCropCanvasRef.current;
+    if (!coverEditorOpen || !coverEditorImageLoaded || !image || !canvas) return;
+    if (!drawCoverCrop(canvas, image, coverEditorZoom, coverCropOffset, selectedCoverCropRatio)) {
+      setCoverEditorError("Editor gambar tidak dapat dibuka di browser ini.");
+    }
+  }, [coverEditorImageLoaded, coverEditorOpen, coverEditorZoom, coverCropOffset, selectedCoverCropRatio]);
 
   useEffect(() => {
     const formElement = formRef.current;
@@ -497,7 +590,125 @@ export default function CompetitionForm({
       return;
     }
     setError("");
-    updateForm((current) => ({ ...current, coverFile: file, coverNeedsReselect: false, removeCover: false }));
+    setCoverEditorFile(file);
+    setCoverEditorZoom(1);
+    setCoverCropOffset({ x: 0, y: 0 });
+    setCoverEditorError("");
+    setCoverEditorOpen(true);
+  };
+
+  const openCoverEditor = (file) => {
+    if (!file) return;
+    setCoverEditorFile(file);
+    setCoverEditorZoom(1);
+    setCoverCropOffset({ x: 0, y: 0 });
+    setCoverEditorError("");
+    setCoverEditorOpen(true);
+  };
+
+  const closeCoverEditor = () => {
+    setCoverEditorOpen(false);
+    setCoverEditorFile(null);
+    setCoverEditorImageLoaded(false);
+    setCoverEditorError("");
+    coverCropDragRef.current = null;
+  };
+
+  const handleCoverCropPointerDown = (event) => {
+    const canvas = coverCropCanvasRef.current;
+    if (!canvas || !coverEditorImageLoaded) return;
+    const bounds = canvas.getBoundingClientRect();
+    coverCropDragRef.current = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      offset: coverCropOffset,
+      scale: canvas.width / bounds.width,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleCoverCropPointerMove = (event) => {
+    const drag = coverCropDragRef.current;
+    const image = coverEditorImageRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !image) return;
+    const nextOffset = {
+      x: drag.offset.x + (event.clientX - drag.clientX) * drag.scale,
+      y: drag.offset.y + (event.clientY - drag.clientY) * drag.scale,
+    };
+    setCoverCropOffset(clampCoverCropOffset(nextOffset, image, coverEditorZoom, selectedCoverCropRatio));
+  };
+
+  const endCoverCropDrag = (event) => {
+    if (coverCropDragRef.current?.pointerId !== event.pointerId) return;
+    coverCropDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const changeCoverZoom = (event) => {
+    const zoom = Number(event.target.value);
+    const image = coverEditorImageRef.current;
+    setCoverEditorZoom(zoom);
+    if (image) setCoverCropOffset((current) => clampCoverCropOffset(current, image, zoom, selectedCoverCropRatio));
+  };
+
+  const changeCoverCropRatio = (ratio) => {
+    const image = coverEditorImageRef.current;
+    setCoverCropRatioLabel(ratio.label);
+    if (image) {
+      setCoverCropOffset((current) => clampCoverCropOffset(current, image, coverEditorZoom, ratio));
+    } else {
+      setCoverCropOffset({ x: 0, y: 0 });
+    }
+  };
+
+  const resetCoverCrop = () => {
+    setCoverEditorZoom(1);
+    setCoverCropOffset({ x: 0, y: 0 });
+  };
+
+  const saveCoverCrop = async () => {
+    const canvas = coverCropCanvasRef.current;
+    const image = coverEditorImageRef.current;
+    if (!canvas || !image || !coverEditorFile || !coverEditorImageLoaded) {
+      setCoverEditorError("Tunggu gambar selesai dimuat sebelum menyimpan potongan.");
+      return;
+    }
+    if (!drawCoverCrop(canvas, image, coverEditorZoom, coverCropOffset, selectedCoverCropRatio)) {
+      setCoverEditorError("Editor gambar tidak dapat dibuka di browser ini.");
+      return;
+    }
+
+    try {
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+      if (!blob) {
+        setCoverEditorError("Hasil potongan poster gagal dibuat. Coba lagi.");
+        return;
+      }
+      const baseName = coverEditorFile.name.replace(/\.[^.]+$/, "") || "poster";
+      const croppedFile = new File([blob], `${baseName}-crop.jpg`, {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+      if (croppedFile.size > 5 * 1024 * 1024) {
+        setCoverEditorError("Hasil poster melebihi 5 MB. Coba pilih gambar dengan resolusi lebih kecil.");
+        return;
+      }
+
+      setCoverOriginalFile(coverEditorFile);
+      updateForm((current) => ({
+        ...current,
+        coverFile: croppedFile,
+        coverNeedsReselect: false,
+        removeCover: false,
+      }));
+      setError("");
+      closeCoverEditor();
+    } catch (cropError) {
+      setCoverEditorError(`Poster gagal dipotong: ${cropError instanceof Error ? cropError.message : "kesalahan browser."}`);
+    }
   };
 
   const insertText = (fieldKey, fieldRef, insertedText) => {
@@ -689,20 +900,38 @@ export default function CompetitionForm({
           <div className="competition-form-grid">
             <div className="competition-cover-picker">
               <div className="competition-cover-column">
-                <div className="competition-cover-preview">
+                <div className="competition-cover-preview" style={{ aspectRatio: coverPreviewAspectRatio }}>
                   {previewUrl || (!form.removeCover && form.coverUrl)
-                    ? <img src={previewUrl || form.coverUrl} alt="Pratinjau poster lomba" />
+                    ? (
+                      <img
+                        src={previewUrl || form.coverUrl}
+                        alt="Pratinjau poster lomba"
+                        onLoad={(event) => {
+                          const { naturalWidth, naturalHeight } = event.currentTarget;
+                          if (naturalWidth && naturalHeight) setCoverPreviewAspectRatio(`${naturalWidth} / ${naturalHeight}`);
+                        }}
+                      />
+                    )
                     : <Camera size={24} />}
                 </div>
                 <div className="competition-cover-controls">
                   <label className="button button-outline button-small" htmlFor="competition-cover"><Upload size={15} /> Unggah poster <span className="required-mark">*</span></label>
                   <input id="competition-cover" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectCover} />
+                  {coverOriginalFile && (previewUrl || (!form.removeCover && form.coverUrl)) && (
+                    <button className="button button-outline button-small" type="button" onClick={() => openCoverEditor(coverOriginalFile)}>
+                      <Crop size={15} /> Edit poster
+                    </button>
+                  )}
                   {(previewUrl || (!form.removeCover && form.coverUrl)) && (
                     <button
                       type="button"
                       className="competition-remove-cover"
                       aria-label="Hapus poster lomba"
-                      onClick={() => updateForm((current) => ({ ...current, coverFile: null, coverNeedsReselect: false, removeCover: true }))}
+                      onClick={() => {
+                        setCoverOriginalFile(null);
+                        setCoverPreviewAspectRatio("9 / 16");
+                        updateForm((current) => ({ ...current, coverFile: null, coverNeedsReselect: false, removeCover: true }));
+                      }}
                     >
                       <X size={15} />
                     </button>
@@ -1031,6 +1260,96 @@ export default function CompetitionForm({
             {!busy && <ArrowRight size={15} />}
           </button>
         </div>
+        {coverEditorOpen && coverEditorUrl && (
+          <div
+            className="competition-cover-editor-backdrop"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeCoverEditor();
+            }}
+          >
+            <section className="competition-cover-editor" role="dialog" aria-modal="true" aria-labelledby="competition-cover-editor-title">
+              <header className="competition-cover-editor-header">
+                <div>
+                  <h2 id="competition-cover-editor-title">Edit poster lomba</h2>
+                  <p>Geser gambar untuk mengatur potongan, lalu sesuaikan zoom.</p>
+                </div>
+                <button className="competition-cover-editor-close" type="button" aria-label="Tutup editor poster" onClick={closeCoverEditor}>
+                  <X size={18} />
+                </button>
+              </header>
+              <div className="competition-cover-editor-body">
+                <div
+                  className="competition-cover-crop-stage"
+                  style={{ aspectRatio: `${selectedCoverCropRatio.width} / ${selectedCoverCropRatio.height}` }}
+                >
+                  <img
+                    ref={coverEditorImageRef}
+                    className="competition-cover-editor-source"
+                    src={coverEditorUrl}
+                    alt=""
+                    onLoad={() => setCoverEditorImageLoaded(true)}
+                    onError={() => setCoverEditorError("Gambar tidak dapat dibaca. Coba pilih file gambar lain.")}
+                  />
+                  <canvas
+                    ref={coverCropCanvasRef}
+                    className="competition-cover-crop-canvas"
+                    width={coverCropWidth}
+                    height={coverCropCanvasHeight}
+                    role="img"
+                    aria-label="Pratinjau potongan poster. Geser gambar untuk mengatur area."
+                    onPointerDown={handleCoverCropPointerDown}
+                    onPointerMove={handleCoverCropPointerMove}
+                    onPointerUp={endCoverCropDrag}
+                    onPointerCancel={endCoverCropDrag}
+                  />
+                </div>
+                <div className="competition-cover-editor-controls">
+                  <fieldset className="competition-cover-ratio-picker">
+                    <legend>Ukuran poster</legend>
+                    <div>
+                      {coverCropRatios.map((ratio) => (
+                        <button
+                          key={ratio.label}
+                          type="button"
+                          aria-pressed={coverCropRatioLabel === ratio.label}
+                          onClick={() => changeCoverCropRatio(ratio)}
+                          disabled={!coverEditorImageLoaded}
+                        >
+                          {ratio.label}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label htmlFor="competition-cover-zoom">
+                    <span><ZoomIn size={16} /> Zoom gambar</span>
+                    <strong>{Math.round(coverEditorZoom * 100)}%</strong>
+                  </label>
+                  <input
+                    id="competition-cover-zoom"
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={coverEditorZoom}
+                    onChange={changeCoverZoom}
+                    disabled={!coverEditorImageLoaded}
+                  />
+                  <button className="button button-outline button-small" type="button" onClick={resetCoverCrop} disabled={!coverEditorImageLoaded}>
+                    <RotateCcw size={14} /> Atur ulang
+                  </button>
+                  <p>Gunakan mouse atau sentuh lalu geser untuk memilih area poster.</p>
+                  {coverEditorError && <p className="competition-cover-editor-error" role="alert">{coverEditorError}</p>}
+                </div>
+              </div>
+              <footer className="competition-cover-editor-actions">
+                <button className="button button-quiet" type="button" onClick={closeCoverEditor}>Batal</button>
+                <button className="button button-primary" type="button" onClick={saveCoverCrop} disabled={!coverEditorImageLoaded}>
+                  <Crop size={15} /> Simpan potongan
+                </button>
+              </footer>
+            </section>
+          </div>
+        )}
       </form>
     </div>
   );
