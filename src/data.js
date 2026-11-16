@@ -144,20 +144,10 @@ export const birthYearOptions = Array.from(
   (_, index) => String(1900 + index),
 );
 export const defaultPreferences = {
-  category: "",
-  mode: "",
-  education: "",
-  locationScope: "",
-  province: "",
-  city: "",
-  feeType: "",
+  categories: [],
+  level: "",
 };
 
-const preferenceEducationAliases = {
-  SMP: "SMP / MTs",
-  SMA: "SMA / SMK / MA",
-  Kuliah: "Mahasiswa",
-};
 const preferenceLocationAliases = { Daerah: "Kabupaten/Kota" };
 
 export function normalizePhoneNumber(phone, callingCode = "+62") {
@@ -209,17 +199,14 @@ export function accountFromUser(user, profileAccountType) {
     avatarUrl: user.user_metadata?.avatar_url || "",
     avatarPath: user.user_metadata?.avatar_path || "",
     preferences: {
-      category: typeof preferences.category === "string" ? preferences.category : "",
-      mode: typeof preferences.mode === "string" ? preferences.mode : "",
-      education: typeof preferences.education === "string"
-        ? preferenceEducationAliases[preferences.education] || preferences.education
-        : "",
-      locationScope: typeof preferences.locationScope === "string"
-        ? preferenceLocationAliases[preferences.locationScope] || preferences.locationScope
-        : "",
-      province: typeof preferences.province === "string" ? preferences.province : "",
-      city: typeof preferences.city === "string" ? preferences.city : "",
-      feeType: typeof preferences.feeType === "string" ? preferences.feeType : "",
+      categories: Array.isArray(preferences.categories)
+        ? [...new Set(preferences.categories.filter((category) => typeof category === "string" && category.trim()).map((category) => category.trim()))]
+        : typeof preferences.category === "string" && preferences.category.trim() ? [preferences.category.trim()] : [],
+      level: typeof preferences.level === "string"
+        ? preferences.level
+        : typeof preferences.locationScope === "string"
+          ? preferenceLocationAliases[preferences.locationScope] || preferences.locationScope
+          : "",
     },
     accountType,
     role: user.app_metadata?.role === "moderator" ? "moderator" : accountType || "unselected",
@@ -256,6 +243,13 @@ export function competitionFromRow(row) {
     rulebookUrls: Array.isArray(row.rulebook_urls) && row.rulebook_urls.length
       ? row.rulebook_urls.filter((url) => typeof url === "string" && url.trim())
       : row.rulebook_url ? [row.rulebook_url] : [],
+    rulebookLinks: Array.isArray(row.rulebook_links) && row.rulebook_links.length
+      ? row.rulebook_links.filter((link) => link && typeof link.url === "string" && link.url.trim()).map((link, index) => ({
+        name: typeof link.name === "string" && link.name.trim() ? link.name.trim() : `Panduan ${index + 1}`,
+        url: link.url.trim(),
+      }))
+      : (Array.isArray(row.rulebook_urls) && row.rulebook_urls.length ? row.rulebook_urls : row.rulebook_url ? [row.rulebook_url] : [])
+        .map((url, index) => ({ name: `Panduan ${index + 1}`, url })),
     guidebookPath: row.guidebook_path || "",
     guidebookUrl: row.rulebook_url || "",
     coverPath: row.cover_path || "",
@@ -358,6 +352,9 @@ export function competitionFieldsFromForm(form) {
     .filter(Boolean)
     .sort()
     .at(-1) || "";
+  const rulebookLinks = (Array.isArray(form.guidebookLinks) ? form.guidebookLinks : [])
+    .map((link, index) => ({ name: link.name?.trim() || `Panduan ${index + 1}`, url: link.url?.trim() || "" }))
+    .filter((link) => link.url);
   return {
     title: form.title.trim(),
     tagline: createCompetitionTagline(form.description),
@@ -400,9 +397,9 @@ export function competitionFieldsFromForm(form) {
       : null,
     registration_url: form.registrationUrl.trim() || null,
     information_url: form.informationUrl || null,
-    rulebook_url: (form.guidebookUrls?.find((url) => url.trim()) || form.guidebookUrl || "").trim() || null,
-    rulebook_urls: (Array.isArray(form.guidebookUrls) ? form.guidebookUrls : [form.guidebookUrl || ""])
-      .map((url) => url.trim()).filter(Boolean),
+    rulebook_url: rulebookLinks[0]?.url || form.guidebookUrl?.trim() || null,
+    rulebook_urls: rulebookLinks.map((link) => link.url),
+    rulebook_links: rulebookLinks,
     guidebook_path: form.guidebookPath || null,
     benefits: form.benefits.trim(),
   };

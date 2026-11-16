@@ -4,6 +4,16 @@ import { CompetitionCard, SearchPanel } from "../components.jsx";
 
 const emptyFilters = { keyword: "", education: "", category: "", scope: "", organizerType: "", location: "" };
 const resultsPerPage = 4;
+const openParticipantTargets = new Set(["umum", "semua jenjang", "semua tingkat", "terbuka untuk umum"]);
+
+function matchesEducationFilter(item, education) {
+  if (!education) return true;
+  const selected = education.trim().toLocaleLowerCase("id-ID");
+  const targets = (item.targetParticipants || []).map((target) => String(target).trim().toLocaleLowerCase("id-ID"));
+  const legacyEducation = String(item.education || "").trim().toLocaleLowerCase("id-ID");
+  if (targets.includes(selected) || legacyEducation === selected) return true;
+  return targets.some((target) => openParticipantTargets.has(target)) || openParticipantTargets.has(legacyEducation);
+}
 
 export default function SearchPage({
   account,
@@ -22,7 +32,7 @@ export default function SearchPage({
   const matchingCompetitions = useMemo(() => competitions.filter((item) => {
     const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
     return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
-      && (!filters.education || (item.targetParticipants || []).includes(filters.education) || item.education === filters.education)
+      && matchesEducationFilter(item, filters.education)
       && (!filters.category || item.category === filters.category)
       && (!filters.scope || item.scope === filters.scope)
       && (!filters.organizerType || item.organizerType === filters.organizerType)

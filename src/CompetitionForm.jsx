@@ -296,9 +296,10 @@ function toForm(competition) {
     rulebookUrl: competition?.rulebookUrl || "",
     guidebookPath: competition?.guidebookPath || "",
     guidebookUrl: competition?.guidebookUrl || competition?.rulebookUrl || "",
-    guidebookUrls: Array.isArray(competition?.rulebookUrls) && competition.rulebookUrls.length
-      ? [...competition.rulebookUrls]
-      : (competition?.guidebookUrl || competition?.rulebookUrl) ? [competition.guidebookUrl || competition.rulebookUrl] : [""],
+    guidebookLinks: Array.isArray(competition?.rulebookLinks) && competition.rulebookLinks.length
+      ? competition.rulebookLinks.map((link, index) => ({ name: link.name || `Panduan ${index + 1}`, url: link.url || "" }))
+      : (competition?.rulebookUrls?.length ? competition.rulebookUrls : [competition?.guidebookUrl || competition?.rulebookUrl || ""])
+        .map((url, index) => ({ name: `Panduan ${index + 1}`, url })),
     benefits: competition?.benefits || "",
     coverPath: competition?.coverPath || "",
     coverUrl: competition?.coverUrl || "",
@@ -378,6 +379,11 @@ function restoreFormDraft(storageKey, competition) {
           ?? getTeamMemberRange(savedForm.teamMinMembers, savedForm.teamMaxMembers),
         registrationBatches,
         keywords: [...new Set(savedKeywords.map(normalizeKeywordTag).filter(Boolean))],
+        guidebookLinks: Array.isArray(savedForm.guidebookLinks)
+          ? savedForm.guidebookLinks.map((link, index) => ({ name: link.name || `Panduan ${index + 1}`, url: link.url || "" }))
+          : Array.isArray(savedForm.guidebookUrls)
+            ? savedForm.guidebookUrls.map((url, index) => ({ name: `Panduan ${index + 1}`, url }))
+            : initialForm.guidebookLinks,
         coverFile: null,
         coverNeedsReselect: Boolean(savedForm.coverNeedsReselect),
       },
@@ -461,11 +467,14 @@ export default function CompetitionForm({
   const competitionTypeInputValue = form.competitionType === "Lainnya"
     ? form.customCompetitionType
     : form.competitionType;
-  const { keywordUsageCounts, fieldUsageCounts, organizerUsageCounts } = useMemo(() => {
+  const { keywordUsageCounts, fieldUsageCounts, organizerUsageCounts, typeUsageCounts } = useMemo(() => {
     const keywordUsers = new Map();
     const fieldUsers = new Map();
     const organizerUsers = new Map();
+    const typeUsageCounts = new Map();
     for (const competition of suggestedCompetitions) {
+      const competitionType = String(competition.competitionType || "").trim().toLocaleLowerCase("id-ID");
+      if (competitionType) typeUsageCounts.set(competitionType, (typeUsageCounts.get(competitionType) || 0) + 1);
       const userId = competition.submitterId || competition.id;
       if (!userId) continue;
       for (const tag of new Set((competition.keywords || []).map(normalizeKeywordTag).filter(Boolean))) {
@@ -488,6 +497,7 @@ export default function CompetitionForm({
       keywordUsageCounts: new Map([...keywordUsers].map(([key, users]) => [key, users.size])),
       fieldUsageCounts: new Map([...fieldUsers].map(([key, users]) => [key, users.size])),
       organizerUsageCounts: new Map([...organizerUsers].map(([key, value]) => [key, { name: value.name, count: value.users.size }])),
+      typeUsageCounts,
     };
   }, [suggestedCompetitions]);
   const keywordSuggestions = [...new Set([
@@ -522,9 +532,11 @@ export default function CompetitionForm({
   const typeSuggestions = competitionTypeOptions
     .filter((type) => type !== "Lainnya")
     .filter((type) => !competitionTypeInputValue || type.toLocaleLowerCase("id-ID").includes(competitionTypeInputValue.trim().toLocaleLowerCase("id-ID")))
+    .map((type) => ({ type, count: typeUsageCounts.get(type.toLocaleLowerCase("id-ID")) || 0 }))
+    .sort((first, second) => second.count - first.count)
     .slice(0, 7);
   const showCustomType = competitionTypeInputValue.trim()
-    && !typeSuggestions.some((type) => type.toLocaleLowerCase("id-ID") === competitionTypeInputValue.trim().toLocaleLowerCase("id-ID"));
+    && !typeSuggestions.some(({ type }) => type.toLocaleLowerCase("id-ID") === competitionTypeInputValue.trim().toLocaleLowerCase("id-ID"));
   const organizerQuery = form.organizer.trim().toLocaleLowerCase("id-ID");
   const organizerSuggestions = [...organizerUsageCounts.values()]
     .filter(({ name }) => !organizerQuery || name.toLocaleLowerCase("id-ID").includes(organizerQuery))
@@ -864,8 +876,11 @@ export default function CompetitionForm({
     if (!isValidUrl(form.registrationUrl)) {
       return "Link pendaftaran harus diawali http:// atau https://.";
     }
-    if ((form.guidebookUrls || [form.guidebookUrl]).some((url) => url.trim() && !isValidUrl(url))) {
+    if ((form.guidebookLinks || []).some((link) => link.url.trim() && !isValidUrl(link.url))) {
       return "Link panduan harus diawali http:// atau https://.";
+    }
+    if ((form.guidebookLinks || []).some((link) => link.url.trim() && !link.name.trim())) {
+      return "Isi nama untuk setiap link panduan atau juknis.";
     }
     if (!form.coverFile && (form.removeCover || !form.coverPath)) {
       return "Poster lomba wajib diunggah sebelum mengirim lomba.";
@@ -1405,7 +1420,7 @@ export default function CompetitionForm({
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && typeSuggestionsOpen && typeSuggestions.length) {
                     event.preventDefault();
-                    selectCompetitionType(typeSuggestions[0]);
+                    selectCompetitionType(typeSuggestions[0].type);
                   }
                 }}
                 maxLength={80}
@@ -1418,9 +1433,10 @@ export default function CompetitionForm({
               <p className="competition-form-helper">Pilih rekomendasi atau ketik tipe lomba lainnya.</p>
               {typeSuggestionsOpen && (typeSuggestions.length > 0 || showCustomType) && (
                 <div id="competition-type-suggestions" className="competition-autocomplete-list" role="listbox" aria-label="Rekomendasi tipe lomba">
-                  {typeSuggestions.map((type) => (
+                  {typeSuggestions.map(({ type, count }) => (
                     <button type="button" role="option" aria-selected={false} key={type} onMouseDown={(event) => event.preventDefault()} onClick={() => selectCompetitionType(type)}>
                       <span>{type}</span>
+                      <small>{count.toLocaleString("id-ID")} lomba</small>
                     </button>
                   ))}
                   {showCustomType && (
@@ -1755,18 +1771,32 @@ export default function CompetitionForm({
             </fieldset>
             <div className="competition-form-full competition-guidebook-field">
               <span>Link Panduan / Juknis <span className="optional-mark">(opsional)</span></span>
-              {(form.guidebookUrls || [form.guidebookUrl || ""]).map((url, index) => <div className="competition-guidebook-controls" key={index}>
-                <input aria-label={`Link panduan atau juknis ${index + 1}`} type="url" value={url} onChange={(event) => updateForm((current) => {
-                  const urls = [...(current.guidebookUrls || [current.guidebookUrl || ""])];
-                  urls[index] = event.target.value;
-                  return { ...current, guidebookUrls: urls, guidebookUrl: urls[0] || "", guidebookPath: index === 0 && event.target.value !== current.guidebookUrl ? "" : current.guidebookPath };
-                })} placeholder="https://" />
-                {(form.guidebookUrls || []).length > 1 && <button className="button button-quiet button-small" type="button" aria-label={`Hapus link juknis ${index + 1}`} onClick={() => updateForm((current) => {
-                  const urls = [...current.guidebookUrls]; urls.splice(index, 1);
-                  return { ...current, guidebookUrls: urls, guidebookUrl: urls[0] || "" };
+              {(form.guidebookLinks || []).map((link, index) => <div className="competition-guidebook-controls" key={index}>
+                <label>Nama panduan
+                  <input aria-label={`Nama panduan atau juknis ${index + 1}`} value={link.name} onChange={(event) => updateForm((current) => {
+                    const links = [...(current.guidebookLinks || [])];
+                    links[index] = { ...links[index], name: event.target.value };
+                    return { ...current, guidebookLinks: links };
+                  })} placeholder={`Panduan ${index + 1}`} maxLength={80} />
+                </label>
+                <label>Link panduan
+                  <input aria-label={`Link panduan atau juknis ${index + 1}`} type="url" value={link.url} onChange={(event) => updateForm((current) => {
+                    const links = [...(current.guidebookLinks || [])];
+                    links[index] = { ...links[index], url: event.target.value };
+                    return { ...current, guidebookLinks: links, guidebookUrl: links[0]?.url || "", guidebookPath: index === 0 && event.target.value !== current.guidebookUrl ? "" : current.guidebookPath };
+                  })} placeholder="https://" />
+                </label>
+                {(form.guidebookLinks || []).length > 1 && <button className="button button-quiet button-small" type="button" aria-label={`Hapus panduan ${index + 1}`} onClick={() => updateForm((current) => {
+                  const links = [...current.guidebookLinks]; links.splice(index, 1);
+                  return { ...current, guidebookLinks: links, guidebookUrl: links[0]?.url || "" };
                 })}>Hapus</button>}
               </div>)}
-              <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => ({ ...current, guidebookUrls: [...(current.guidebookUrls || [current.guidebookUrl || ""]), ""] }))}>Tambah link juknis</button>
+              <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => {
+                const links = [...(current.guidebookLinks || [])];
+                const defaultNumbers = links.map((link) => Number(link.name.match(/^Panduan (\d+)$/i)?.[1] || 0));
+                links.push({ name: `Panduan ${Math.max(0, ...defaultNumbers) + 1}`, url: "" });
+                return { ...current, guidebookLinks: links };
+              })}>Tambah link juknis</button>
             </div>
           </div>
           </div>

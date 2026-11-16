@@ -2,106 +2,22 @@ import React, { useMemo } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { CompetitionCard } from "../components.jsx";
 import { defaultPreferences } from "../data.js";
-
-const interestGroups = [
-  ["pemrograman", "programming", "coding", "koding", "hackathon", "hackaton", "software", "perangkat lunak", "developer", "aplikasi", "web", "informatika"],
-  ["teknologi", "technology", "digital", "informatika", "pemrograman", "programming", "coding", "hackathon", "robotik", "robotika", "kecerdasan buatan", "artificial intelligence", "ai", "internet of things", "iot"],
-  ["data science", "analisis data", "data", "statistika", "machine learning", "pembelajaran mesin", "kecerdasan buatan", "artificial intelligence", "ai"],
-  ["keamanan siber", "cybersecurity", "cyber security", "keamanan jaringan", "kriptografi", "digital forensics"],
-  ["game development", "game", "gim", "esport", "e sport", "e sports"],
-  ["sains", "science", "fisika", "kimia", "biologi", "lingkungan", "robotik", "robotika"],
-  ["matematika", "mathematics", "math", "olimpiade matematika", "statistika"],
-  ["esai", "karya tulis", "menulis", "literasi", "jurnalistik", "paper", "artikel"],
-  ["desain", "design", "kreativitas", "ilustrasi", "poster", "fotografi", "videografi", "animasi"],
-  ["ui ux", "ui", "ux", "user interface", "user experience", "desain grafis", "ilustrasi", "poster", "animasi"],
-  ["bisnis", "business", "ekonomi", "entrepreneurship", "kewirausahaan", "startup", "pitching"],
-  ["seni", "budaya", "musik", "tari", "teater", "pertunjukan", "sastra"],
-  ["olahraga", "sport", "atletik", "e-sport", "esport", "futsal", "basket", "sepak bola"],
-  ["lingkungan", "energi terbarukan", "iklim", "konservasi", "keberlanjutan", "sustainability"],
-  ["kesehatan", "kedokteran", "medis", "keperawatan", "farmasi", "bioteknologi"],
-  ["pertanian", "pangan", "agrikultur", "agroteknologi", "peternakan", "perikanan"],
-  ["arsitektur", "tata ruang", "perencanaan kota", "desain bangunan"],
-  ["pendidikan", "edukasi", "pedagogi", "teaching", "learning"],
-  ["bahasa", "sastra", "literatur", "linguistik", "puisi", "cerpen"],
-];
-
-function normalizeText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("id-ID")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
-
-function containsPhrase(text, phrase) {
-  return ` ${text} `.includes(` ${phrase} `);
-}
-
-function interestMatchScore(interest, item) {
-  if (!interest) return 0;
-  const interestText = normalizeText(interest);
-  const itemFields = [item.category, item.competitionType, item.title, item.description, ...(item.keywords || [])]
-    .map(normalizeText)
-    .filter(Boolean);
-  if (itemFields.some((field) => containsPhrase(field, interestText))) return 6;
-
-  const group = interestGroups.find((terms) => terms.some((term) => containsPhrase(interestText, normalizeText(term))));
-  if (group && itemFields.some((field) => group.some((term) => containsPhrase(field, normalizeText(term))))) return 5;
-
-  const interestWords = interestText.split(" ").filter((word) => word.length > 3);
-  if (interestWords.length < 2) return 0;
-  const matchingWords = interestWords.filter((word) => itemFields.some((field) => containsPhrase(field, word)));
-  return matchingWords.length >= Math.ceil(interestWords.length / 2) ? 3 : 0;
-}
-
-function locationMatch(preferences, item) {
-  const location = normalizeText(item.location);
-  if (preferences.locationScope === "Nasional") return normalizeText(item.scope) === "nasional";
-  if (preferences.locationScope === "Provinsi") {
-    const province = normalizeText(preferences.province);
-    return normalizeText(item.scope) === "provinsi" && province && containsPhrase(location, province);
-  }
-  if (preferences.locationScope === "Kabupaten/Kota") {
-    const city = normalizeText(preferences.city);
-    return ["kabupaten kota", "daerah"].includes(normalizeText(item.scope)) && city && containsPhrase(location, city);
-  }
-  return false;
-}
-
-function hasUpcomingRegistration(item) {
-  const todayDate = new Date();
-  const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, "0")}-${String(todayDate.getDate()).padStart(2, "0")}`;
-  const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
-  if (batches.length) {
-    return batches.some((batch) => /^\d{4}-\d{2}-\d{2}$/.test(batch.endsAt || "") && batch.endsAt >= today);
-  }
-  return /^\d{4}-\d{2}-\d{2}$/.test(item.deadline || "") && item.deadline >= today;
-}
+import { hasRegistrationAvailable, matchesCompetitionLevel, recommendationTopicScore } from "../recommendationMatching.js";
 
 function matchesPreferences(preferences, item) {
-  if (preferences.category && !interestMatchScore(preferences.category, item)) return false;
-  if (preferences.mode && normalizeText(item.mode) !== normalizeText(preferences.mode)) return false;
-  if (preferences.education) {
-    const targetParticipants = (item.targetParticipants || []).map(normalizeText);
-    const education = normalizeText(preferences.education);
-    if (!targetParticipants.includes(education) && normalizeText(item.education) !== education) return false;
-  }
-  if (preferences.feeType) {
-    const batchFeeTypes = (item.registrationBatches || []).map((batch) => normalizeText(batch.feeType));
-    if (normalizeText(item.feeType) !== normalizeText(preferences.feeType) && !batchFeeTypes.includes(normalizeText(preferences.feeType))) return false;
-  }
-  if (preferences.locationScope && !locationMatch(preferences, item)) return false;
-  return true;
+  const categories = Array.isArray(preferences.categories)
+    ? preferences.categories
+    : preferences.category ? [preferences.category] : [];
+  if (categories.length && !categories.some((category) => recommendationTopicScore(category, item) > 0)) return false;
+  return matchesCompetitionLevel(preferences.level || preferences.locationScope || "", item);
 }
 
 function recommendationScore(preferences, item) {
-  let score = interestMatchScore(preferences.category, item);
-  if (preferences.mode && item.mode === preferences.mode) score += 2;
-  if (preferences.education && (item.targetParticipants?.includes(preferences.education) || item.education === preferences.education)) score += 2;
-  if (preferences.feeType && item.feeType === preferences.feeType) score += 1;
-  if (preferences.locationScope && locationMatch(preferences, item)) score += 2;
-  return score;
+  const categories = Array.isArray(preferences.categories)
+    ? preferences.categories
+    : preferences.category ? [preferences.category] : [];
+  const topicScore = categories.reduce((score, category) => score + recommendationTopicScore(category, item), 0);
+  return topicScore + (preferences.level || preferences.locationScope ? 2 : 0);
 }
 
 export default function RecommendationsPage({
@@ -114,11 +30,11 @@ export default function RecommendationsPage({
   onShowAllCompetitions,
 }) {
   const preferences = account?.preferences || defaultPreferences;
-  const hasPreferences = Object.values(preferences).some((value) => value.trim());
+  const hasPreferences = Boolean((preferences.categories || []).length || preferences.category?.trim() || preferences.level || preferences.locationScope);
   const recommendations = useMemo(() => {
     if (!account || !hasPreferences) return [];
     const scoredCompetitions = competitions
-      .filter((item) => hasUpcomingRegistration(item) && matchesPreferences(preferences, item))
+      .filter((item) => hasRegistrationAvailable(item) && matchesPreferences(preferences, item))
       .map((item, index) => ({ item, index, score: recommendationScore(preferences, item) }))
       .sort((left, right) => right.score - left.score || left.index - right.index);
     return scoredCompetitions.map(({ item }) => item);
@@ -132,7 +48,7 @@ export default function RecommendationsPage({
   } else if (!account) {
     results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Rekomendasi untukmu</h3><p>Masuk dan atur minatmu agar kami bisa mencarikan lomba yang sesuai.</p><button className="button button-primary" onClick={() => onRequireAccount(false, true)}>Masuk atau daftar <ArrowRight size={15} /></button></div>;
   } else if (!hasPreferences) {
-    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Atur minat lombamu</h3><p>Pilih bidang, mode, lokasi, jenjang, atau biaya yang kamu inginkan untuk mendapatkan rekomendasi.</p><button className="button button-primary" onClick={() => navigate("/personalization")}>Atur personalisasi <ArrowRight size={15} /></button></div>;
+    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Atur minat lombamu</h3><p>Pilih satu atau beberapa bidang minat dan tingkatan lomba untuk mendapatkan rekomendasi.</p><button className="button button-primary" onClick={() => navigate("/personalization")}>Atur personalisasi <ArrowRight size={15} /></button></div>;
   } else if (recommendations.length) {
     results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{recommendations.map((item) => <CompetitionCard key={item.id} item={item} onDetails={() => navigate(`/kompetisi/${encodeURIComponent(item.id)}`)} />)}</div>;
   } else {

@@ -455,7 +455,10 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
         })}</div></section>}
         <div className="competition-detail-links">
           {item.informationUrl && <a className="button button-outline" href={item.informationUrl} target="_blank" rel="noreferrer"><FileText size={15} /> Info lomba</a>}
-          {(item.rulebookUrls?.length ? item.rulebookUrls : item.rulebookUrl ? [item.rulebookUrl] : []).map((url, index) => <a className="button button-outline" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}><FileText size={15} /> {index ? `Juknis ${index + 1}` : "Panduan / Juknis"}</a>)}
+          {(item.rulebookLinks?.length
+            ? item.rulebookLinks
+            : (item.rulebookUrls?.length ? item.rulebookUrls : item.rulebookUrl ? [item.rulebookUrl] : []).map((url, index) => ({ name: `Panduan ${index + 1}`, url })))
+            .map(({ name, url }, index) => <a className="button button-outline" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}><FileText size={15} /> {name || `Panduan ${index + 1}`}</a>)}
         </div>
         <p className="detail-note">Pastikan kamu memeriksa informasi dan persyaratan resmi dari penyelenggara sebelum mendaftar.</p>
         {trackingError && <p className="form-error" role="status">{trackingError}</p>}

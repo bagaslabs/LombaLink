@@ -231,7 +231,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         id: competitionId,
         cover_path: coverPath,
         guidebook_path: form.guidebookPath || null,
-        rulebook_url: form.guidebookUrls?.find((url) => url.trim())?.trim() || form.guidebookUrl?.trim() || null,
+        rulebook_url: form.guidebookLinks?.find((link) => link.url.trim())?.url.trim() || form.guidebookUrl?.trim() || null,
         status: "approved",
         archived_at: saveAction === "archive" ? reviewedAt : null,
         submitted_by: account.id,
@@ -284,7 +284,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           ...competitionFieldsFromForm(form),
           cover_path: coverPath,
           guidebook_path: guidebookPath,
-          rulebook_url: form.guidebookUrls?.find((url) => url.trim())?.trim() || form.guidebookUrl?.trim() || null,
+          rulebook_url: form.guidebookLinks?.find((link) => link.url.trim())?.url.trim() || form.guidebookUrl?.trim() || null,
         })
         .eq("id", existing.id)
         .select("id")

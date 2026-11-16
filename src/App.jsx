@@ -695,7 +695,7 @@ export default function App() {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk mengatur personalisasi." theme={theme} onToggleTheme={toggleTheme} />;
     }
-    return <PersonalizationPage account={account} categoryOptions={categoryOptions} onSave={savePersonalization} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
+    return <PersonalizationPage account={account} categoryOptions={categoryOptions} competitions={competitions} onSave={savePersonalization} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
   }
   if (routePath === "/settings") {
     if (!account) {

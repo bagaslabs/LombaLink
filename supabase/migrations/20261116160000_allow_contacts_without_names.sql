@@ -1,9 +1,20 @@
 alter table public.lombalink_competitions
-  add column if not exists rulebook_urls text[] not null default '{}'::text[];
+  add column if not exists rulebook_urls text[] not null default '{}'::text[],
+  add column if not exists rulebook_links jsonb not null default '[]'::jsonb;
 
 update public.lombalink_competitions
 set rulebook_urls = array[rulebook_url]
 where rulebook_url is not null and cardinality(rulebook_urls) = 0;
+
+update public.lombalink_competitions as competition
+set rulebook_links = (
+  select coalesce(
+    jsonb_agg(jsonb_build_object('name', 'Panduan ' || links.ordinality, 'url', links.url) order by links.ordinality),
+    '[]'::jsonb
+  )
+  from unnest(competition.rulebook_urls) with ordinality as links(url, ordinality)
+)
+where cardinality(competition.rulebook_urls) > 0 and competition.rulebook_links = '[]'::jsonb;
 
 create or replace function public.lombalink_protect_competition_review()
 returns trigger
@@ -70,7 +81,7 @@ begin
       new.keywords, new.competition_type, new.mode, new.location, new.fee_tiers,
       new.prize, new.registration_batches, new.deadline, new.event_start_date,
       new.event_end_date, new.registration_url, new.information_url, new.rulebook_url,
-      new.rulebook_urls, new.benefits, new.cover_path, new.competition_category,
+      new.rulebook_urls, new.rulebook_links, new.benefits, new.cover_path, new.competition_category,
       new.participant_type, new.target_participants, new.requirements, new.fee_type,
       new.fee_amount, new.contact, new.contact_people, new.guidebook_path
     ) is distinct from row(
@@ -80,7 +91,7 @@ begin
       old.keywords, old.competition_type, old.mode, old.location, old.fee_tiers,
       old.prize, old.registration_batches, old.deadline, old.event_start_date,
       old.event_end_date, old.registration_url, old.information_url, old.rulebook_url,
-      old.rulebook_urls, old.benefits, old.cover_path, old.competition_category,
+      old.rulebook_urls, old.rulebook_links, old.benefits, old.cover_path, old.competition_category,
       old.participant_type, old.target_participants, old.requirements, old.fee_type,
       old.fee_amount, old.contact, old.contact_people, old.guidebook_path
     ) and old.status in ('approved', 'rejected') then
@@ -141,6 +152,7 @@ begin
         new.information_url,
         new.rulebook_url,
         new.rulebook_urls,
+        new.rulebook_links,
         new.benefits,
         new.cover_path,
         new.competition_category,
@@ -182,6 +194,7 @@ begin
         old.information_url,
         old.rulebook_url,
         old.rulebook_urls,
+        old.rulebook_links,
         old.benefits,
         old.cover_path,
         old.competition_category,
@@ -230,6 +243,15 @@ begin
     or (new.rulebook_urls is not null and exists (
       select 1 from unnest(new.rulebook_urls) as url
       where nullif(btrim(url), '') is null or url !~* '^https?://'
+    ))
+    or (new.rulebook_links is not null and (
+      jsonb_typeof(new.rulebook_links) <> 'array'
+      or exists (
+        select 1 from jsonb_array_elements(new.rulebook_links) as links(link)
+        where nullif(btrim(links.link ->> 'name'), '') is null
+          or nullif(btrim(links.link ->> 'url'), '') is null
+          or links.link ->> 'url' !~* '^https?://'
+      )
     ))
     or (
       new.participant_type = 'Tim'
