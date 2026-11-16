@@ -18,10 +18,15 @@ export default function RecommendationsPage({
     if (!account || !hasPreferences) return [];
     return competitions.filter((item) => (
       (!preferences.category || item.category === preferences.category)
-      && (!preferences.education || item.education === preferences.education)
-      && (!preferences.scope || item.scope === preferences.scope)
-      && (!preferences.organizerType || item.organizerType === preferences.organizerType)
-      && (!preferences.location || item.location.toLowerCase().includes(preferences.location.toLowerCase().trim()))
+      && (!preferences.mode || item.mode === preferences.mode)
+      && (!preferences.education || item.targetParticipants?.includes(preferences.education) || item.education === preferences.education)
+      && (!preferences.feeType || item.feeType === preferences.feeType)
+      && (!preferences.locationScope || (preferences.locationScope === "Nasional"
+        ? item.scope === "Nasional"
+        : item.scope !== "Nasional"
+          && [preferences.city, preferences.province].filter(Boolean).every((place) => (
+            String(item.location || "").toLocaleLowerCase("id-ID").includes(place.toLocaleLowerCase("id-ID"))
+          ))))
     ));
   }, [account, competitions, hasPreferences, preferences]);
 
@@ -33,7 +38,7 @@ export default function RecommendationsPage({
   } else if (!account) {
     results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Rekomendasi untukmu</h3><p>Masuk dan atur minatmu agar kami bisa mencarikan lomba yang sesuai.</p><button className="button button-primary" onClick={() => onRequireAccount(false, true)}>Masuk atau daftar <ArrowRight size={15} /></button></div>;
   } else if (!hasPreferences) {
-    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Atur minat lombamu</h3><p>Pilih bidang, jenjang, dan cakupan yang kamu minati untuk mendapatkan rekomendasi.</p><button className="button button-primary" onClick={() => navigate("/personalization")}>Atur personalisasi <ArrowRight size={15} /></button></div>;
+    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Atur minat lombamu</h3><p>Pilih bidang, mode, lokasi, jenjang, atau biaya yang kamu inginkan untuk mendapatkan rekomendasi.</p><button className="button button-primary" onClick={() => navigate("/personalization")}>Atur personalisasi <ArrowRight size={15} /></button></div>;
   } else if (recommendations.length) {
     results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{recommendations.map((item) => <CompetitionCard key={item.id} item={item} onDetails={() => navigate(`/kompetisi/${encodeURIComponent(item.id)}`)} />)}</div>;
   } else {

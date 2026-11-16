@@ -139,10 +139,18 @@ export const birthYearOptions = Array.from(
 );
 export const defaultPreferences = {
   category: "",
+  mode: "",
   education: "",
-  scope: "",
-  organizerType: "",
-  location: "",
+  locationScope: "",
+  province: "",
+  city: "",
+  feeType: "",
+};
+
+const preferenceEducationAliases = {
+  SMP: "SMP / MTs",
+  SMA: "SMA / SMK / MA",
+  Kuliah: "Mahasiswa",
 };
 
 export function normalizePhoneNumber(phone, callingCode = "+62") {
@@ -195,10 +203,14 @@ export function accountFromUser(user, profileAccountType) {
     avatarPath: user.user_metadata?.avatar_path || "",
     preferences: {
       category: typeof preferences.category === "string" ? preferences.category : "",
-      education: typeof preferences.education === "string" ? preferences.education : "",
-      scope: typeof preferences.scope === "string" ? preferences.scope : "",
-      organizerType: typeof preferences.organizerType === "string" ? preferences.organizerType : "",
-      location: typeof preferences.location === "string" ? preferences.location : "",
+      mode: typeof preferences.mode === "string" ? preferences.mode : "",
+      education: typeof preferences.education === "string"
+        ? preferenceEducationAliases[preferences.education] || preferences.education
+        : "",
+      locationScope: typeof preferences.locationScope === "string" ? preferences.locationScope : "",
+      province: typeof preferences.province === "string" ? preferences.province : "",
+      city: typeof preferences.city === "string" ? preferences.city : "",
+      feeType: typeof preferences.feeType === "string" ? preferences.feeType : "",
     },
     accountType,
     role: user.app_metadata?.role === "moderator" ? "moderator" : accountType || "unselected",

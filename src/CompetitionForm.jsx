@@ -808,11 +808,10 @@ export default function CompetitionForm({
       return "Lengkapi nama, deskripsi, penyelenggara, kategori, tipe lomba, bidang, tingkat, link pendaftaran, dan kontak.";
     }
     if (!form.contactPeople.every((person) => (
-      person.name.trim()
-      && person.contactMethods.length > 0
+      person.contactMethods.length > 0
       && hasContactMethodDetails(person)
     ))) {
-      return "Setiap kontak wajib memiliki nama, memilih kanal, dan mengisi detail kontaknya.";
+      return "Setiap kontak wajib memilih kanal dan mengisi detail kontaknya.";
     }
     if (form.contactPeople.some((person) => (
       (person.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(person.email))
@@ -1471,7 +1470,7 @@ export default function CompetitionForm({
             </label>
             <section className="competition-contact-people competition-form-full" aria-label="Kontak penyelenggara">
               <div className="competition-repeat-heading">
-                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Isi nama dan pilih satu kanal kontak yang ingin digunakan.</span></div>
+                <div><strong>Kontak penyelenggara <span className="required-mark">*</span></strong><span>Pilih satu kanal kontak yang ingin digunakan.</span></div>
                 <button className="button button-outline button-small" type="button" onClick={addContactPerson}>Tambah kontak</button>
               </div>
               {form.contactPeople.map((person, index) => (
@@ -1481,10 +1480,7 @@ export default function CompetitionForm({
                     {form.contactPeople.length > 1 && <button type="button" className="competition-repeat-remove" aria-label={`Hapus kontak ${index + 1}`} onClick={() => removeContactPerson(index)}><X size={14} /></button>}
                   </legend>
                   <div className="competition-contact-grid">
-                    <label>Nama <span className="required-mark">*</span>
-                      <input value={person.name} onChange={(event) => updateContactPerson(index, "name", event.target.value)} maxLength={120} required />
-                    </label>
-                    <div className="competition-contact-platforms" role="group" aria-label={`Pilih kanal kontak untuk ${person.name || `kontak ${index + 1}`}`}>
+                    <div className="competition-contact-platforms" role="group" aria-label={`Pilih kanal kontak untuk kontak ${index + 1}`}>
                       {contactPlatforms.map(({ id, label, Icon }) => {
                         const active = person.contactMethods.includes(id);
                         return (

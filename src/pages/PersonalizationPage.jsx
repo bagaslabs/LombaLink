@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { ArrowLeft, ArrowRight, LoaderCircle, SlidersHorizontal } from "lucide-react";
 import { ThemeToggle } from "../components.jsx";
-import { defaultPreferences, educationOptions, organizerOptions, scopeOptions } from "../data.js";
+import { competitionModeOptions, defaultPreferences, targetParticipantOptions } from "../data.js";
+import LocationSelects from "../LocationSelects.jsx";
 
 export default function PersonalizationPage({ account, categoryOptions, onSave, onCancel, theme, onToggleTheme }) {
   const [form, setForm] = useState({ ...defaultPreferences, ...account.preferences });
@@ -34,33 +35,50 @@ export default function PersonalizationPage({ account, categoryOptions, onSave, 
           <p>Pilih minat agar rekomendasi lomba di beranda lebih sesuai untukmu. Semua pilihan boleh dikosongkan.</p>
         </div>
         <form className="profile-form grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={submit}>
-          <label>Kategori minat
+          <label>Bidang atau topik minat
             <select value={form.category} onChange={update("category")}>
-              <option value="">Semua kategori</option>
+              <option value="">Semua bidang</option>
               {categoryOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
-          <label>Jenjang peserta
+          <label>Mode lomba
+            <select value={form.mode} onChange={update("mode")}>
+              <option value="">Semua mode</option>
+              {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label>Jenjang pendidikan atau status
             <select value={form.education} onChange={update("education")}>
-              <option value="">Semua jenjang</option>
-              {educationOptions.map((option) => <option key={option}>{option}</option>)}
+              <option value="">Semua jenjang/status</option>
+              {targetParticipantOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
-          <label>Cakupan lomba
-            <select value={form.scope} onChange={update("scope")}>
+          <label>Preferensi biaya
+            <select value={form.feeType} onChange={update("feeType")}>
+              <option value="">Semua biaya</option>
+              <option value="Gratis">Gratis</option>
+              <option value="Berbayar">Berbayar</option>
+            </select>
+          </label>
+          <label>Cakupan lokasi
+            <select value={form.locationScope} onChange={(event) => setForm((current) => ({
+              ...current,
+              locationScope: event.target.value,
+              province: event.target.value === "Daerah" ? current.province : "",
+              city: event.target.value === "Daerah" ? current.city : "",
+            }))}>
               <option value="">Semua cakupan</option>
-              {scopeOptions.map((option) => <option key={option}>{option}</option>)}
+              <option value="Daerah">Provinsi dan kota/kabupaten</option>
+              <option value="Nasional">Nasional</option>
             </select>
           </label>
-          <label>Jenis penyelenggara
-            <select value={form.organizerType} onChange={update("organizerType")}>
-              <option value="">Semua penyelenggara</option>
-              {organizerOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
-          </label>
-          <label className="sm:col-span-2">Daerah atau provinsi
-            <input value={form.location} onChange={update("location")} placeholder="Contoh: Bandung atau Jawa Barat" />
-          </label>
+          {form.locationScope === "Daerah" && <LocationSelects
+            province={form.province}
+            city={form.city}
+            onProvinceChange={(province) => setForm((current) => ({ ...current, province, city: "" }))}
+            onCityChange={(city) => setForm((current) => ({ ...current, city }))}
+            className="sm:col-span-2"
+          />}
           {error && <p className="form-error sm:col-span-2" role="alert">{error}</p>}
           <button className="button button-primary button-wide auth-submit sm:col-span-2" type="submit" disabled={busy}>
             {busy ? <LoaderCircle size={17} className="loading-icon" /> : null}
