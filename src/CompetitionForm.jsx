@@ -449,6 +449,8 @@ export default function CompetitionForm({
   const saveActionRef = useRef("submit");
   const isModerator = mode === "moderator";
   const isEditing = Boolean(initialCompetition?.id);
+  const isProvinceScope = form.scope === "Provinsi";
+  const isCityScope = form.scope === "Kabupaten/Kota" || form.scope === "Daerah";
   const canSaveAsDraft = !isModerator && (!isEditing || initialCompetition.status === "draft");
   const canArchiveFromForm = !isEditing || initialCompetition.status === "draft";
   const normalizedKeywordInput = normalizeKeywordTag(form.keywordInput);
@@ -1484,6 +1486,28 @@ export default function CompetitionForm({
                 {scopeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
+            <label>Kabupaten/Kota {isCityScope && <span className="required-mark">*</span>}
+              <input
+                value={form.locationArea}
+                onChange={updateLocationArea}
+                maxLength={120}
+                placeholder="Contoh: Jember"
+                disabled={!isCityScope}
+                required={isCityScope}
+              />
+            </label>
+            <label>Provinsi {(isProvinceScope || isCityScope) && <span className="required-mark">*</span>}
+              <select
+                value={form.locationProvince}
+                onChange={updateLocationProvince}
+                disabled={!isProvinceScope && !isCityScope}
+                required={isProvinceScope || isCityScope}
+              >
+                <option value="">Pilih provinsi</option>
+                {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
+                {provinceOptions.map((province) => <option key={province}>{province}</option>)}
+              </select>
+            </label>
             <label>Link pendaftaran <span className="required-mark">*</span>
               <input type="url" value={form.registrationUrl} onChange={update("registrationUrl")} placeholder="https://" required />
             </label>
@@ -1708,25 +1732,6 @@ export default function CompetitionForm({
                     {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
                   </select>
                 </label>
-                {form.scope === "Provinsi" && <label>Provinsi <span className="required-mark">*</span>
-                  <select value={form.locationProvince} onChange={updateLocationProvince} required>
-                    <option value="">Pilih provinsi</option>
-                    {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
-                    {provinceOptions.map((province) => <option key={province}>{province}</option>)}
-                  </select>
-                </label>}
-                {(form.scope === "Kabupaten/Kota" || form.scope === "Daerah") && <>
-                    <label>Daerah / kabupaten / kota <span className="required-mark">*</span>
-                      <input value={form.locationArea} onChange={updateLocationArea} maxLength={120} placeholder="Contoh: Jember" required />
-                    </label>
-                    <label>Provinsi <span className="required-mark">*</span>
-                      <select value={form.locationProvince} onChange={updateLocationProvince} required>
-                        <option value="">Pilih provinsi</option>
-                        {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
-                        {provinceOptions.map((province) => <option key={province}>{province}</option>)}
-                      </select>
-                    </label>
-                  </>}
                 {(form.mode === "Offline" || form.mode === "Hybrid")
                   && form.scope !== "Provinsi" && form.scope !== "Kabupaten/Kota" && form.scope !== "Daerah" && <label>Lokasi <span className="required-mark">*</span>
                     <input value={form.location} onChange={update("location")} maxLength={160} placeholder="Kota atau alamat pelaksanaan" required />

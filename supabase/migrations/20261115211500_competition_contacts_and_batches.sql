@@ -30,6 +30,10 @@ declare
   should_validate boolean := false;
   registration_batch jsonb;
   contact_person jsonb;
+  has_whatsapp boolean;
+  has_gmail boolean;
+  has_instagram boolean;
+  has_tiktok boolean;
 begin
   if tg_op = 'INSERT' then
     should_validate := new.status <> 'draft';
@@ -145,8 +149,6 @@ begin
     or nullif(btrim(new.registration_url), '') is null
     or new.registration_url !~* '^https?://'
     or nullif(btrim(new.contact), '') is null
-    or nullif(btrim(new.contact_person_name), '') is null
-    or nullif(btrim(new.contact_person_phone), '') is null
     or nullif(btrim(new.competition_category), '') is null
     or new.participant_type not in ('Individu', 'Tim')
     or cardinality(new.target_participants) = 0
@@ -174,18 +176,30 @@ begin
     select person
     from jsonb_array_elements(new.contact_people) as contacts(person)
   loop
-    if nullif(btrim(contact_person ->> 'name'), '') is null
-      or coalesce(contact_person ->> 'phone' !~ '^\+[1-9][0-9]{7,14}$', true)
-      or (
-        nullif(btrim(contact_person ->> 'email'), '') is not null
-        and contact_person ->> 'email' !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
-      )
-      or (
-        nullif(btrim(contact_person ->> 'instagramUrl'), '') is not null
-        and contact_person ->> 'instagramUrl' !~* '^https?://'
-      )
+    has_whatsapp := coalesce(contact_person -> 'contactMethods' ? 'whatsapp', false)
+      or nullif(btrim(contact_person ->> 'phone'), '') is not null;
+    has_gmail := coalesce(contact_person -> 'contactMethods' ? 'gmail', false)
+      or nullif(btrim(contact_person ->> 'email'), '') is not null;
+    has_instagram := coalesce(contact_person -> 'contactMethods' ? 'instagram', false)
+      or nullif(btrim(contact_person ->> 'instagramUsername'), '') is not null
+      or nullif(btrim(contact_person ->> 'instagramUrl'), '') is not null;
+    has_tiktok := coalesce(contact_person -> 'contactMethods' ? 'tiktok', false)
+      or nullif(btrim(contact_person ->> 'tiktokUsername'), '') is not null
+      or nullif(btrim(contact_person ->> 'tiktokUrl'), '') is not null;
+
+    if not (has_whatsapp or has_gmail or has_instagram or has_tiktok)
+      or (has_whatsapp and coalesce(contact_person ->> 'phone' !~ '^[+][1-9][0-9]{7,14}$', true))
+      or (has_gmail and coalesce(contact_person ->> 'email' !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$', true))
+      or (has_instagram and nullif(btrim(contact_person ->> 'instagramUsername'), '') is null
+        and nullif(btrim(contact_person ->> 'instagramUrl'), '') is null)
+      or (nullif(btrim(contact_person ->> 'instagramUrl'), '') is not null
+        and contact_person ->> 'instagramUrl' !~* '^https?://')
+      or (has_tiktok and nullif(btrim(contact_person ->> 'tiktokUsername'), '') is null
+        and nullif(btrim(contact_person ->> 'tiktokUrl'), '') is null)
+      or (nullif(btrim(contact_person ->> 'tiktokUrl'), '') is not null
+        and contact_person ->> 'tiktokUrl' !~* '^https?://')
     then
-      raise exception 'Each competition contact must have a valid name and phone number.';
+      raise exception 'Each competition contact must have valid details for its selected channel.';
     end if;
   end loop;
 
