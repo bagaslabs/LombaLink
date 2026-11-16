@@ -50,19 +50,49 @@ function interestMatchScore(interest, item) {
   if (group && itemFields.some((field) => group.some((term) => containsPhrase(field, normalizeText(term))))) return 5;
 
   const interestWords = interestText.split(" ").filter((word) => word.length > 3);
-  return interestWords.length && itemFields.some((field) => interestWords.some((word) => field.includes(word))) ? 3 : 0;
+  if (interestWords.length < 2) return 0;
+  const matchingWords = interestWords.filter((word) => itemFields.some((field) => containsPhrase(field, word)));
+  return matchingWords.length >= Math.ceil(interestWords.length / 2) ? 3 : 0;
 }
 
 function locationMatch(preferences, item) {
   const location = normalizeText(item.location);
-  if (preferences.locationScope === "Nasional") return item.scope === "Nasional";
+  if (preferences.locationScope === "Nasional") return normalizeText(item.scope) === "nasional";
   if (preferences.locationScope === "Provinsi") {
-    return item.scope === "Provinsi" && location.includes(normalizeText(preferences.province));
+    const province = normalizeText(preferences.province);
+    return normalizeText(item.scope) === "provinsi" && province && containsPhrase(location, province);
   }
   if (preferences.locationScope === "Kabupaten/Kota") {
-    return ["Kabupaten/Kota", "Daerah"].includes(item.scope) && location.includes(normalizeText(preferences.city));
+    const city = normalizeText(preferences.city);
+    return ["kabupaten kota", "daerah"].includes(normalizeText(item.scope)) && city && containsPhrase(location, city);
   }
   return false;
+}
+
+function hasUpcomingRegistration(item) {
+  const todayDate = new Date();
+  const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, "0")}-${String(todayDate.getDate()).padStart(2, "0")}`;
+  const batches = Array.isArray(item.registrationBatches) ? item.registrationBatches : [];
+  if (batches.length) {
+    return batches.some((batch) => /^\d{4}-\d{2}-\d{2}$/.test(batch.endsAt || "") && batch.endsAt >= today);
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(item.deadline || "") && item.deadline >= today;
+}
+
+function matchesPreferences(preferences, item) {
+  if (preferences.category && !interestMatchScore(preferences.category, item)) return false;
+  if (preferences.mode && normalizeText(item.mode) !== normalizeText(preferences.mode)) return false;
+  if (preferences.education) {
+    const targetParticipants = (item.targetParticipants || []).map(normalizeText);
+    const education = normalizeText(preferences.education);
+    if (!targetParticipants.includes(education) && normalizeText(item.education) !== education) return false;
+  }
+  if (preferences.feeType) {
+    const batchFeeTypes = (item.registrationBatches || []).map((batch) => normalizeText(batch.feeType));
+    if (normalizeText(item.feeType) !== normalizeText(preferences.feeType) && !batchFeeTypes.includes(normalizeText(preferences.feeType))) return false;
+  }
+  if (preferences.locationScope && !locationMatch(preferences, item)) return false;
+  return true;
 }
 
 function recommendationScore(preferences, item) {
@@ -88,8 +118,8 @@ export default function RecommendationsPage({
   const recommendations = useMemo(() => {
     if (!account || !hasPreferences) return [];
     const scoredCompetitions = competitions
+      .filter((item) => hasUpcomingRegistration(item) && matchesPreferences(preferences, item))
       .map((item, index) => ({ item, index, score: recommendationScore(preferences, item) }))
-      .filter(({ score }) => score > 0)
       .sort((left, right) => right.score - left.score || left.index - right.index);
     return scoredCompetitions.map(({ item }) => item);
   }, [account, competitions, hasPreferences, preferences]);
@@ -106,7 +136,7 @@ export default function RecommendationsPage({
   } else if (recommendations.length) {
     results = <div className="competition-grid grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3">{recommendations.map((item) => <CompetitionCard key={item.id} item={item} onDetails={() => navigate(`/kompetisi/${encodeURIComponent(item.id)}`)} />)}</div>;
   } else {
-    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Belum ada rekomendasi yang cocok</h3><p>Coba sesuaikan minatmu atau lihat semua lomba.</p><button className="button button-outline" onClick={onShowAllCompetitions}>Cari semua lomba <ArrowRight size={15} /></button></div>;
+    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Belum ada rekomendasi yang cocok</h3><p>Belum ada lomba yang sesuai preferensimu dan pendaftarannya masih tersedia. Coba sesuaikan personalisasi atau lihat semua lomba.</p><button className="button button-outline" onClick={onShowAllCompetitions}>Cari semua lomba <ArrowRight size={15} /></button></div>;
   }
 
   return (

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import lightBrandLogo from "../logo/themes-putih.png";
+import darkBrandLogo from "../logo/themes-gelap.png";
 import {
   ArrowRight,
   Building2,
@@ -44,8 +46,8 @@ function getExternalContactUrl(url, fallback = "") {
 export function Brand({ onClick }) {
   return (
     <button className="brand" type="button" data-guest-access onClick={onClick} aria-label="LombaLink, beranda">
-      <span className="brand-mark"><Trophy size={18} strokeWidth={2.5} /></span>
-      <span>Lomba<span className="brand-link">Link</span></span>
+      <img className="brand-logo brand-logo-light" src={lightBrandLogo} alt="LombaLink" />
+      <img className="brand-logo brand-logo-dark" src={darkBrandLogo} alt="" aria-hidden="true" />
     </button>
   );
 }
@@ -179,7 +181,7 @@ export function CompetitionCard({ item, onDetails }) {
     const resizeObserver = new ResizeObserver(() => {
       const cardWidth = card.getBoundingClientRect().width;
       const contentHeight = content.getBoundingClientRect().height;
-      const columnWidth = Math.max(144, Math.min(cardWidth * 0.38, contentHeight * aspect, 220));
+      const columnWidth = Math.max(144, Math.min(cardWidth * 0.38, contentHeight * aspect));
       card.style.setProperty("--card-cover-column-width", `${columnWidth}px`);
     });
 

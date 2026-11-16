@@ -1,4 +1,5 @@
 import React, { useLayoutEffect } from "react";
+import trophyFavicon from "../../logo/favicon.png";
 import {
   ArrowRight,
   BadgeCheck,
@@ -60,7 +61,7 @@ export default function LandingPage({
                 <div className="hero-visual" aria-hidden="true">
                   <div className="visual-orbit orbit-one"></div><div className="visual-orbit orbit-two"></div>
                   <div className="visual-star star-one">✦</div><div className="visual-star star-two">✦</div>
-                  <div className="hero-trophy"><Trophy size={72} strokeWidth={1.6} /></div>
+                  <div className="hero-trophy"><img src={trophyFavicon} alt="" /></div>
                   <div className="floating-card floating-card-top"><span className="floating-icon icon-purple"><ShieldCheck size={18} /></span><span><strong>Verifikasi moderator</strong><small>Informasi ditinjau sebelum terbit</small></span><BadgeCheck size={16} className="verified" /></div>
                   <div className="floating-card floating-card-bottom"><span className="floating-icon icon-orange"><Sparkles size={18} /></span><span><strong>Personalisasi</strong><small>Temukan lomba sesuai minatmu</small></span></div>
                   <span className="visual-caption">Grow beyond limits</span>
