@@ -323,9 +323,9 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
                 {educationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
-            <label className="sm:col-span-2">Lembaga <span className="optional-mark">(opsional)</span><input value={profile.institution} onChange={(event) => setProfile({ ...profile, institution: event.target.value })} maxLength={160} /></label>
-            {formError && <p className="form-error" role="alert">{formError}</p>}
-            <button className="button button-primary button-wide" type="submit" disabled={saving}>{saving ? <LoaderCircle size={16} className="loading-icon" /> : <Check size={16} />} {saving ? "Menyimpan..." : "Simpan perubahan"}</button>
+            <label className="admin-user-institution">Lembaga <span className="optional-mark">(opsional)</span><input value={profile.institution} onChange={(event) => setProfile({ ...profile, institution: event.target.value })} maxLength={160} /></label>
+            {formError && <p className="form-error admin-user-form-error" role="alert">{formError}</p>}
+            <button className="button button-primary button-wide admin-user-submit" type="submit" disabled={saving}>{saving ? <LoaderCircle size={16} className="loading-icon" /> : <Check size={16} />} {saving ? "Menyimpan..." : "Simpan perubahan"}</button>
           </form>
         </section>
       </div>}

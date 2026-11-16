@@ -511,7 +511,7 @@ html[data-theme="dark"] .admin-auth-layout .auth-demo-note { color: #9eabc0; }
 .admin-users-notice button { display: grid; place-items: center; margin-left: auto; border: 0; background: transparent; color: inherit; }
 .admin-users-error { justify-content: space-between; border-color: #f2dddd; color: #a64e4e; background: #fff6f6; }
 .admin-users-error button { border: 0; background: transparent; color: inherit; font-size: 10px; font-weight: 700; }
-.admin-user-modal { width: min(100%,470px); }
+.admin-user-modal { width: min(100%,620px); }
 .admin-competition-delete-modal { width: min(100%,450px); }
 .admin-competition-edit-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 18px; background: #101a2bbd; backdrop-filter: blur(5px); }
 .admin-competition-edit-dialog { position: relative; width: min(1120px,100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 18px 24px 24px; border: 1px solid #e4e9f2; border-radius: 16px; background: #fff; box-shadow: 0 20px 70px #11204a38; }
@@ -519,6 +519,9 @@ html[data-theme="dark"] .admin-auth-layout .auth-demo-note { color: #9eabc0; }
 .admin-competition-edit-close { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid #e2e8f2; border-radius: 9px; color: #748099; background: #fff; }
 .admin-user-modal-email { margin: -1px 0 17px; color: #8793a7; font-size: 10px; }
 .admin-user-form { display: grid; gap: 12px; }
+.admin-user-modal > .admin-user-form { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
+.admin-user-locations,.admin-user-institution,.admin-user-form-error,.admin-user-submit { grid-column: 1 / -1; }
+.admin-user-modal > .admin-user-form select { min-height: 42px; height: 42px; align-self: start; }
 .admin-user-form label { display: grid; gap: 6px; color: #526079; font-size: 10px; font-weight: 700; }
 .admin-user-form input,.admin-user-form select,.admin-user-form textarea,.admin-delete-confirm input { width: 100%; min-height: 39px; padding: 0 10px; border: 1px solid #e2e8f2; border-radius: 8px; background: #fff; color: #34415b; font-size: 10px; }
 .admin-user-form textarea { padding-block: 9px; resize: vertical; }
@@ -576,6 +579,9 @@ html[data-theme="dark"] .admin-user-confirm-actions .button-outline { border-col
   .admin-users-search { width: 100%; }
   .admin-users-table-caption { padding-inline: 11px; }
   .admin-user-modal { padding: 24px 18px 19px; }
+  .admin-user-modal > .admin-user-form { grid-template-columns: minmax(0,1fr); }
+  .admin-user-locations,.admin-user-institution,.admin-user-form-error,.admin-user-submit { grid-column: 1; }
+  .admin-user-locations { grid-template-columns: minmax(0,1fr); }
 }
 .profile-page { padding: 25px max(18px,calc((100vw - 760px)/2)); }
 .profile-card { width: min(100%,760px); }

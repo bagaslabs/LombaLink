@@ -202,32 +202,25 @@ Deno.serve(async (request) => {
 
   if (body.action === "update_profile") {
     const profile = body.profile;
-    if (
-      !isRecord(profile)
-      || typeof profile.username !== "string"
-      || typeof profile.fullName !== "string"
-      || typeof profile.phone !== "string"
-      || typeof profile.province !== "string"
-      || typeof profile.city !== "string"
-      || typeof profile.birthYear !== "string"
-      || typeof profile.education !== "string"
-      || typeof profile.institution !== "string"
-      || !["participant", "organizer"].includes(asString(profile.accountType))
-    ) {
+    if (!isRecord(profile)) {
       return jsonResponse({ error: "Data profil tidak lengkap atau tidak valid." }, 400);
     }
 
+    const accountType = asString(profile.accountType ?? profile.account_type);
     const normalized = {
-      username: profile.username.trim().toLowerCase(),
-      full_name: profile.fullName.trim(),
-      phone: profile.phone.trim(),
-      province: profile.province.trim(),
-      city: profile.city.trim(),
-      birth_year: profile.birthYear.trim(),
-      education: profile.education.trim(),
-      institution: profile.institution.trim(),
-      account_type: asString(profile.accountType),
+      username: asString(profile.username).trim().toLowerCase(),
+      full_name: asString(profile.fullName).trim(),
+      phone: asString(profile.phone).trim(),
+      province: asString(profile.province).trim(),
+      city: asString(profile.city).trim(),
+      birth_year: typeof profile.birthYear === "number" ? String(profile.birthYear) : asString(profile.birthYear).trim(),
+      education: asString(profile.education).trim(),
+      institution: asString(profile.institution).trim(),
+      account_type: accountType,
     };
+    if (!["participant", "organizer"].includes(normalized.account_type)) {
+      return jsonResponse({ error: "Role akun tidak valid. Pilih Peserta atau Penyelenggara." }, 400);
+    }
     if (
       !normalized.username
       || !normalized.full_name
