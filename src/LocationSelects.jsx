@@ -24,6 +24,8 @@ export default function LocationSelects({
   onProvinceChange,
   onCityChange,
   onValidityChange,
+  showCity = true,
+  cityRequired = true,
   className = "",
 }) {
   const [provinces, setProvinces] = useState([]);
@@ -64,7 +66,7 @@ export default function LocationSelects({
   const selectedRegency = regencies.find((item) => sameName(item.name, city));
 
   useEffect(() => {
-    if (manualLocation || !selectedProvince) {
+    if (!showCity || manualLocation || !selectedProvince) {
       setRegencies([]);
       setRegenciesError("");
       setRegenciesLoading(false);
@@ -88,12 +90,12 @@ export default function LocationSelects({
       });
 
     return () => controller.abort();
-  }, [manualLocation, retryKey, selectedProvince?.id]);
+  }, [manualLocation, retryKey, selectedProvince?.id, showCity]);
 
-  const error = provincesError || (!manualLocation && regenciesError);
+  const error = provincesError || (showCity && !manualLocation && regenciesError);
   const isValid = manualLocation
-    ? Boolean(province.trim() && city.trim())
-    : Boolean(selectedProvince && selectedRegency && !provincesLoading && !regenciesLoading && !error);
+    ? Boolean(province.trim() && (!showCity || !cityRequired || city.trim()))
+    : Boolean(selectedProvince && (!showCity || !cityRequired || (selectedRegency && !regenciesLoading && !error)) && !provincesLoading && !provincesError);
 
   useEffect(() => {
     onValidityChange?.(isValid);
@@ -104,7 +106,7 @@ export default function LocationSelects({
   return (
     <div className={`location-selects ${className}`.trim()}>
       <label>
-        Provinsi <span className="required-mark">*</span>
+        <span className="location-select-label">Provinsi <span className="required-mark">*</span></span>
         {manualLocation
           ? <input autoComplete="address-level1" value={province} onChange={(event) => onProvinceChange(event.target.value)} maxLength={120} required />
           : <select
@@ -123,10 +125,10 @@ export default function LocationSelects({
             {provinces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>}
       </label>
-      <label>
-        Kota/Kabupaten <span className="required-mark">*</span>
+      {showCity && <label>
+        <span className="location-select-label">Kota/Kabupaten {cityRequired && <span className="required-mark">*</span>}</span>
         {manualLocation
-          ? <input autoComplete="address-level2" value={city} onChange={(event) => onCityChange(event.target.value)} maxLength={120} required />
+          ? <input autoComplete="address-level2" value={city} onChange={(event) => onCityChange(event.target.value)} maxLength={120} required={cityRequired} />
           : <select
             autoComplete="address-level2"
             value={selectedRegency?.id || ""}
@@ -135,12 +137,12 @@ export default function LocationSelects({
               onCityChange(nextRegency?.name || "");
             }}
             disabled={!selectedProvince || regenciesLoading || Boolean(error)}
-            required
+            required={cityRequired}
           >
             <option value="">{regenciesLoading ? "Memuat kota/kabupaten..." : "Pilih kota/kabupaten"}</option>
             {regencies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>}
-      </label>
+      </label>}
       <button
         className="location-select-mode-button"
         type="button"

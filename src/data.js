@@ -152,6 +152,7 @@ const preferenceEducationAliases = {
   SMA: "SMA / SMK / MA",
   Kuliah: "Mahasiswa",
 };
+const preferenceLocationAliases = { Daerah: "Kabupaten/Kota" };
 
 export function normalizePhoneNumber(phone, callingCode = "+62") {
   const value = String(phone || "").trim();
@@ -207,7 +208,9 @@ export function accountFromUser(user, profileAccountType) {
       education: typeof preferences.education === "string"
         ? preferenceEducationAliases[preferences.education] || preferences.education
         : "",
-      locationScope: typeof preferences.locationScope === "string" ? preferences.locationScope : "",
+      locationScope: typeof preferences.locationScope === "string"
+        ? preferenceLocationAliases[preferences.locationScope] || preferences.locationScope
+        : "",
       province: typeof preferences.province === "string" ? preferences.province : "",
       city: typeof preferences.city === "string" ? preferences.city : "",
       feeType: typeof preferences.feeType === "string" ? preferences.feeType : "",

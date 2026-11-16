@@ -3,6 +3,77 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { CompetitionCard } from "../components.jsx";
 import { defaultPreferences } from "../data.js";
 
+const interestGroups = [
+  ["pemrograman", "programming", "coding", "koding", "hackathon", "hackaton", "software", "perangkat lunak", "developer", "aplikasi", "web", "informatika"],
+  ["teknologi", "technology", "digital", "informatika", "pemrograman", "programming", "coding", "hackathon", "robotik", "robotika", "kecerdasan buatan", "artificial intelligence", "ai", "internet of things", "iot"],
+  ["data science", "analisis data", "data", "statistika", "machine learning", "pembelajaran mesin", "kecerdasan buatan", "artificial intelligence", "ai"],
+  ["keamanan siber", "cybersecurity", "cyber security", "keamanan jaringan", "kriptografi", "digital forensics"],
+  ["game development", "game", "gim", "esport", "e sport", "e sports"],
+  ["sains", "science", "fisika", "kimia", "biologi", "lingkungan", "robotik", "robotika"],
+  ["matematika", "mathematics", "math", "olimpiade matematika", "statistika"],
+  ["esai", "karya tulis", "menulis", "literasi", "jurnalistik", "paper", "artikel"],
+  ["desain", "design", "kreativitas", "ilustrasi", "poster", "fotografi", "videografi", "animasi"],
+  ["ui ux", "ui", "ux", "user interface", "user experience", "desain grafis", "ilustrasi", "poster", "animasi"],
+  ["bisnis", "business", "ekonomi", "entrepreneurship", "kewirausahaan", "startup", "pitching"],
+  ["seni", "budaya", "musik", "tari", "teater", "pertunjukan", "sastra"],
+  ["olahraga", "sport", "atletik", "e-sport", "esport", "futsal", "basket", "sepak bola"],
+  ["lingkungan", "energi terbarukan", "iklim", "konservasi", "keberlanjutan", "sustainability"],
+  ["kesehatan", "kedokteran", "medis", "keperawatan", "farmasi", "bioteknologi"],
+  ["pertanian", "pangan", "agrikultur", "agroteknologi", "peternakan", "perikanan"],
+  ["arsitektur", "tata ruang", "perencanaan kota", "desain bangunan"],
+  ["pendidikan", "edukasi", "pedagogi", "teaching", "learning"],
+  ["bahasa", "sastra", "literatur", "linguistik", "puisi", "cerpen"],
+];
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("id-ID")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function containsPhrase(text, phrase) {
+  return ` ${text} `.includes(` ${phrase} `);
+}
+
+function interestMatchScore(interest, item) {
+  if (!interest) return 0;
+  const interestText = normalizeText(interest);
+  const itemFields = [item.category, item.competitionType, item.title, item.description, ...(item.keywords || [])]
+    .map(normalizeText)
+    .filter(Boolean);
+  if (itemFields.some((field) => containsPhrase(field, interestText))) return 6;
+
+  const group = interestGroups.find((terms) => terms.some((term) => containsPhrase(interestText, normalizeText(term))));
+  if (group && itemFields.some((field) => group.some((term) => containsPhrase(field, normalizeText(term))))) return 5;
+
+  const interestWords = interestText.split(" ").filter((word) => word.length > 3);
+  return interestWords.length && itemFields.some((field) => interestWords.some((word) => field.includes(word))) ? 3 : 0;
+}
+
+function locationMatch(preferences, item) {
+  const location = normalizeText(item.location);
+  if (preferences.locationScope === "Nasional") return item.scope === "Nasional";
+  if (preferences.locationScope === "Provinsi") {
+    return item.scope === "Provinsi" && location.includes(normalizeText(preferences.province));
+  }
+  if (preferences.locationScope === "Kabupaten/Kota") {
+    return ["Kabupaten/Kota", "Daerah"].includes(item.scope) && location.includes(normalizeText(preferences.city));
+  }
+  return false;
+}
+
+function recommendationScore(preferences, item) {
+  let score = interestMatchScore(preferences.category, item);
+  if (preferences.mode && item.mode === preferences.mode) score += 2;
+  if (preferences.education && (item.targetParticipants?.includes(preferences.education) || item.education === preferences.education)) score += 2;
+  if (preferences.feeType && item.feeType === preferences.feeType) score += 1;
+  if (preferences.locationScope && locationMatch(preferences, item)) score += 2;
+  return score;
+}
+
 export default function RecommendationsPage({
   account,
   navigate,
@@ -16,18 +87,11 @@ export default function RecommendationsPage({
   const hasPreferences = Object.values(preferences).some((value) => value.trim());
   const recommendations = useMemo(() => {
     if (!account || !hasPreferences) return [];
-    return competitions.filter((item) => (
-      (!preferences.category || item.category === preferences.category)
-      && (!preferences.mode || item.mode === preferences.mode)
-      && (!preferences.education || item.targetParticipants?.includes(preferences.education) || item.education === preferences.education)
-      && (!preferences.feeType || item.feeType === preferences.feeType)
-      && (!preferences.locationScope || (preferences.locationScope === "Nasional"
-        ? item.scope === "Nasional"
-        : item.scope !== "Nasional"
-          && [preferences.city, preferences.province].filter(Boolean).every((place) => (
-            String(item.location || "").toLocaleLowerCase("id-ID").includes(place.toLocaleLowerCase("id-ID"))
-          ))))
-    ));
+    const scoredCompetitions = competitions
+      .map((item, index) => ({ item, index, score: recommendationScore(preferences, item) }))
+      .filter(({ score }) => score > 0)
+      .sort((left, right) => right.score - left.score || left.index - right.index);
+    return scoredCompetitions.map(({ item }) => item);
   }, [account, competitions, hasPreferences, preferences]);
 
   let results;
