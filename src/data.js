@@ -254,6 +254,9 @@ export function competitionFromRow(row) {
     registrationUrl: row.registration_url,
     informationUrl: row.information_url || "",
     rulebookUrl: row.rulebook_url || "",
+    rulebookUrls: Array.isArray(row.rulebook_urls) && row.rulebook_urls.length
+      ? row.rulebook_urls.filter((url) => typeof url === "string" && url.trim())
+      : row.rulebook_url ? [row.rulebook_url] : [],
     guidebookPath: row.guidebook_path || "",
     guidebookUrl: row.rulebook_url || "",
     coverPath: row.cover_path || "",
@@ -398,7 +401,9 @@ export function competitionFieldsFromForm(form) {
       : null,
     registration_url: form.registrationUrl.trim() || null,
     information_url: form.informationUrl || null,
-    rulebook_url: form.guidebookUrl?.trim() || null,
+    rulebook_url: (form.guidebookUrls?.find((url) => url.trim()) || form.guidebookUrl || "").trim() || null,
+    rulebook_urls: (Array.isArray(form.guidebookUrls) ? form.guidebookUrls : [form.guidebookUrl || ""])
+      .map((url) => url.trim()).filter(Boolean),
     guidebook_path: form.guidebookPath || null,
     benefits: form.benefits.trim(),
   };

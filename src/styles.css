@@ -705,6 +705,7 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-form-grid :is(input,select,textarea):disabled { cursor: not-allowed; opacity: .65; background: #f3f5f8; }
 .competition-form-grid :is(input,select,textarea):focus,.competition-contact-grid input:focus { border-color: #93aaff; box-shadow: 0 0 0 3px #ebefff; }
 .competition-form-full { grid-column: 1 / -1; }
+.competition-location-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; min-width: 0; }
 .competition-organizer-box,.competition-event-box,.competition-rich-fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 11px; border: 1px solid #e5eaf2; border-radius: 9px; }
 .competition-organizer-box legend,.competition-event-box legend,.competition-rich-fieldset legend { padding: 0 5px; color: #526079; font-size: 10px; font-weight: 700; }
 .competition-organizer-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; min-width: 0; }
@@ -1059,6 +1060,7 @@ html[data-theme="dark"] .organizer-delete-dialog h2 { color: #e4eaf5; }
 }
 @media (max-width: 540px) {
   .competition-form-grid { grid-template-columns: 1fr; gap: 12px; }
+  .competition-location-fields { grid-template-columns: 1fr; gap: 12px; }
   .competition-organizer-grid { grid-template-columns: 1fr; }
   .competition-target-options { grid-template-columns: 1fr; }
   .competition-form-full,.competition-cover-picker { grid-column: auto; }

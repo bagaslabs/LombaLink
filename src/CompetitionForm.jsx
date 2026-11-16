@@ -296,6 +296,9 @@ function toForm(competition) {
     rulebookUrl: competition?.rulebookUrl || "",
     guidebookPath: competition?.guidebookPath || "",
     guidebookUrl: competition?.guidebookUrl || competition?.rulebookUrl || "",
+    guidebookUrls: Array.isArray(competition?.rulebookUrls) && competition.rulebookUrls.length
+      ? [...competition.rulebookUrls]
+      : (competition?.guidebookUrl || competition?.rulebookUrl) ? [competition.guidebookUrl || competition.rulebookUrl] : [""],
     benefits: competition?.benefits || "",
     coverPath: competition?.coverPath || "",
     coverUrl: competition?.coverUrl || "",
@@ -861,7 +864,7 @@ export default function CompetitionForm({
     if (!isValidUrl(form.registrationUrl)) {
       return "Link pendaftaran harus diawali http:// atau https://.";
     }
-    if (!isValidUrl(form.guidebookUrl)) {
+    if ((form.guidebookUrls || [form.guidebookUrl]).some((url) => url.trim() && !isValidUrl(url))) {
       return "Link panduan harus diawali http:// atau https://.";
     }
     if (!form.coverFile && (form.removeCover || !form.coverPath)) {
@@ -1486,28 +1489,30 @@ export default function CompetitionForm({
                 {scopeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label>Provinsi {(isProvinceScope || isCityScope) && <span className="required-mark">*</span>}
-              <select
-                value={form.locationProvince}
-                onChange={updateLocationProvince}
-                disabled={!isProvinceScope && !isCityScope}
-                required={isProvinceScope || isCityScope}
-              >
-                <option value="">Pilih provinsi</option>
-                {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
-                {provinceOptions.map((province) => <option key={province}>{province}</option>)}
-              </select>
-            </label>
-            <label>Kabupaten/Kota {isCityScope && <span className="required-mark">*</span>}
-              <input
-                value={form.locationArea}
-                onChange={updateLocationArea}
-                maxLength={120}
-                placeholder="Contoh: Jember"
-                disabled={!isCityScope}
-                required={isCityScope}
-              />
-            </label>
+            <div className="competition-location-fields competition-form-full">
+              <label>Provinsi {(isProvinceScope || isCityScope) && <span className="required-mark">*</span>}
+                <select
+                  value={form.locationProvince}
+                  onChange={updateLocationProvince}
+                  disabled={!isProvinceScope && !isCityScope}
+                  required={isProvinceScope || isCityScope}
+                >
+                  <option value="">Pilih provinsi</option>
+                  {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
+                  {provinceOptions.map((province) => <option key={province}>{province}</option>)}
+                </select>
+              </label>
+              <label>Kabupaten/Kota {isCityScope && <span className="required-mark">*</span>}
+                <input
+                  value={form.locationArea}
+                  onChange={updateLocationArea}
+                  maxLength={120}
+                  placeholder="Contoh: Jember"
+                  disabled={!isCityScope}
+                  required={isCityScope}
+                />
+              </label>
+            </div>
             <label>Link pendaftaran <span className="required-mark">*</span>
               <input type="url" value={form.registrationUrl} onChange={update("registrationUrl")} placeholder="https://" required />
             </label>
@@ -1748,13 +1753,21 @@ export default function CompetitionForm({
               {renderRichToolbar("prize", prizeRef)}
               <textarea aria-label="Hadiah / penghargaan" ref={prizeRef} rows="4" value={form.prize} onSelect={(event) => rememberTextSelection("prize", event.currentTarget)} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
             </fieldset>
-            <label className="competition-form-full">Link Panduan / Juknis <span className="optional-mark">(opsional)</span>
-              <input type="url" value={form.guidebookUrl} onChange={(event) => updateForm((current) => ({
-                ...current,
-                guidebookUrl: event.target.value,
-                guidebookPath: event.target.value === current.guidebookUrl ? current.guidebookPath : "",
-              }))} placeholder="https://" />
-            </label>
+            <div className="competition-form-full competition-guidebook-field">
+              <span>Link Panduan / Juknis <span className="optional-mark">(opsional)</span></span>
+              {(form.guidebookUrls || [form.guidebookUrl || ""]).map((url, index) => <div className="competition-guidebook-controls" key={index}>
+                <input aria-label={`Link panduan atau juknis ${index + 1}`} type="url" value={url} onChange={(event) => updateForm((current) => {
+                  const urls = [...(current.guidebookUrls || [current.guidebookUrl || ""])];
+                  urls[index] = event.target.value;
+                  return { ...current, guidebookUrls: urls, guidebookUrl: urls[0] || "", guidebookPath: index === 0 && event.target.value !== current.guidebookUrl ? "" : current.guidebookPath };
+                })} placeholder="https://" />
+                {(form.guidebookUrls || []).length > 1 && <button className="button button-quiet button-small" type="button" aria-label={`Hapus link juknis ${index + 1}`} onClick={() => updateForm((current) => {
+                  const urls = [...current.guidebookUrls]; urls.splice(index, 1);
+                  return { ...current, guidebookUrls: urls, guidebookUrl: urls[0] || "" };
+                })}>Hapus</button>}
+              </div>)}
+              <button className="button button-outline button-small" type="button" onClick={() => updateForm((current) => ({ ...current, guidebookUrls: [...(current.guidebookUrls || [current.guidebookUrl || ""]), ""] }))}>Tambah link juknis</button>
+            </div>
           </div>
           </div>
         </section>

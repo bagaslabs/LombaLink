@@ -183,7 +183,7 @@ export default function OrganizerPage({
       ...competitionFieldsFromForm(form),
       cover_path: coverPath,
       guidebook_path: guidebookPath,
-      rulebook_url: form.guidebookUrl?.trim() || null,
+      rulebook_url: form.guidebookUrls?.find((url) => url.trim())?.trim() || form.guidebookUrl?.trim() || null,
       archived_at: saveAction === "archive"
         ? new Date().toISOString()
         : saveAction === "submit" && existing
