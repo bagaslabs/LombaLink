@@ -187,7 +187,7 @@ function getCompetitionLocationFields(location, scope) {
   ));
   if (scope === "Provinsi") {
     const province = [...parts].reverse().map(matchProvince).find(Boolean);
-    return { locationArea: "", locationProvince: province || value };
+    return { locationArea: "", locationProvince: province || "" };
   }
   if (scope === "Kabupaten/Kota" || scope === "Daerah") {
     if (parts.length > 1) {
@@ -1486,16 +1486,6 @@ export default function CompetitionForm({
                 {scopeOptions.map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
-            <label>Kabupaten/Kota {isCityScope && <span className="required-mark">*</span>}
-              <input
-                value={form.locationArea}
-                onChange={updateLocationArea}
-                maxLength={120}
-                placeholder="Contoh: Jember"
-                disabled={!isCityScope}
-                required={isCityScope}
-              />
-            </label>
             <label>Provinsi {(isProvinceScope || isCityScope) && <span className="required-mark">*</span>}
               <select
                 value={form.locationProvince}
@@ -1507,6 +1497,16 @@ export default function CompetitionForm({
                 {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
                 {provinceOptions.map((province) => <option key={province}>{province}</option>)}
               </select>
+            </label>
+            <label>Kabupaten/Kota {isCityScope && <span className="required-mark">*</span>}
+              <input
+                value={form.locationArea}
+                onChange={updateLocationArea}
+                maxLength={120}
+                placeholder="Contoh: Jember"
+                disabled={!isCityScope}
+                required={isCityScope}
+              />
             </label>
             <label>Link pendaftaran <span className="required-mark">*</span>
               <input type="url" value={form.registrationUrl} onChange={update("registrationUrl")} placeholder="https://" required />
