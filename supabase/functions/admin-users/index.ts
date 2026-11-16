@@ -94,7 +94,7 @@ function getAuditWarning(auditError: string) {
   return auditError ? `Log aktivitas gagal disimpan: ${auditError}` : "";
 }
 
-function toManagedUser(user: AuthUserRecord) {
+function toManagedUser(user: AuthUserRecord, profileAccountType = "") {
   const metadata = user.user_metadata ?? {};
   const appMetadata = user.app_metadata ?? {};
   const sanction = isRecord(appMetadata.account_sanction) ? appMetadata.account_sanction : {};
@@ -120,6 +120,7 @@ function toManagedUser(user: AuthUserRecord) {
     birthYear: typeof metadata.birth_year === "number" || typeof metadata.birth_year === "string" ? String(metadata.birth_year) : "",
     education: asString(metadata.education),
     institution: asString(metadata.institution),
+    accountType: profileAccountType || asString(metadata.account_type),
     avatarUrl: asString(metadata.avatar_url),
     avatarPath: asString(metadata.avatar_path),
     createdAt: user.created_at ?? null,
@@ -183,7 +184,13 @@ Deno.serve(async (request) => {
 
     const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: pageSize });
     if (error) return jsonResponse({ error: error.message }, 400);
-    const users = data.users.map(toManagedUser);
+    const userIds = data.users.map((user) => user.id);
+    const { data: profiles, error: profilesError } = userIds.length
+      ? await adminClient.from("lombalink_profiles").select("id, account_type").in("id", userIds)
+      : { data: [], error: null };
+    if (profilesError) return jsonResponse({ error: `Role akun gagal dimuat: ${profilesError.message}` }, 500);
+    const accountTypes = new Map((profiles ?? []).map((profile) => [profile.id, asString(profile.account_type)]));
+    const users = data.users.map((user) => toManagedUser(user, accountTypes.get(user.id) ?? ""));
     return jsonResponse({ users, page, hasMore: users.length === pageSize });
   }
 
@@ -205,6 +212,7 @@ Deno.serve(async (request) => {
       || typeof profile.birthYear !== "string"
       || typeof profile.education !== "string"
       || typeof profile.institution !== "string"
+      || !["participant", "organizer"].includes(asString(profile.accountType))
     ) {
       return jsonResponse({ error: "Data profil tidak lengkap atau tidak valid." }, 400);
     }
@@ -218,6 +226,7 @@ Deno.serve(async (request) => {
       birth_year: profile.birthYear.trim(),
       education: profile.education.trim(),
       institution: profile.institution.trim(),
+      account_type: asString(profile.accountType),
     };
     if (
       !normalized.username
@@ -264,6 +273,7 @@ Deno.serve(async (request) => {
       getUserLabel(data.user),
       {
         updated_fields: Object.keys(normalizedProfile),
+        role_changed: user.user_metadata?.account_type !== normalizedProfile.account_type,
         outcome: profileError ? "partial" : "success",
       },
     );
@@ -278,7 +288,7 @@ Deno.serve(async (request) => {
       }, 500);
     }
     return jsonResponse({
-      user: toManagedUser(data.user),
+      user: toManagedUser(data.user, normalizedProfile.account_type),
       ...(auditError ? { auditWarning: getAuditWarning(auditError) } : {}),
     });
   }

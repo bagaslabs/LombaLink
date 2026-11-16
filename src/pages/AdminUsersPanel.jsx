@@ -71,7 +71,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
   const [notice, setNotice] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
-  const [profile, setProfile] = useState({ username: "", fullName: "", phone: "", province: "", city: "", birthYear: "", education: "", institution: "" });
+  const [profile, setProfile] = useState({ username: "", fullName: "", phone: "", province: "", city: "", birthYear: "", education: "", institution: "", accountType: "participant" });
   const [locationValid, setLocationValid] = useState(false);
   const [formError, setFormError] = useState("");
   const [sanctionReason, setSanctionReason] = useState("");
@@ -120,6 +120,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
       birthYear: user.birthYear || "",
       education: user.education || "",
       institution: user.institution || "",
+      accountType: user.accountType || "participant",
     });
     setLocationValid(false);
     setFormError("");
@@ -225,7 +226,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
         <div>
           <span className="eyebrow">MANAJEMEN AKUN</span>
           <h2>Pengguna</h2>
-          <p>Kelola profil dan akses akun komunitas. Email dan role moderator tidak dapat diedit dari sini.</p>
+          <p>Kelola profil dan akses akun komunitas. Role peserta/penyelenggara dapat diubah admin; akun moderator dilindungi.</p>
         </div>
         <label className="admin-users-search">
           <Search size={16} />
@@ -256,7 +257,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
                         : "Aktif";
                   return (
                     <tr key={user.id}>
-                      <td><div className="admin-user-identity"><span className="admin-user-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <UserRound size={17} />}</span><span><strong>{user.fullName || "Nama belum diisi"}</strong><small>{user.username ? `@${user.username}` : "Username belum diisi"}</small><small>{user.email}</small>{user.role === "moderator" && <em><ShieldCheck size={12} /> Moderator</em>}</span></div></td>
+                      <td><div className="admin-user-identity"><span className="admin-user-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <UserRound size={17} />}</span><span><strong>{user.fullName || "Nama belum diisi"}</strong><small>{user.username ? `@${user.username}` : "Username belum diisi"}</small><small>{user.email}</small>{user.role === "moderator" ? <em><ShieldCheck size={12} /> Moderator</em> : <small>Role: {user.accountType === "organizer" ? "Penyelenggara" : user.accountType === "participant" ? "Peserta" : "Belum dipilih"}</small>}</span></div></td>
                       <td><div className="admin-user-profile">{user.phone && <span>{user.phone}</span>}<span><MapPin size={13} /> {user.region || "Daerah belum diisi"}</span>{user.institution && <span><Building2 size={13} /> {user.institution}</span>}</div></td>
                       <td>
                         <span className={`admin-user-status status-${statusClass}`}>{statusLabel}</span>
@@ -296,6 +297,12 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
             <label>Nama lengkap <input value={profile.fullName} onChange={(event) => setProfile({ ...profile, fullName: event.target.value })} maxLength={120} required /></label>
             <label>Nomor HP <input type="tel" value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} maxLength={40} required /></label>
             <label>Email <input type="email" value={editingUser.email} readOnly aria-readonly="true" /></label>
+            <label>Role akun
+              <select value={profile.accountType} onChange={(event) => setProfile({ ...profile, accountType: event.target.value })} required>
+                <option value="participant">Peserta</option>
+                <option value="organizer">Penyelenggara</option>
+              </select>
+            </label>
             <LocationSelects
               className="admin-user-locations"
               province={profile.province}
