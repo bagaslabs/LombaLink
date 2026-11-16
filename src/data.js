@@ -68,14 +68,21 @@ export const provinceOptions = [
   "Sumatera Utara",
 ];
 export const organizerOptions = ["Pemerintah", "Universitas", "Lembaga umum", "Komunitas"];
+const organizerLevelAliases = {
+  Kemdikti: "Kementerian Pendidikan Tinggi, Sains, dan Teknologi",
+  "Kementerian Pendidikan Dasar": "Kementerian Pendidikan Dasar dan Menengah",
+};
+export function normalizeOrganizerLevel(value) {
+  return organizerLevelAliases[value] || value || "";
+}
 export const organizerLevelOptions = [
   "SD",
   "SMP",
   "SMA",
   "Perguruan Tinggi / Universitas",
   "Pemerintah Daerah",
-  "Kementerian Pendidikan Dasar",
-  "Kemdikti",
+  "Kementerian Pendidikan Dasar dan Menengah",
+  "Kementerian Pendidikan Tinggi, Sains, dan Teknologi",
   "Lembaga/Organisasi",
   "Komunitas",
   "Lainnya",
@@ -258,7 +265,7 @@ export function competitionFromRow(row) {
     eventStartDate: row.event_start_date || "",
     eventEndDate: row.event_end_date || "",
     competitionType: row.competition_type || "",
-    organizerLevel: row.organizer_level || "",
+    organizerLevel: normalizeOrganizerLevel(row.organizer_level),
     contactPersonName: row.contact_person_name || "",
     contactPersonEmail: row.contact_person_email || "",
     contactPersonPhone: row.contact_person_phone || "",
@@ -318,8 +325,9 @@ export function competitionFieldsFromForm(form) {
       };
     });
   const firstBatch = registrationBatches[0];
+  const contactFallbackName = form.organizer.trim() || "Kontak penyelenggara";
   const contactPeople = (Array.isArray(form.contactPeople) ? form.contactPeople : []).map((person) => ({
-    name: person.name.trim(),
+    name: person.name.trim() || contactFallbackName,
     phone: person.contactMethods.includes("whatsapp") ? normalizePhoneNumber(person.phone, "+62") : "",
     email: person.email.trim() || "",
     instagramUsername: person.instagramUsername.trim().replace(/^@+/, ""),
@@ -330,12 +338,12 @@ export function competitionFieldsFromForm(form) {
     contactMethods: [...person.contactMethods],
   }));
   const primaryContact = contactPeople[0] || {
-    name: "",
+    name: contactFallbackName,
     phone: "",
     email: "",
   };
   const teamMemberRange = String(form.teamMemberRange || "").match(/^\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*$/);
-  const governmentOrganizerLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar", "Kemdikti"];
+  const governmentOrganizerLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar dan Menengah", "Kementerian Pendidikan Tinggi, Sains, dan Teknologi"];
   const organizerType = form.organizerType || (
     governmentOrganizerLevels.includes(form.organizerLevel)
       ? "Pemerintah"
@@ -354,7 +362,7 @@ export function competitionFieldsFromForm(form) {
     description: form.description.trim(),
     organizer: form.organizer.trim(),
     organizer_type: organizerType,
-    organizer_level: form.organizerLevel || "Lembaga",
+    organizer_level: normalizeOrganizerLevel(form.organizerLevel) || "Lembaga",
     contact: primaryContact.phone,
     contact_person_name: primaryContact.name,
     contact_person_email: primaryContact.email || null,

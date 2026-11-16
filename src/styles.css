@@ -1154,8 +1154,7 @@ html[data-theme="dark"] .competition-card-organizer { color: #9eabc0; }
 .competition-keyword-suggestions button small { color: #9aa4b5; font-size: 8px; font-weight: 500; white-space: nowrap; }
 .competition-keyword-suggestions button:hover { border-color: #b7c7ff; color: #4e66d3; background: #f7f8ff; }
 .competition-keyword-suggestions .competition-keyword-create { border-style: dashed; color: #4e66d3; }
-.competition-autocomplete-list { position: absolute; top: calc(100% + 5px); right: 0; left: 0; z-index: 5; display: grid; max-height: 220px; overflow-y: auto; padding: 5px; border: 1px solid #e2e8f2; border-radius: 9px; background: #fff; box-shadow: 0 10px 24px #23385a1a; }
-.admin-competition-edit-dialog .competition-autocomplete-list { position: static; max-height: none; overflow: visible; margin-top: 5px; box-shadow: none; }
+.competition-autocomplete-list { position: absolute; top: calc(100% + 5px); right: 0; left: 0; z-index: 30; display: grid; max-height: 220px; overflow-y: auto; padding: 5px; border: 1px solid #e2e8f2; border-radius: 9px; background: #fff; box-shadow: 0 10px 24px #23385a1a; }
 .competition-autocomplete-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; padding: 7px 9px; border: 0; border-radius: 6px; color: #526079; background: transparent; text-align: left; font-size: 10px; }
 .competition-autocomplete-list button:hover { color: #4e66d3; background: #f3f5ff; }
 .competition-autocomplete-list button small { flex: 0 0 auto; color: #8d98aa; font-size: 9px; font-weight: 500; }

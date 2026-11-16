@@ -26,6 +26,7 @@ import {
   competitionModeOptions,
   competitionTypeOptions,
   normalizePhoneNumber,
+  normalizeOrganizerLevel,
   organizerLevelOptions,
   participantTypeOptions,
   provinceOptions,
@@ -281,7 +282,7 @@ function toForm(competition) {
     ...getCompetitionLocationFields(location, competition?.scope || ""),
     organizer: competition?.organizer || "",
     organizerType: competition?.organizerType || "",
-    organizerLevel: competition?.organizerLevel || "",
+    organizerLevel: normalizeOrganizerLevel(competition?.organizerLevel),
     contactPeople,
     teamMemberRange: competition?.teamMemberRange || getTeamMemberRange(competition?.teamMinMembers, competition?.teamMaxMembers),
     ...competitionTypeFields,
@@ -439,6 +440,7 @@ export default function CompetitionForm({
   const descriptionRef = useRef(null);
   const requirementsRef = useRef(null);
   const prizeRef = useRef(null);
+  const textSelectionRef = useRef({});
   const coverEditorImageRef = useRef(null);
   const coverCropCanvasRef = useRef(null);
   const coverCropDragRef = useRef(null);
@@ -1041,32 +1043,49 @@ export default function CompetitionForm({
   const insertText = (fieldKey, fieldRef, insertedText) => {
     const field = fieldRef.current;
     if (!field) return;
-    const start = field.selectionStart;
-    const end = field.selectionEnd;
-    const value = String(form[fieldKey] || "");
+    const savedSelection = textSelectionRef.current[fieldKey];
+    const start = document.activeElement === field ? field.selectionStart : savedSelection?.start ?? field.selectionStart;
+    const end = document.activeElement === field ? field.selectionEnd : savedSelection?.end ?? field.selectionEnd;
+    const value = field.value;
     const nextValue = `${value.slice(0, start)}${insertedText}${value.slice(end)}`;
     updateForm((current) => ({ ...current, [fieldKey]: nextValue }));
     requestAnimationFrame(() => {
       field.focus();
       const cursor = start + insertedText.length;
       field.setSelectionRange(cursor, cursor);
+      textSelectionRef.current[fieldKey] = { start: cursor, end: cursor };
     });
   };
 
-  const formatText = (fieldKey, fieldRef, before, after = before) => {
+  const rememberTextSelection = (fieldKey, field) => {
+    if (!field) return;
+    textSelectionRef.current[fieldKey] = { start: field.selectionStart, end: field.selectionEnd };
+  };
+
+  const formatText = (fieldKey, fieldRef, before, after = before, formatWholeLines = false) => {
     const field = fieldRef.current;
     if (!field) return;
-    const start = field.selectionStart;
-    const end = field.selectionEnd;
-    const value = String(form[fieldKey] || "");
-    const selected = value.slice(start, end);
-    const selectedText = selected || "teks";
-    const replacement = `${before}${selectedText}${after}`;
+    const savedSelection = textSelectionRef.current[fieldKey];
+    let start = document.activeElement === field ? field.selectionStart : savedSelection?.start ?? field.selectionStart;
+    let end = document.activeElement === field ? field.selectionEnd : savedSelection?.end ?? field.selectionEnd;
+    const value = field.value;
+    if (formatWholeLines) {
+      if (start === end || !value.slice(start, end).trim()) return;
+      start = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+      const blockEnd = end > start && value[end - 1] === "\n" ? end - 1 : end;
+      const nextLineBreak = value.indexOf("\n", blockEnd);
+      end = nextLineBreak < 0 ? value.length : nextLineBreak;
+    }
+    const selectedText = value.slice(start, end);
+    const replacement = selectedText ? `${before}${selectedText}${after}` : `${before}${after}`;
     const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
     updateForm((current) => ({ ...current, [fieldKey]: nextValue }));
     requestAnimationFrame(() => {
       field.focus();
-      field.setSelectionRange(start + before.length, start + before.length + selectedText.length);
+      const selectionStart = start + before.length;
+      const selectionEnd = selectionStart + selectedText.length;
+      field.setSelectionRange(selectionStart, selectionEnd);
+      textSelectionRef.current[fieldKey] = { start: selectionStart, end: selectionEnd };
     });
   };
 
@@ -1097,7 +1116,7 @@ export default function CompetitionForm({
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "*")} aria-label="Miringkan">
           <Italic size={15} />
         </button>
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "[[justify]]", "[[/justify]]")} aria-label="Rata kiri-kanan">
+        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatText(fieldKey, fieldRef, "[[justify]]", "[[/justify]]", true)} aria-label="Rata kiri-kanan">
           <AlignJustify size={15} />
         </button>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => formatList(fieldKey, fieldRef)} aria-label="Buat daftar berpoin">
@@ -1276,7 +1295,7 @@ export default function CompetitionForm({
                 <div className="competition-rich-editor competition-rich-editor-cover">
                   <label htmlFor="competition-description">Deskripsi Lomba <span className="required-mark">*</span></label>
                   {renderRichToolbar("description", descriptionRef)}
-                  <textarea id="competition-description" ref={descriptionRef} rows="6" value={form.description} onChange={update("description")} maxLength={5000} required />
+                  <textarea id="competition-description" ref={descriptionRef} rows="6" value={form.description} onSelect={(event) => rememberTextSelection("description", event.currentTarget)} onChange={update("description")} maxLength={5000} required />
                 </div>
               </div>
             </div>
@@ -1331,7 +1350,7 @@ export default function CompetitionForm({
                     value={form.organizerLevel}
                     onChange={(event) => {
                       const organizerLevel = event.target.value;
-                      const governmentLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar", "Kemdikti"];
+                      const governmentLevels = ["Pemerintah Daerah", "Kementerian Pendidikan Dasar dan Menengah", "Kementerian Pendidikan Tinggi, Sains, dan Teknologi"];
                       const organizerType = governmentLevels.includes(organizerLevel)
                         ? "Pemerintah"
                         : organizerLevel === "Perguruan Tinggi / Universitas"
@@ -1717,12 +1736,12 @@ export default function CompetitionForm({
             <fieldset className="competition-rich-fieldset competition-form-full">
               <legend>Persyaratan lomba <span className="optional-mark">(opsional)</span></legend>
               {renderRichToolbar("requirements", requirementsRef)}
-              <textarea aria-label="Persyaratan lomba" ref={requirementsRef} rows="4" value={form.requirements} onChange={update("requirements")} maxLength={3000} />
+              <textarea aria-label="Persyaratan lomba" ref={requirementsRef} rows="4" value={form.requirements} onSelect={(event) => rememberTextSelection("requirements", event.currentTarget)} onChange={update("requirements")} maxLength={3000} />
             </fieldset>
             <fieldset className="competition-rich-fieldset competition-form-full">
               <legend>Hadiah / penghargaan <span className="optional-mark">(opsional)</span></legend>
               {renderRichToolbar("prize", prizeRef)}
-              <textarea aria-label="Hadiah / penghargaan" ref={prizeRef} rows="4" value={form.prize} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
+              <textarea aria-label="Hadiah / penghargaan" ref={prizeRef} rows="4" value={form.prize} onSelect={(event) => rememberTextSelection("prize", event.currentTarget)} onChange={update("prize")} maxLength={1000} placeholder="Contoh: uang pembinaan, medali, sertifikat" />
             </fieldset>
             <label className="competition-form-full">Link Panduan / Juknis <span className="optional-mark">(opsional)</span>
               <input type="url" value={form.guidebookUrl} onChange={(event) => updateForm((current) => ({

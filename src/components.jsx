@@ -440,7 +440,7 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
             : "";
           return (
             <div className="competition-detail-contact" key={`${contact.name || "kontak"}-${index}`}>
-              {contact.name && <strong>{contact.name}</strong>}
+              {contact.name && contact.name !== item.organizer && <strong>{contact.name}</strong>}
               <div className="competition-detail-contact-methods">
                 {contact.phone && <a href={`tel:${contact.phone}`} aria-label={`Telepon ${contact.name || "penyelenggara"}`}><Phone size={15} />{contact.phone}</a>}
                 {contact.email && <a href={`mailto:${encodeURIComponent(contact.email)}`} aria-label={`Email ${contact.name || "penyelenggara"}`}><Mail size={15} />{contact.email}</a>}
