@@ -337,8 +337,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "all" ? "active" : ""}`} onClick={() => showAdminSection("overview", "all")}><LayoutDashboard size={17} /> Ringkasan</button>
         <button className={`sidebar-item ${isCreatePage ? "active" : ""}`} onClick={openCreatePage}><Plus size={17} /> Tambah Lomba</button>
         <button className={`sidebar-item ${!isCreatePage && section === "users" ? "active" : ""}`} onClick={() => showAdminSection("users")}><UsersRound size={17} /> Pengguna</button>
-        <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "pending" ? "active" : ""}`} onClick={() => showAdminSection("overview", "pending")}><Clock3 size={17} /> Verifikasi <span className="sidebar-count">{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
-        <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "approved" ? "active" : ""}`} onClick={() => showAdminSection("overview", "approved")}><CheckCircle2 size={17} /> Lomba terbit</button>
         <button className={`sidebar-item ${!isCreatePage && section === "reports" ? "active" : ""}`} onClick={() => showAdminSection("reports")}><Flag size={17} /> Laporan <span className="sidebar-count">{reportPendingCount === null ? "—" : reportPendingCount.toLocaleString("id-ID")}</span></button>
         <button className={`sidebar-item ${!isCreatePage && section === "logs" ? "active" : ""}`} onClick={() => showAdminSection("logs")}><ClipboardList size={17} /> Log Admin</button>
         <div className="sidebar-label sidebar-label-bottom">AKUN</div>
@@ -346,7 +344,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         <div className="sidebar-user"><span className="avatar moderator-avatar">{moderatorName.slice(0, 1).toUpperCase()}</span><span><strong>{moderatorName}</strong><small>Moderator LombaLink</small></span><ShieldCheck size={15} /></div>
       </aside>
       <section className="admin-main">
-        <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{sectionLabel}</strong></div><label className="sr-only" htmlFor="admin-mobile-section">Pilih bagian panel moderator</label><select id="admin-mobile-section" className="admin-mobile-section" value={isCreatePage ? "create" : ["users", "reports", "logs"].includes(section) ? section : tab} onChange={(event) => {
+        <div className="admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{sectionLabel}</strong></div><label className="sr-only" htmlFor="admin-mobile-section">Pilih bagian panel moderator</label><select id="admin-mobile-section" className="admin-mobile-section" value={isCreatePage ? "create" : ["users", "reports", "logs"].includes(section) ? section : ["pending", "approved"].includes(tab) ? "all" : tab} onChange={(event) => {
           const value = event.target.value;
           if (value === "create") {
             openCreatePage();
@@ -362,8 +360,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           <option value="create">Tambah Lomba</option>
           <option value="archived">Arsip</option>
           <option value="draft">Draft</option>
-          <option value="pending">Verifikasi</option>
-          <option value="approved">Lomba terbit</option>
           <option value="rejected">Lomba ditolak</option>
           <option value="users">Pengguna</option>
           <option value="reports">Laporan</option>
@@ -421,7 +417,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
                       setEditingItem(item);
                     }}
                   ><Pencil size={15} /></button>
-                  {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : <span className="reviewed-label">{item.status === "draft" ? "Belum dikirim" : "Ditinjau"}</span>}
+                  {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : item.status === "draft" ? <span className="reviewed-label">Belum dikirim</span> : null}
                   <button
                     title="Hapus lomba"
                     aria-label={`Hapus lomba ${item.title}`}

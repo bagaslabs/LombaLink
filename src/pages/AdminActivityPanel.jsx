@@ -138,7 +138,9 @@ export default function AdminActivityPanel({ supabaseClient }) {
         if (!active) return;
         if (loadError) {
           setLogs([]);
-          setError(`Log aktivitas gagal dimuat: ${loadError.message}`);
+          setError(loadError.code === "PGRST205"
+            ? "Tabel log aktivitas belum tersedia di Supabase. Terapkan migration database yang tertunda, lalu muat ulang panel ini."
+            : `Log aktivitas gagal dimuat: ${loadError.message}`);
           return;
         }
         setLogs(data || []);
