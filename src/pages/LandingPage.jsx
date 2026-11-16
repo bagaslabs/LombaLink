@@ -36,28 +36,6 @@ export default function LandingPage({
 
   return (
     <main>
-      <section className="hero-section">
-        <div className="hero-grid">
-          <div className="hero-copy">
-            <div className="hero-badge"><span className="badge-spark"><Sparkles size={13} /></span> Ruang tumbuh untuk setiap potensi</div>
-            <h1>Kesempatan hebat<br />dimulai dari <span>sini.</span></h1>
-            <p className="hero-description">Temukan kompetisi yang tepat untukmu. Dari ruang kelas hingga panggung dunia, semua peluang ada di satu tempat.</p>
-            <div className="hero-actions">
-              <button className="button button-primary" data-guest-access onClick={() => scrollToSection("cari")}>Cari lomba <ArrowRight size={16} /></button>
-              <button className="button button-outline" data-guest-access onClick={() => scrollToSection("rekomendasi")}>Lihat rekomendasi</button>
-            </div>
-          </div>
-          <div className="hero-visual" aria-hidden="true">
-            <div className="visual-orbit orbit-one"></div><div className="visual-orbit orbit-two"></div>
-            <div className="visual-star star-one">✦</div><div className="visual-star star-two">✦</div>
-            <div className="hero-trophy"><Trophy size={72} strokeWidth={1.6} /></div>
-            <div className="floating-card floating-card-top"><span className="floating-icon icon-purple"><ShieldCheck size={18} /></span><span><strong>Verifikasi moderator</strong><small>Informasi ditinjau sebelum terbit</small></span><BadgeCheck size={16} className="verified" /></div>
-            <div className="floating-card floating-card-bottom"><span className="floating-icon icon-orange"><Sparkles size={18} /></span><span><strong>Personalisasi</strong><small>Temukan lomba sesuai minatmu</small></span></div>
-            <span className="visual-caption">Grow beyond limits</span>
-          </div>
-        </div>
-      </section>
-
       <SearchPage
         account={account}
         navigate={navigate}
@@ -66,6 +44,33 @@ export default function LandingPage({
         competitionsLoading={competitionsLoading}
         competitionsError={competitionsError}
         categoryOptions={categoryOptions}
+        renderLayout={({ searchControls, searchResults }) => (
+          <>
+            <section className="hero-section landing-top-section">
+              <div className="hero-grid">
+                <div className="hero-copy">
+                  <div className="hero-badge"><span className="badge-spark"><Sparkles size={13} /></span> Ruang tumbuh untuk setiap potensi</div>
+                  <h1>Kesempatan hebat<br />dimulai dari <span>sini.</span></h1>
+                  <p className="hero-description">Temukan kompetisi yang tepat untukmu. Dari ruang kelas hingga panggung dunia, semua peluang ada di satu tempat.</p>
+                  <div className="hero-actions">
+                    <button className="button button-primary" data-guest-access onClick={() => scrollToSection("cari")}>Cari lomba <ArrowRight size={16} /></button>
+                    <button className="button button-outline" data-guest-access onClick={() => scrollToSection("rekomendasi")}>Lihat rekomendasi</button>
+                  </div>
+                </div>
+                <div className="hero-visual" aria-hidden="true">
+                  <div className="visual-orbit orbit-one"></div><div className="visual-orbit orbit-two"></div>
+                  <div className="visual-star star-one">✦</div><div className="visual-star star-two">✦</div>
+                  <div className="hero-trophy"><Trophy size={72} strokeWidth={1.6} /></div>
+                  <div className="floating-card floating-card-top"><span className="floating-icon icon-purple"><ShieldCheck size={18} /></span><span><strong>Verifikasi moderator</strong><small>Informasi ditinjau sebelum terbit</small></span><BadgeCheck size={16} className="verified" /></div>
+                  <div className="floating-card floating-card-bottom"><span className="floating-icon icon-orange"><Sparkles size={18} /></span><span><strong>Personalisasi</strong><small>Temukan lomba sesuai minatmu</small></span></div>
+                  <span className="visual-caption">Grow beyond limits</span>
+                </div>
+              </div>
+              {searchControls}
+            </section>
+            {searchResults}
+          </>
+        )}
       />
       <RecommendationsPage
         account={account}
