@@ -76,7 +76,6 @@ export function normalizeOrganizerLevel(value) {
   return organizerLevelAliases[value] || value || "";
 }
 export const organizerLevelOptions = [
-  "SD",
   "SMP",
   "SMA",
   "Perguruan Tinggi / Universitas",
