@@ -239,7 +239,7 @@ Deno.serve(async (request) => {
     if (!/^\d{4}$/.test(normalized.birth_year) || !Number.isInteger(birthYear) || birthYear < 1900 || birthYear > new Date().getFullYear()) {
       return jsonResponse({ error: "Tahun lahir tidak valid." }, 400);
     }
-    if (!["SMP", "SMA", "Kuliah", "Umum"].includes(normalized.education)) {
+    if (!["SD", "SMP", "SMA", "Kuliah", "Umum"].includes(normalized.education)) {
       return jsonResponse({ error: "Jenjang tidak valid." }, 400);
     }
     if (normalized.full_name.length > 120 || normalized.phone.length > 40 || normalized.province.length > 120 || normalized.city.length > 120 || normalized.institution.length > 160) {

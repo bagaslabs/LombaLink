@@ -164,7 +164,7 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
               <div><span>Email</span><strong>{account.email}</strong></div>
               <div><span>Domisili</span><strong>{account.region || "Belum diisi"}</strong></div>
               <div><span>Tahun lahir</span><strong>{account.birthYear || "Belum diisi"}</strong></div>
-              <div><span>Jenjang</span><strong>{account.education || "Belum diisi"}</strong></div>
+              <div><span>Jenjang</span><strong>{educationOptions.find((option) => option.value === account.education)?.label || account.education || "Belum diisi"}</strong></div>
               <div><span>Lembaga</span><strong>{account.institution || "Belum diisi"}</strong></div>
             </div>
             <button className="button button-primary button-wide auth-submit" type="button" onClick={() => setEditing(true)}><Pencil size={16} /> Edit profil</button>
@@ -212,7 +212,7 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
           <label>Jenjang <span className="required-mark">*</span>
             <select value={form.education} onChange={update("education")} required>
               <option value="">Pilih jenjang</option>
-              {educationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+              {educationOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <label className="sm:col-span-2">Lembaga <span className="optional-mark">(opsional)</span><input autoComplete="organization" value={form.institution} onChange={update("institution")} placeholder="Sekolah, kampus, atau organisasi" maxLength={160} /></label>

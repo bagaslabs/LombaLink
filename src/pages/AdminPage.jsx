@@ -334,7 +334,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
       <aside className="admin-sidebar">
         <Brand onClick={() => navigate("/")} />
         <div className="sidebar-label">WORKSPACE</div>
-        <button className={`sidebar-item ${!isCreatePage && section === "overview" && tab === "all" ? "active" : ""}`} onClick={() => showAdminSection("overview", "all")}><LayoutDashboard size={17} /> Ringkasan</button>
+        <button className={`sidebar-item ${!isCreatePage && section === "overview" ? "active" : ""}`} onClick={() => showAdminSection("overview", "all")}><LayoutDashboard size={17} /> Ringkasan</button>
         <button className={`sidebar-item ${isCreatePage ? "active" : ""}`} onClick={openCreatePage}><Plus size={17} /> Tambah Lomba</button>
         <button className={`sidebar-item ${!isCreatePage && section === "users" ? "active" : ""}`} onClick={() => showAdminSection("users")}><UsersRound size={17} /> Pengguna</button>
         <button className={`sidebar-item ${!isCreatePage && section === "reports" ? "active" : ""}`} onClick={() => showAdminSection("reports")}><Flag size={17} /> Laporan <span className="sidebar-count">{reportPendingCount === null ? "—" : reportPendingCount.toLocaleString("id-ID")}</span></button>

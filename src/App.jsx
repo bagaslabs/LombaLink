@@ -660,7 +660,17 @@ export default function App() {
   };
 
   const categoryOptions = useMemo(
-    () => [...new Set(competitions.map((item) => item.category))].sort(),
+    () => {
+      const options = new Map();
+      competitions.forEach((item) => {
+        const category = String(item.category || "").trim().replace(/\s+/g, " ");
+        const key = category.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+        if (!key) return;
+        const current = options.get(key);
+        if (!current || (category[0] === category[0].toLocaleUpperCase("id-ID") && current[0] !== current[0].toLocaleUpperCase("id-ID"))) options.set(key, category);
+      });
+      return [...options.values()].sort((left, right) => left.localeCompare(right, "id-ID"));
+    },
     [competitions],
   );
   const keywordSuggestions = useMemo(

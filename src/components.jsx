@@ -509,7 +509,24 @@ export function CompetitionModal({ item, onClose, ...detailsProps }) {
   );
 }
 
-export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, isLoggedIn, categoryOptions }) {
+export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, isLoggedIn, categoryOptions, competitions = [] }) {
+  const [categorySuggestionsOpen, setCategorySuggestionsOpen] = useState(false);
+  const categoryCounts = new Map();
+  competitions.forEach((item) => {
+    const key = String(item.category || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+    if (key) categoryCounts.set(key, (categoryCounts.get(key) || 0) + 1);
+  });
+  const normalizedCategoryInput = filters.category.trim().toLocaleLowerCase("id-ID");
+  const categorySuggestions = categoryOptions
+    .filter((option) => !normalizedCategoryInput || option.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(normalizedCategoryInput.replace(/[^\p{L}\p{N}]/gu, "")))
+    .slice(0, 8);
+  const updateCategory = (value) => {
+    if (!isLoggedIn && value) {
+      onRequireAccount(false, true);
+      return;
+    }
+    setFilters({ ...filters, category: value });
+  };
   const update = (key) => (event) => {
     const value = event.target.value;
     if (!isLoggedIn && value) {
@@ -548,9 +565,34 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
         <label className="filter-select"><GraduationCap size={16} /><span className="sr-only">Target peserta</span>
           <select value={filters.education} onChange={update("education")}><option value="">Semua target peserta</option>{targetParticipantOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>
-        <label className="filter-select"><Trophy size={15} /><span className="sr-only">Kategori lomba</span>
-          <select value={filters.category} onChange={update("category")}><option value="">Semua kategori</option>{categoryOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
-        </label>
+        <div className="filter-select category-filter-autocomplete" onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setCategorySuggestionsOpen(false);
+        }}>
+          <Trophy size={15} />
+          <label className="sr-only" htmlFor="search-category">Kategori lomba</label>
+          <input id="search-category" role="combobox" aria-autocomplete="list" aria-controls="search-category-suggestions" aria-expanded={categorySuggestionsOpen && categorySuggestions.length > 0}
+            value={filters.category} placeholder="Semua kategori" autoComplete="off"
+            onFocus={() => setCategorySuggestionsOpen(true)}
+            onChange={(event) => { updateCategory(event.target.value); setCategorySuggestionsOpen(true); }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && categorySuggestionsOpen && categorySuggestions.length) {
+                event.preventDefault();
+                updateCategory(categorySuggestions[0]);
+                setCategorySuggestionsOpen(false);
+              } else if (event.key === "Escape") setCategorySuggestionsOpen(false);
+            }} />
+          {filters.category && <button type="button" className="category-filter-clear" aria-label="Hapus kategori" onClick={() => updateCategory("")}>×</button>}
+          {categorySuggestionsOpen && categorySuggestions.length > 0 && (
+            <div id="search-category-suggestions" className="competition-autocomplete-list category-filter-suggestions" role="listbox" aria-label="Saran kategori lomba">
+              {categorySuggestions.map((option) => {
+                const key = option.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+                return <button type="button" role="option" aria-selected={filters.category.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "") === key} key={key} onMouseDown={(event) => event.preventDefault()} onClick={() => { updateCategory(option); setCategorySuggestionsOpen(false); }}>
+                  <span>{option}</span><small>{(categoryCounts.get(key) || 0).toLocaleString("id-ID")} lomba</small>
+                </button>;
+              })}
+            </div>
+          )}
+        </div>
         <label className="filter-select"><Globe2 size={15} /><span className="sr-only">Cakupan lomba</span>
           <select value={filters.scope} onChange={updateScope}><option value="">Semua cakupan</option><option value="Daerah">Daerah (data lama)</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
         </label>

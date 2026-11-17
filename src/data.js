@@ -1,4 +1,10 @@
-export const educationOptions = ["SMP", "SMA", "Kuliah", "Umum"];
+export const educationOptions = [
+  { value: "SD", label: "Siswa SD/MI" },
+  { value: "SMP", label: "Siswa SMP/MTs" },
+  { value: "SMA", label: "Siswa SMA/MA" },
+  { value: "Kuliah", label: "Mahasiswa" },
+  { value: "Umum", label: "Umum" },
+];
 export const competitionCategoryOptions = ["Akademik", "Non-akademik"];
 export const competitionTypeOptions = [
   "Esai / karya tulis",

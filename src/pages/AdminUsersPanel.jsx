@@ -320,7 +320,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
             <label>Jenjang
               <select value={profile.education} onChange={(event) => setProfile({ ...profile, education: event.target.value })} required>
                 <option value="">Pilih jenjang</option>
-                {educationOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                {educationOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
             <label className="admin-user-institution">Lembaga <span className="optional-mark">(opsional)</span><input value={profile.institution} onChange={(event) => setProfile({ ...profile, institution: event.target.value })} maxLength={160} /></label>

@@ -1284,7 +1284,7 @@ export default function CompetitionForm({
                     : <Camera size={24} />}
                 </div>
                 <div className="competition-cover-controls">
-                  <label className="button button-outline button-small" htmlFor="competition-cover"><Upload size={15} /> Unggah poster <span className="required-mark">*</span></label>
+                  <label className="button button-outline button-small competition-cover-upload-label" htmlFor="competition-cover"><Upload size={15} /> <span>Unggah poster <span className="required-mark">*</span></span></label>
                   <input id="competition-cover" className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectCover} />
                   {(previewUrl || (!form.removeCover && form.coverUrl)) && (
                     <button className="button button-outline button-small" type="button" disabled={loadingCoverForEdit} onClick={editCurrentCover}>

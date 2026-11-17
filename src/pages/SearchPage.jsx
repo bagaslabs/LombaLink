@@ -33,7 +33,7 @@ export default function SearchPage({
     const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
     return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
       && matchesEducationFilter(item, filters.education)
-      && (!filters.category || item.category === filters.category)
+      && (!filters.category || String(item.category || "").trim().toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(filters.category.trim().toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "")))
       && (!filters.scope || item.scope === filters.scope)
       && (!filters.organizerType || item.organizerType === filters.organizerType)
       && (!filters.location || String(item.location || "").toLowerCase().includes(filters.location.toLowerCase().trim()));
@@ -90,6 +90,7 @@ export default function SearchPage({
         onRequireAccount={onRequireAccount}
         isLoggedIn={Boolean(account)}
         categoryOptions={categoryOptions}
+        competitions={competitions}
       />
     </div>
   );
