@@ -49,6 +49,8 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
   const [editingItem, setEditingItem] = useState(null);
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleteError, setDeleteError] = useState("");
+  const [rejectItem, setRejectItem] = useState(null);
+  const [rejectionNote, setRejectionNote] = useState("");
   const isCreatePage = routePath === "/admin/tambahkan-lomba";
   const moderatorName = account?.name || "Moderator";
   const visible = useMemo(() => competitions.filter((item) => (
@@ -127,19 +129,23 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     return () => { active = false; };
   }, [account.id, moderatorName, reloadKey, supabaseClient]);
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = async (id, status, note = "") => {
     setActionId(id);
     setActionError("");
     try {
       const { error: updateError } = await supabaseClient
         .from("lombalink_competitions")
-        .update({ status, reviewed_by: account.id, reviewed_at: new Date().toISOString() })
+        .update(status === "pending"
+          ? { status, reviewed_by: null, reviewed_at: null, rejection_note: null }
+          : { status, reviewed_by: account.id, reviewed_at: new Date().toISOString(), rejection_note: status === "rejected" ? note.trim() : null })
         .eq("id", id);
       if (updateError) {
         setActionError(`Status pengajuan gagal diperbarui: ${updateError.message}`);
         return false;
       }
       setReviewItem(null);
+      setRejectItem(null);
+      setRejectionNote("");
       setReloadKey((current) => current + 1);
       return true;
     } catch (updateError) {
@@ -417,7 +423,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
                       setEditingItem(item);
                     }}
                   ><Pencil size={15} /></button>
-                  {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "rejected")}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : item.status === "draft" ? <span className="reviewed-label">Belum dikirim</span> : null}
+                  {item.status === "pending" ? <><button title="Tolak pengajuan" className="reject-action" disabled={actionId === item.id} onClick={() => { setRejectionNote(""); setRejectItem(item); }}><span className="sr-only">Tolak</span><X size={16} /></button><button title="Setujui dan publikasikan" className="approve-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "approved")}><span className="sr-only">Setujui</span><Check size={16} /></button></> : item.status === "rejected" ? <button title="Kembalikan ke menunggu" className="archive-action" disabled={actionId === item.id} onClick={() => updateStatus(item.id, "pending")}><span className="sr-only">Kembalikan ke menunggu</span><ArrowLeft size={16} /></button> : item.status === "draft" ? <span className="reviewed-label">Belum dikirim</span> : null}
                   <button
                     title="Hapus lomba"
                     aria-label={`Hapus lomba ${item.title}`}
@@ -440,9 +446,20 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         moderationActions={{
           busy: actionId === reviewItem?.id,
           onApprove: () => updateStatus(reviewItem.id, "approved"),
-          onReject: () => updateStatus(reviewItem.id, "rejected"),
+          onReject: () => { setRejectionNote(""); setRejectItem(reviewItem); },
         }}
       />
+      {rejectItem && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !actionId && setRejectItem(null)}>
+        <section className="modal-card admin-rejection-modal" role="dialog" aria-modal="true" aria-labelledby="reject-title">
+          <span className="eyebrow">TINJAUAN PENGAJUAN</span>
+          <h2 id="reject-title">Tolak pengajuan?</h2>
+          <p className="modal-intro">Jelaskan alasan penolakan untuk membantu pengaju memperbaiki informasi lomba.</p>
+          <label className="admin-rejection-label" htmlFor="rejection-note">Catatan penolakan <span>(wajib)</span></label>
+          <textarea id="rejection-note" value={rejectionNote} onChange={(event) => setRejectionNote(event.target.value)} minLength={5} maxLength={1000} rows={5} placeholder="Contoh: Tautan pendaftaran tidak dapat dibuka. Mohon perbarui tautannya." required />
+          {actionError && <p className="form-error" role="alert">{actionError}</p>}
+          <div className="admin-user-confirm-actions"><button className="button button-outline" type="button" disabled={Boolean(actionId)} onClick={() => setRejectItem(null)}>Batal</button><button className="button button-primary" type="button" disabled={Boolean(actionId) || rejectionNote.trim().length < 5} onClick={() => updateStatus(rejectItem.id, "rejected", rejectionNote)}>{actionId ? "Menyimpan..." : "Tolak pengajuan"}</button></div>
+        </section>
+      </div>}
       {editingItem && (
         <div className="admin-competition-edit-backdrop">
           <section className="admin-competition-edit-dialog" role="dialog" aria-modal="true" aria-label={`Edit lomba ${editingItem.title}`}>

@@ -399,6 +399,7 @@ export default function OrganizerPage({
                           <div className="organizer-competition-title"><h3>{item.title}</h3><span className={`status-pill status-${item.status}${item.archivedAt ? " status-archived" : ""}`}>{statusLabel(item)}</span></div>
                           <p>{item.organizer} · {item.category} · Batas daftar {formatLongDate(item.deadline)}</p>
                           {item.status === "rejected" && item.reviewedAt && <small>Ditinjau {formatLongDate(item.reviewedAt.slice(0, 10))}. Perbarui informasi untuk mengirim ulang.</small>}
+                          {item.status === "rejected" && item.rejectionNote && <p className="organizer-rejection-note"><strong>Alasan penolakan:</strong> {item.rejectionNote}</p>}
                           <div className="organizer-competition-metrics"><span><Eye size={14} /> {stats.views} tampilan</span><span><ExternalLink size={14} /> {stats.registrationClicks} klik daftar</span></div>
                         </div>
                         <div className="organizer-competition-actions">

@@ -280,6 +280,7 @@ export function competitionFromRow(row) {
     submittedAt: row.submitted_at,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
+    rejectionNote: row.rejection_note || "",
   };
 }
 
