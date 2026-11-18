@@ -2,7 +2,6 @@ export const reportReasons = [
   { value: "inaccurate_information", label: "Informasi tidak akurat" },
   { value: "registration_link_issue", label: "Tautan pendaftaran bermasalah" },
   { value: "suspicious_competition", label: "Lomba mencurigakan" },
-  { value: "competition_ended", label: "Lomba sudah berakhir" },
   { value: "other", label: "Lainnya" },
 ];
 

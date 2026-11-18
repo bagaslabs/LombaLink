@@ -58,7 +58,6 @@ const reportReasonLabels = {
   inaccurate_information: "Informasi tidak akurat",
   registration_link_issue: "Masalah link pendaftaran",
   suspicious_competition: "Lomba mencurigakan",
-  competition_ended: "Lomba sudah berakhir",
   other: "Lainnya",
 };
 

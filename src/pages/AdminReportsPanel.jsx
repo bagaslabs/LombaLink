@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Flag, LoaderCircle, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Flag, LoaderCircle, RefreshCw, Trash2, XCircle } from "lucide-react";
 import { reportReasonLabel, reportStatuses } from "../reporting.js";
 
 function formatSubmittedAt(value) {
@@ -14,6 +14,7 @@ export default function AdminReportsPanel({ supabaseClient, moderatorId, onPendi
   const [notice, setNotice] = useState("");
   const [actionId, setActionId] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +106,34 @@ export default function AdminReportsPanel({ supabaseClient, moderatorId, onPendi
     }
   };
 
+  const deleteReport = async () => {
+    if (!deleteTarget) return;
+    setActionId(deleteTarget.id);
+    setError("");
+    setNotice("");
+    try {
+      const { error: deleteError } = await supabaseClient
+        .from("lombalink_competition_reports")
+        .delete()
+        .eq("id", deleteTarget.id)
+        .select("id")
+        .single();
+      if (deleteError) {
+        setError(`Laporan gagal dihapus: ${deleteError.message}`);
+        return;
+      }
+      const updatedReports = reports.filter((report) => report.id !== deleteTarget.id);
+      setReports(updatedReports);
+      onPendingCountChange(updatedReports.filter((report) => report.status === "pending").length);
+      setDeleteTarget(null);
+      setNotice("Laporan berhasil dihapus.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? `Laporan gagal dihapus: ${deleteError.message}` : "Laporan gagal dihapus.");
+    } finally {
+      setActionId("");
+    }
+  };
+
   return (
     <section className="admin-reports">
       <div className="admin-reports-heading">
@@ -156,6 +185,16 @@ export default function AdminReportsPanel({ supabaseClient, moderatorId, onPendi
                     <div className="admin-report-actions">
                       <button className="button button-outline button-small" disabled={actionId === report.id} onClick={() => reviewReport(report, "dismissed")}>Abaikan</button>
                       <button className="button button-primary button-small" disabled={actionId === report.id} onClick={() => reviewReport(report, "resolved")}>Tandai selesai</button>
+                      <button className="button button-danger button-small" type="button" disabled={actionId === report.id} onClick={() => setDeleteTarget(report)}>
+                        <Trash2 size={13} /> Hapus laporan
+                      </button>
+                    </div>
+                  )}
+                  {report.status !== "pending" && (
+                    <div className="admin-report-actions">
+                      <button className="button button-danger button-small" type="button" disabled={actionId === report.id} onClick={() => setDeleteTarget(report)}>
+                        <Trash2 size={13} /> Hapus laporan
+                      </button>
                     </div>
                   )}
                 </article>
@@ -163,6 +202,21 @@ export default function AdminReportsPanel({ supabaseClient, moderatorId, onPendi
               : <div className="admin-empty"><CheckCircle2 size={22} /><strong>Tidak ada laporan</strong><span>Belum ada laporan pada kategori ini.</span></div>}
         </div>
       </div>
+      {deleteTarget && (
+        <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !actionId && setDeleteTarget(null)}>
+          <section className="modal-card organizer-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-report-title">
+            <span className="eyebrow">HAPUS LAPORAN</span>
+            <h2 id="delete-report-title">Hapus laporan ini?</h2>
+            <p>Laporan untuk <strong>{deleteTarget.competitionTitle}</strong> akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</p>
+            <div>
+              <button className="button button-outline" type="button" disabled={Boolean(actionId)} onClick={() => setDeleteTarget(null)}>Batal</button>
+              <button className="button button-danger" type="button" disabled={Boolean(actionId)} onClick={deleteReport}>
+                {actionId ? "Menghapus..." : "Hapus laporan"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   );
 }
