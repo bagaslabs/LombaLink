@@ -911,7 +911,7 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .organizer-page-heading h1 { margin: 5px 0 5px; color: #29364f; font: 800 24px Manrope,sans-serif; letter-spacing: -.6px; }
 .organizer-page-heading p { margin: 0; color: #828ea2; font-size: 11px; line-height: 1.5; }
 .organizer-page-heading .button { flex: 0 0 auto; }
-.organizer-summary-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; }
+.organizer-summary-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 11px; }
 .organizer-summary-grid>div { display: grid; grid-template-columns: 35px 1fr; gap: 2px 9px; align-items: center; padding: 13px; border: 1px solid #e7ebf3; border-radius: 10px; background: #fff; }
 .organizer-summary-grid>div>span { display: grid; grid-row: span 2; place-items: center; width: 34px; height: 34px; border-radius: 9px; color: #5b71d4; background: #eff2ff; }
 .organizer-summary-grid small { color: #8793a7; font-size: 9px; }

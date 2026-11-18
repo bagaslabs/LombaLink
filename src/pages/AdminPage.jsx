@@ -57,14 +57,14 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     pending: "Pengajuan yang sudah dikirim dan belum ditinjau moderator.",
     approved: "Lomba yang sudah disetujui dan dapat dilihat peserta.",
     rejected: "Lomba yang ditolak beserta catatan perbaikan.",
-    draft: "Lomba yang belum dikirim untuk ditinjau; draft dapat dilanjutkan atau diedit.",
     archived: "Lomba yang disembunyikan dari publik; arsip tidak selalu draft.",
     all: "Semua lomba beserta status pengajuan dan arsipnya.",
   };
-  const visible = useMemo(() => competitions.filter((item) => (
-    tab === "all"
-      || (tab === "archived" ? Boolean(item.archivedAt) : !item.archivedAt && item.status === tab)
-  )), [competitions, tab]);
+  const visible = useMemo(() => competitions.filter((item) => {
+    if (item.status === "draft") return false;
+    return tab === "all"
+      || (tab === "archived" ? Boolean(item.archivedAt) : !item.archivedAt && item.status === tab);
+  }), [competitions, tab]);
   const sectionLabel = isCreatePage
     ? "Tambah lomba"
     : section === "users"
@@ -75,7 +75,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           ? "Log Admin"
         : ({
           archived: "Arsip",
-          draft: "Draft",
           pending: "Verifikasi",
           approved: "Lomba terbit",
           rejected: "Lomba ditolak",
@@ -95,7 +94,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     Promise.all([
       supabaseClient.from("lombalink_competitions").select("*").order("submitted_at", { ascending: false }).limit(1000),
       supabaseClient.from("lombalink_profiles").select("id, full_name"),
-      supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }),
+      supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).neq("status", "draft"),
       supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).eq("status", "pending").is("archived_at", null),
       supabaseClient.from("lombalink_competitions").select("id", { count: "exact", head: true }).eq("status", "approved").is("archived_at", null),
       supabaseClient.from("lombalink_profiles").select("id", { count: "exact", head: true }),
@@ -110,7 +109,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
       }
 
       const profileNames = new Map((profileResult.data ?? []).map((profile) => [profile.id, profile.full_name]));
-      setCompetitions((competitionResult.data ?? []).map((row) => ({
+      setCompetitions((competitionResult.data ?? []).filter((row) => row.status !== "draft").map((row) => ({
         ...competitionFromRow(row),
         coverUrl: getCompetitionCoverUrl(supabaseClient, row.cover_path),
         guidebookUrl: row.guidebook_path
@@ -373,7 +372,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           <option value="all">Ringkasan</option>
           <option value="create">Tambah Lomba</option>
           <option value="archived">Arsip</option>
-          <option value="draft">Draft</option>
           <option value="rejected">Lomba ditolak</option>
           <option value="users">Pengguna</option>
           <option value="reports">Laporan</option>
@@ -415,7 +413,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
               <button className={tab === "pending" ? "selected" : ""} title="Sudah dikirim, belum ditinjau" onClick={() => setTab("pending")}>Menunggu <span>{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
               <button className={tab === "approved" ? "selected" : ""} title="Sudah disetujui dan dapat dilihat publik" onClick={() => setTab("approved")}>Disetujui</button>
               <button className={tab === "rejected" ? "selected" : ""} title="Ditolak setelah ditinjau" onClick={() => setTab("rejected")}>Ditolak</button>
-              <button className={tab === "draft" ? "selected" : ""} title="Belum dikirim untuk ditinjau" onClick={() => setTab("draft")}>Draft <small>belum dikirim</small></button>
               <button className={tab === "archived" ? "selected" : ""} title="Disembunyikan dari publik, status sebelumnya tetap dipertahankan" onClick={() => setTab("archived")}>Arsip <small>disembunyikan</small></button>
               <button className={tab === "all" ? "selected" : ""} onClick={() => setTab("all")}>Semua</button>
             </div>

@@ -71,7 +71,7 @@ export default function OrganizerPage({
   const [analyticsError, setAnalyticsError] = useState("");
   const [notice, setNotice] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [filter, setFilter] = useState("active");
+  const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null);
@@ -155,10 +155,12 @@ export default function OrganizerPage({
   const matchingCompetitions = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("id-ID");
     return competitions.filter((item) => {
-      if (filter === "archived" ? !item.archivedAt : item.archivedAt) return false;
+      if (filter === "archived" && !item.archivedAt) return false;
+      if (filter !== "all" && filter !== "archived" && item.archivedAt) return false;
       if (filter === "drafts" && item.status !== "draft") return false;
       if (filter === "rejected" && item.status !== "rejected") return false;
-      if (filter === "active" && (item.status === "rejected" || item.status === "draft")) return false;
+      if (filter === "pending" && item.status !== "pending") return false;
+      if (filter === "all" && item.archivedAt) return false;
       return !query || `${item.title} ${item.organizer} ${item.category} ${item.keywords.join(" ")}`.toLocaleLowerCase("id-ID").includes(query);
     });
   }, [competitions, filter, search]);
@@ -379,6 +381,7 @@ export default function OrganizerPage({
                 <div><span><FileText size={17} /></span><small>Total lomba</small><strong>{competitions.length}</strong></div>
                 <div><span><Clock3 size={17} /></span><small>Menunggu verifikasi</small><strong>{competitions.filter((item) => item.status === "pending" && !item.archivedAt).length}</strong></div>
                 <div><span><CheckCircle2 size={17} /></span><small>Sedang tayang</small><strong>{publishedCompetitions.length}</strong></div>
+                <div><span><ShieldAlert size={17} /></span><small>Perlu perbaikan</small><strong>{rejectedCompetitions.length}</strong></div>
                 <div><span><Archive size={17} /></span><small>Diarsipkan</small><strong>{competitions.filter((item) => item.archivedAt).length}</strong></div>
               </div>
               {rejectedCompetitions.length > 0 && (
@@ -399,11 +402,11 @@ export default function OrganizerPage({
                   <label className="organizer-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari lomba..." /></label>
                 </div>
                 <div className="organizer-tabs">
-                  <button className={filter === "active" ? "active" : ""} title="Lomba yang sudah dikirim atau sedang tayang" onClick={() => setFilter("active")}>Aktif</button>
-                  <button className={filter === "drafts" ? "active" : ""} title="Belum dikirim untuk ditinjau" onClick={() => setFilter("drafts")}>Draft <small>belum dikirim</small></button>
-                  <button className={filter === "rejected" ? "active" : ""} title="Ditolak moderator dan perlu diperbaiki" onClick={() => setFilter("rejected")}>Perlu perbaikan <span>{rejectedCompetitions.length}</span></button>
                   <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Semua</button>
+                  <button className={filter === "drafts" ? "active" : ""} title="Belum dikirim untuk ditinjau" onClick={() => setFilter("drafts")}>Draft <small>belum dikirim</small></button>
                   <button className={filter === "archived" ? "active" : ""} title="Disembunyikan dari publik, status sebelumnya tetap dipertahankan" onClick={() => setFilter("archived")}>Arsip <small>disembunyikan</small></button>
+                  <button className={filter === "pending" ? "active" : ""} title="Sudah dikirim dan menunggu verifikasi moderator" onClick={() => setFilter("pending")}>Menunggu verifikasi</button>
+                  <button className={filter === "rejected" ? "active" : ""} title="Ditolak moderator dan perlu diperbaiki" onClick={() => setFilter("rejected")}>Perlu perbaikan</button>
                 </div>
                 {loading ? <div className="organizer-loading"><LoaderCircle className="loading-icon" size={20} /> Memuat daftar lomba...</div>
                   : matchingCompetitions.length ? <div className="organizer-competition-list">
