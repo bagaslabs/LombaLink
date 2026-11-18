@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { CompetitionCard, SearchPanel } from "../components.jsx";
 
-const emptyFilters = { keyword: "", education: "", category: "", scope: "", organizerType: "", location: "" };
+const emptyFilters = { keyword: "", education: "", category: "", scope: "", organizerType: "", location: "", participantType: "", mode: "" };
 const resultsPerPage = 4;
 const openParticipantTargets = new Set(["umum", "semua jenjang", "semua tingkat", "terbuka untuk umum"]);
 
@@ -36,7 +36,12 @@ export default function SearchPage({
       && (!filters.category || String(item.category || "").trim().toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(filters.category.trim().toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "")))
       && (!filters.scope || item.scope === filters.scope)
       && (!filters.organizerType || item.organizerType === filters.organizerType)
-      && (!filters.location || String(item.location || "").toLowerCase().includes(filters.location.toLowerCase().trim()));
+      && (!filters.location || String(item.location || "").toLowerCase().includes(filters.location.toLowerCase().trim()))
+      && (!filters.participantType
+        || (filters.participantType === "Individu" && (item.participantType === "Individu" || item.participantType === "Individu dan Tim"))
+        || (filters.participantType === "Kelompok" && (item.participantType === "Tim" || item.participantType === "Individu dan Tim"))
+        || (filters.participantType === "Campuran" && item.participantType === "Individu dan Tim"))
+      && (!filters.mode || item.mode === filters.mode);
   }), [competitions, filters]);
   const pageCount = Math.ceil(matchingCompetitions.length / resultsPerPage);
   const visibleCompetitions = matchingCompetitions.slice(

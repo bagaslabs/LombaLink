@@ -53,6 +53,14 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
   const [rejectionNote, setRejectionNote] = useState("");
   const isCreatePage = routePath === "/admin/tambahkan-lomba";
   const moderatorName = account?.name || "Moderator";
+  const tabDescriptions = {
+    pending: "Pengajuan yang sudah dikirim dan belum ditinjau moderator.",
+    approved: "Lomba yang sudah disetujui dan dapat dilihat peserta.",
+    rejected: "Lomba yang ditolak beserta catatan perbaikan.",
+    draft: "Lomba yang belum dikirim untuk ditinjau; draft dapat dilanjutkan atau diedit.",
+    archived: "Lomba yang disembunyikan dari publik; arsip tidak selalu draft.",
+    all: "Semua lomba beserta status pengajuan dan arsipnya.",
+  };
   const visible = useMemo(() => competitions.filter((item) => (
     tab === "all"
       || (tab === "archived" ? Boolean(item.archivedAt) : !item.archivedAt && item.status === tab)
@@ -402,16 +410,38 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
             <div className="admin-stat"><span className="stat-icon stat-blue"><UsersRound size={19} /></span><span className="stat-label">Profil pengguna</span><strong>{stats ? stats.profiles.toLocaleString("id-ID") : "—"}</strong><small>Data dari database</small></div>
           </div>
           <div className="admin-table-card">
-            <div className="table-heading"><div><h2>Pengajuan lomba</h2><p>Periksa kelengkapan informasi sebelum dipublikasikan.</p></div><button className="button button-outline button-small" onClick={() => setTab("all")}><SlidersHorizontal size={15} /> Semua</button></div>
-            <div className="table-tabs"><button className={tab === "pending" ? "selected" : ""} onClick={() => setTab("pending")}>Menunggu <span>{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button><button className={tab === "approved" ? "selected" : ""} onClick={() => setTab("approved")}>Disetujui</button><button className={tab === "rejected" ? "selected" : ""} onClick={() => setTab("rejected")}>Ditolak</button><button className={tab === "draft" ? "selected" : ""} onClick={() => setTab("draft")}>Draft</button><button className={tab === "archived" ? "selected" : ""} onClick={() => setTab("archived")}>Arsip</button><button className={tab === "all" ? "selected" : ""} onClick={() => setTab("all")}>Semua</button></div>
+            <div className="table-heading"><div><h2>Pengajuan lomba</h2><p>{tabDescriptions[tab]}</p></div><button className="button button-outline button-small" onClick={() => setTab("all")}><SlidersHorizontal size={15} /> Semua</button></div>
+            <div className="table-tabs">
+              <button className={tab === "pending" ? "selected" : ""} title="Sudah dikirim, belum ditinjau" onClick={() => setTab("pending")}>Menunggu <span>{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
+              <button className={tab === "approved" ? "selected" : ""} title="Sudah disetujui dan dapat dilihat publik" onClick={() => setTab("approved")}>Disetujui</button>
+              <button className={tab === "rejected" ? "selected" : ""} title="Ditolak setelah ditinjau" onClick={() => setTab("rejected")}>Ditolak</button>
+              <button className={tab === "draft" ? "selected" : ""} title="Belum dikirim untuk ditinjau" onClick={() => setTab("draft")}>Draft <small>belum dikirim</small></button>
+              <button className={tab === "archived" ? "selected" : ""} title="Disembunyikan dari publik, status sebelumnya tetap dipertahankan" onClick={() => setTab("archived")}>Arsip <small>disembunyikan</small></button>
+              <button className={tab === "all" ? "selected" : ""} onClick={() => setTab("all")}>Semua</button>
+            </div>
             {actionError && <div className="admin-users-error" role="alert">{actionError}<button onClick={() => setActionError("")}>Tutup</button></div>}
             <div className="submission-list">
               {loading ? <div className="admin-empty"><LoaderCircle size={20} className="loading-icon" /><strong>Memuat data lomba...</strong></div> : visible.length ? visible.map((item) => <article className="submission-row" key={item.id}>
                 <span className="submission-logo"><Trophy size={20} /></span>
                 <div className="submission-info"><button className="submission-title-button" onClick={() => setReviewItem(item)}>{item.title}</button><span>{item.organizer} <i>·</i> {item.category} <i>·</i> {item.education}</span><small>Diajukan oleh {item.submittedBy} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.submittedAt))}</small></div>
-                <span className={`status-pill ${item.archivedAt ? "status-archived" : `status-${item.status}`}`}>{item.archivedAt ? "Diarsipkan" : item.status === "draft" ? "Draft" : item.status === "pending" ? <><i></i> Menunggu</> : item.status === "approved" ? <><Check size={12} /> Disetujui</> : "Ditolak"}</span>
+                <span
+                  className={`status-pill ${item.archivedAt ? "status-archived" : `status-${item.status}`}`}
+                  title={item.archivedAt
+                    ? item.status === "draft" ? "Arsip — data draft yang disembunyikan dan belum dikirim" : "Arsip — disembunyikan dari publik"
+                    : item.status === "draft" ? "Draft — belum dikirim untuk ditinjau" : item.status === "pending" ? "Menunggu verifikasi moderator" : item.status === "approved" ? "Disetujui dan dapat dilihat publik" : "Ditolak oleh moderator"}
+                >
+                  {item.archivedAt
+                    ? item.status === "draft" ? "Arsip · Draft" : "Diarsipkan"
+                    : item.status === "draft"
+                      ? "Draft"
+                      : item.status === "pending"
+                        ? <><i></i> Menunggu</>
+                        : item.status === "approved"
+                          ? <><Check size={12} /> Disetujui</>
+                          : "Ditolak"}
+                </span>
                 <div className="submission-actions">
-                  <button title={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} className="archive-action" disabled={actionId === item.id} onClick={() => toggleArchive(item)}><span className="sr-only">{item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"}</span><Archive size={16} /></button>
+                  <button title={item.archivedAt ? "Kembalikan dari arsip agar status sebelumnya aktif kembali" : "Arsipkan lomba untuk disembunyikan dari publik"} className="archive-action" disabled={actionId === item.id} onClick={() => toggleArchive(item)}><span className="sr-only">{item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"}</span><Archive size={16} /></button>
                   <button
                     type="button"
                     title="Edit lomba"

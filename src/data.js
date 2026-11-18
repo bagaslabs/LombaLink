@@ -30,7 +30,7 @@ export const competitionFieldOptions = [
   "Seni dan Budaya",
   "Lainnya",
 ];
-export const participantTypeOptions = ["Individu", "Tim"];
+export const participantTypeOptions = ["Individu", "Tim", "Individu dan Tim"];
 export const targetParticipantOptions = ["SD / MI", "SMP / MTs", "SMA / SMK / MA", "Mahasiswa", "Umum"];
 export const scopeOptions = ["Kabupaten/Kota", "Provinsi", "Nasional", "Internasional"];
 export const provinceOptions = [
@@ -152,6 +152,7 @@ export const birthYearOptions = Array.from(
 export const defaultPreferences = {
   categories: [],
   level: "",
+  targetParticipant: "",
 };
 
 const preferenceLocationAliases = { Daerah: "Kabupaten/Kota" };
@@ -213,6 +214,7 @@ export function accountFromUser(user, profileAccountType) {
         : typeof preferences.locationScope === "string"
           ? preferenceLocationAliases[preferences.locationScope] || preferences.locationScope
           : "",
+      targetParticipant: typeof preferences.targetParticipant === "string" ? preferences.targetParticipant : "",
     },
     accountType,
     role: user.app_metadata?.role === "moderator" ? "moderator" : accountType || "unselected",

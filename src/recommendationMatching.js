@@ -74,3 +74,15 @@ export function matchesCompetitionLevel(preference, item) {
   const competitionRank = competitionLevelRank[normalizeRecommendationText(item.scope)];
   return Boolean(preferredRank && competitionRank && competitionRank >= preferredRank);
 }
+
+export function matchesTargetParticipant(preference, item) {
+  if (!preference) return true;
+  const preferred = normalizeRecommendationText(preference);
+  const targets = (Array.isArray(item.targetParticipants) ? item.targetParticipants : [])
+    .map(normalizeRecommendationText)
+    .filter(Boolean);
+  if (targets.length) return targets.some((target) => target === preferred || target.includes(preferred) || preferred.includes(target));
+
+  const legacyEducation = normalizeRecommendationText(item.education);
+  return Boolean(legacyEducation && (legacyEducation === preferred || legacyEducation.includes(preferred) || preferred.includes(legacyEducation)));
+}

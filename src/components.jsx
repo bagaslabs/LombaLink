@@ -29,7 +29,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { formatDate, organizerOptions, provinceOptions, scopeOptions, targetParticipantOptions } from "./data.js";
+import { competitionModeOptions, formatDate, organizerOptions, provinceOptions, scopeOptions, targetParticipantOptions } from "./data.js";
 import { reportReasons } from "./reporting.js";
 
 function getExternalContactUrl(url, fallback = "") {
@@ -595,6 +595,20 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
         </div>
         <label className="filter-select"><Globe2 size={15} /><span className="sr-only">Cakupan lomba</span>
           <select value={filters.scope} onChange={updateScope}><option value="">Semua cakupan</option><option value="Daerah">Daerah (data lama)</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />
+        </label>
+        <label className="filter-select"><UsersRound size={15} /><span className="sr-only">Jenis partisipasi</span>
+          <select value={filters.participantType} onChange={update("participantType")}>
+            <option value="">Semua partisipasi</option>
+            <option value="Individu">Individu</option>
+            <option value="Kelompok">Kelompok</option>
+            <option value="Campuran">Campuran</option>
+          </select><ChevronDown size={14} />
+        </label>
+        <label className="filter-select"><Globe2 size={15} /><span className="sr-only">Mode pelaksanaan</span>
+          <select value={filters.mode} onChange={update("mode")}>
+            <option value="">Semua mode</option>
+            {competitionModeOptions.map((option) => <option key={option}>{option}</option>)}
+          </select><ChevronDown size={14} />
         </label>
         <label className="filter-select"><Building2 size={15} /><span className="sr-only">Jenis penyelenggara</span>
           <select value={filters.organizerType} onChange={update("organizerType")}><option value="">Semua penyelenggara</option>{organizerOptions.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={14} />

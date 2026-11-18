@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  ShieldAlert,
   Trash2,
 } from "lucide-react";
 import { Brand, ThemeToggle } from "../components.jsx";
@@ -73,6 +74,7 @@ export default function OrganizerPage({
   const [filter, setFilter] = useState("active");
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [archiveTarget, setArchiveTarget] = useState(null);
   const [actionId, setActionId] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(5);
   const competitionsLoadedRef = useRef(false);
@@ -155,11 +157,13 @@ export default function OrganizerPage({
     return competitions.filter((item) => {
       if (filter === "archived" ? !item.archivedAt : item.archivedAt) return false;
       if (filter === "drafts" && item.status !== "draft") return false;
+      if (filter === "rejected" && item.status !== "rejected") return false;
       if (filter === "active" && (item.status === "rejected" || item.status === "draft")) return false;
       return !query || `${item.title} ${item.organizer} ${item.category} ${item.keywords.join(" ")}`.toLocaleLowerCase("id-ID").includes(query);
     });
   }, [competitions, filter, search]);
   const publishedCompetitions = competitions.filter((item) => item.status === "approved" && !item.archivedAt);
+  const rejectedCompetitions = competitions.filter((item) => item.status === "rejected" && !item.archivedAt);
   const totalViews = Object.values(analytics).reduce((total, item) => total + item.views, 0);
   const totalClicks = Object.values(analytics).reduce((total, item) => total + item.registrationClicks, 0);
   const activeTitle = routePath === "/lomba/tambahkan" ? (editId ? "Ubah lomba" : "Tambahkan lomba") : pageDetails[currentPage].title;
@@ -194,6 +198,7 @@ export default function OrganizerPage({
       values.status = "pending";
       values.reviewed_by = null;
       values.reviewed_at = null;
+      values.rejection_note = null;
     }
     let result;
     try {
@@ -376,16 +381,29 @@ export default function OrganizerPage({
                 <div><span><CheckCircle2 size={17} /></span><small>Sedang tayang</small><strong>{publishedCompetitions.length}</strong></div>
                 <div><span><Archive size={17} /></span><small>Diarsipkan</small><strong>{competitions.filter((item) => item.archivedAt).length}</strong></div>
               </div>
+              {rejectedCompetitions.length > 0 && (
+                <section className="organizer-rejection-box" aria-labelledby="rejected-heading">
+                  <span className="organizer-rejection-icon"><ShieldAlert size={19} /></span>
+                  <div>
+                    <h2 id="rejected-heading">Perlu perbaikan · {rejectedCompetitions.length} lomba ditolak</h2>
+                    {rejectedCompetitions.slice(0, 2).map((item) => (
+                      <p key={item.id}><strong>{item.title}</strong>{item.rejectionNote ? `: ${item.rejectionNote}` : ": Periksa kembali informasi lomba."}</p>
+                    ))}
+                  </div>
+                  <button className="button button-outline button-small" type="button" onClick={() => setFilter("rejected")}>Lihat pengajuan ditolak <ArrowRight size={14} /></button>
+                </section>
+              )}
               <div className="organizer-list-card">
                 <div className="organizer-list-heading">
                   <div><h2>Daftar lomba</h2><p>{matchingCompetitions.length} lomba ditampilkan</p></div>
                   <label className="organizer-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari lomba..." /></label>
                 </div>
                 <div className="organizer-tabs">
-                  <button className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")}>Aktif</button>
-                  <button className={filter === "drafts" ? "active" : ""} onClick={() => setFilter("drafts")}>Draft</button>
+                  <button className={filter === "active" ? "active" : ""} title="Lomba yang sudah dikirim atau sedang tayang" onClick={() => setFilter("active")}>Aktif</button>
+                  <button className={filter === "drafts" ? "active" : ""} title="Belum dikirim untuk ditinjau" onClick={() => setFilter("drafts")}>Draft <small>belum dikirim</small></button>
+                  <button className={filter === "rejected" ? "active" : ""} title="Ditolak moderator dan perlu diperbaiki" onClick={() => setFilter("rejected")}>Perlu perbaikan <span>{rejectedCompetitions.length}</span></button>
                   <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Semua</button>
-                  <button className={filter === "archived" ? "active" : ""} onClick={() => setFilter("archived")}>Arsip</button>
+                  <button className={filter === "archived" ? "active" : ""} title="Disembunyikan dari publik, status sebelumnya tetap dipertahankan" onClick={() => setFilter("archived")}>Arsip <small>disembunyikan</small></button>
                 </div>
                 {loading ? <div className="organizer-loading"><LoaderCircle className="loading-icon" size={20} /> Memuat daftar lomba...</div>
                   : matchingCompetitions.length ? <div className="organizer-competition-list">
@@ -396,7 +414,12 @@ export default function OrganizerPage({
                           {item.coverUrl ? <img src={item.coverUrl} alt="" /> : <ShieldCheck size={23} />}
                         </div>
                         <div className="organizer-competition-info">
-                          <div className="organizer-competition-title"><h3>{item.title}</h3><span className={`status-pill status-${item.status}${item.archivedAt ? " status-archived" : ""}`}>{statusLabel(item)}</span></div>
+                          <div className="organizer-competition-title"><h3>{item.title}</h3><span
+                            className={`status-pill status-${item.status}${item.archivedAt ? " status-archived" : ""}`}
+                            title={item.archivedAt
+                              ? item.status === "draft" ? "Arsip — draft yang disembunyikan dan belum dikirim" : "Arsip — lomba disembunyikan dari publik"
+                              : item.status === "draft" ? "Draft — belum dikirim untuk ditinjau" : item.status === "pending" ? "Menunggu verifikasi moderator" : item.status === "approved" ? "Disetujui dan sedang tayang" : "Perlu perbaikan"}
+                          >{item.archivedAt && item.status === "draft" ? "Arsip · Draft" : statusLabel(item)}</span></div>
                           <p>{item.organizer} · {item.category} · Batas daftar {formatLongDate(item.deadline)}</p>
                           {item.status === "rejected" && item.reviewedAt && <small>Ditinjau {formatLongDate(item.reviewedAt.slice(0, 10))}. Perbarui informasi untuk mengirim ulang.</small>}
                           {item.status === "rejected" && item.rejectionNote && <p className="organizer-rejection-note"><strong>Alasan penolakan:</strong> {item.rejectionNote}</p>}
@@ -404,7 +427,7 @@ export default function OrganizerPage({
                         </div>
                         <div className="organizer-competition-actions">
                           <button title="Ubah lomba" aria-label="Ubah lomba" disabled={Boolean(actionId)} onClick={() => navigate(`/lomba/tambahkan?edit=${item.id}`)}><FileText size={16} /></button>
-                          <button title={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} aria-label={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} disabled={actionId === item.id} onClick={() => toggleArchive(item)}><Archive size={16} /></button>
+                          <button title={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} aria-label={item.archivedAt ? "Kembalikan dari arsip" : "Arsipkan lomba"} disabled={actionId === item.id} onClick={() => item.archivedAt ? toggleArchive(item) : setArchiveTarget(item)}><Archive size={16} /></button>
                           <button className="danger" title="Hapus lomba" aria-label="Hapus lomba" disabled={Boolean(actionId)} onClick={() => setDeleteTarget(item)}><Trash2 size={16} /></button>
                         </div>
                       </article>;
@@ -453,6 +476,15 @@ export default function OrganizerPage({
         </div>
       </section>
 
+      {archiveTarget && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !actionId && setArchiveTarget(null)}>
+        <section className="modal-card organizer-delete-dialog organizer-archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-competition-title">
+          <span className="eyebrow">SIMPAN KE ARSIP</span>
+          <h2 id="archive-competition-title">Arsipkan lomba ini?</h2>
+          <p><strong>{archiveTarget.title}</strong> akan <strong>hilang dari publik</strong> dan tidak lagi tampil pada pencarian peserta.</p>
+          <p>Jika melakukan pengeditan setelah lomba disimpan ke arsip, perubahan akan dikirim untuk <strong>verifikasi ulang moderator</strong> sebelum tayang kembali.</p>
+          <div><button className="button button-outline" disabled={Boolean(actionId)} onClick={() => setArchiveTarget(null)}>Batal</button><button className="button button-primary" disabled={Boolean(actionId)} onClick={() => { const item = archiveTarget; setArchiveTarget(null); toggleArchive(item); }}><Archive size={15} /> Arsipkan lomba</button></div>
+        </section>
+      </div>}
       {deleteTarget && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !actionId && setDeleteTarget(null)}>
         <section className="modal-card organizer-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-competition-title">
           <span className="eyebrow">HAPUS PERMANEN</span>

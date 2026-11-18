@@ -445,6 +445,7 @@ export default function CompetitionForm({
   const [fieldSuggestionsOpen, setFieldSuggestionsOpen] = useState(false);
   const [typeSuggestionsOpen, setTypeSuggestionsOpen] = useState(false);
   const [organizerSuggestionsOpen, setOrganizerSuggestionsOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const formRef = useRef(null);
   const descriptionRef = useRef(null);
   const requirementsRef = useRef(null);
@@ -461,7 +462,10 @@ export default function CompetitionForm({
   const isProvinceScope = form.scope === "Provinsi";
   const isCityScope = form.scope === "Kabupaten/Kota" || form.scope === "Daerah";
   const canSaveAsDraft = !isModerator && (!isEditing || initialCompetition.status === "draft");
-  const canArchiveFromForm = !isEditing || initialCompetition.status === "draft";
+  const canArchiveFromForm = !isModerator
+    && isEditing
+    && initialCompetition.status === "approved"
+    && !initialCompetition.archivedAt;
   const normalizedKeywordInput = normalizeKeywordTag(form.keywordInput);
   const fieldInputValue = form.field === "Lainnya" ? form.customField : form.field;
   const competitionTypeInputValue = form.competitionType === "Lainnya"
@@ -1807,7 +1811,7 @@ export default function CompetitionForm({
           <button className="button button-quiet" type="button" onClick={onCancel}>Batal</button>
           <div className="competition-form-utility-actions">
             {canSaveAsDraft && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => submitWithAction("draft")}><Save size={15} /> Simpan draft</button>}
-            {canArchiveFromForm && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => submitWithAction("archive")}><Archive size={15} /> Simpan ke arsip</button>}
+            {canArchiveFromForm && <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => setArchiveConfirmOpen(true)}><Archive size={15} /> Simpan ke arsip</button>}
           </div>
           <button ref={submitButtonRef} className="button button-primary" type="submit" disabled={busy}>
             {busy
@@ -1917,6 +1921,22 @@ export default function CompetitionForm({
           </div>
         )}
       </form>
+      {archiveConfirmOpen && (
+        <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setArchiveConfirmOpen(false)}>
+          <section className="modal-card organizer-archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-competition-title">
+            <span className="eyebrow">SIMPAN KE ARSIP</span>
+            <h2 id="archive-competition-title">Arsipkan lomba ini?</h2>
+            <p>Lomba ini akan <strong>hilang dari publik</strong> dan tidak lagi tampil pada pencarian peserta.</p>
+            <p>Jika informasi lomba diedit setelah disimpan ke arsip, perubahan harus <strong>diverifikasi ulang oleh moderator</strong> sebelum dapat tayang kembali.</p>
+            <div className="organizer-delete-dialog-actions">
+              <button className="button button-outline" type="button" disabled={busy} onClick={() => setArchiveConfirmOpen(false)}>Batal</button>
+              <button className="button button-primary" type="button" disabled={busy} onClick={() => { setArchiveConfirmOpen(false); submitWithAction("archive"); }}>
+                <Archive size={15} /> Arsipkan lomba
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

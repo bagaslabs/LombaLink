@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, LoaderCircle, SlidersHorizontal } from "lucide-react";
 import { ThemeToggle } from "../components.jsx";
-import { competitionFieldOptions, defaultPreferences, scopeOptions } from "../data.js";
-import { hasRegistrationAvailable, matchesCompetitionLevel, recommendationTopicScore } from "../recommendationMatching.js";
+import { competitionFieldOptions, defaultPreferences, scopeOptions, targetParticipantOptions } from "../data.js";
+import { hasRegistrationAvailable, matchesCompetitionLevel, matchesTargetParticipant, recommendationTopicScore } from "../recommendationMatching.js";
 
 const recommendationTopics = [
   "Pemrograman", "Pengembangan Web", "Pengembangan Aplikasi", "Software Engineering", "Hackathon",
@@ -27,8 +27,8 @@ export default function PersonalizationPage({ account, categoryOptions, competit
   const topicOptions = [...new Set([...categoryOptions, ...competitionFieldOptions, ...recommendationTopics])];
   const selectedTopics = Array.isArray(form.categories) ? form.categories : [];
   const availableCompetitions = useMemo(
-    () => competitions.filter((item) => hasRegistrationAvailable(item) && matchesCompetitionLevel(form.level, item)),
-    [competitions, form.level],
+    () => competitions.filter((item) => hasRegistrationAvailable(item) && matchesCompetitionLevel(form.level, item) && matchesTargetParticipant(form.targetParticipant, item)),
+    [competitions, form.level, form.targetParticipant],
   );
   const countCompetitionsForTopic = (topic) => availableCompetitions
     .filter((item) => recommendationTopicScore(topic, item) > 0).length;
@@ -78,7 +78,7 @@ export default function PersonalizationPage({ account, categoryOptions, competit
           <span className="profile-settings-icon"><SlidersHorizontal size={22} /></span>
           <span className="eyebrow">PERSONALISASI</span>
           <h1>Atur rekomendasimu</h1>
-        <p>Pilih beberapa bidang yang kamu minati dan tingkatan lomba yang ingin diikuti. Keduanya boleh dikosongkan.</p>
+        <p>Pilih bidang, jenis peserta, dan tingkatan lomba yang ingin diikuti. Semua pilihan boleh dikosongkan.</p>
         </div>
         <form className="profile-form grid grid-cols-1 gap-4 sm:grid-cols-2" onSubmit={submit}>
           <div className="profile-topic-field">
@@ -145,6 +145,12 @@ export default function PersonalizationPage({ account, categoryOptions, competit
             <select value={form.level} onChange={(event) => setForm((current) => ({ ...current, level: event.target.value }))}>
               <option value="">Semua tingkatan</option>
               {scopeOptions.map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label>Jenis peserta
+            <select value={form.targetParticipant} onChange={(event) => setForm((current) => ({ ...current, targetParticipant: event.target.value }))}>
+              <option value="">Semua peserta</option>
+              {targetParticipantOptions.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
           {error && <p className="form-error sm:col-span-2" role="alert">{error}</p>}

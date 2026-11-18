@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { CompetitionCard } from "../components.jsx";
 import { defaultPreferences } from "../data.js";
-import { hasRegistrationAvailable, matchesCompetitionLevel, recommendationTopicScore } from "../recommendationMatching.js";
+import { hasRegistrationAvailable, matchesCompetitionLevel, matchesTargetParticipant, recommendationTopicScore } from "../recommendationMatching.js";
 
 const recommendationsPerPage = 4;
 
@@ -11,7 +11,8 @@ function matchesPreferences(preferences, item) {
     ? preferences.categories
     : preferences.category ? [preferences.category] : [];
   if (categories.length && !categories.some((category) => recommendationTopicScore(category, item) > 0)) return false;
-  return matchesCompetitionLevel(preferences.level || preferences.locationScope || "", item);
+  return matchesCompetitionLevel(preferences.level || preferences.locationScope || "", item)
+    && matchesTargetParticipant(preferences.targetParticipant || "", item);
 }
 
 function recommendationScore(preferences, item) {
@@ -19,7 +20,9 @@ function recommendationScore(preferences, item) {
     ? preferences.categories
     : preferences.category ? [preferences.category] : [];
   const topicScore = categories.reduce((score, category) => score + recommendationTopicScore(category, item), 0);
-  return topicScore + (preferences.level || preferences.locationScope ? 2 : 0);
+  return topicScore
+    + (preferences.level || preferences.locationScope ? 2 : 0)
+    + (preferences.targetParticipant ? 1 : 0);
 }
 
 export default function RecommendationsPage({
@@ -33,7 +36,7 @@ export default function RecommendationsPage({
 }) {
   const [page, setPage] = useState(1);
   const preferences = account?.preferences || defaultPreferences;
-  const hasPreferences = Boolean((preferences.categories || []).length || preferences.category?.trim() || preferences.level || preferences.locationScope);
+  const hasPreferences = Boolean((preferences.categories || []).length || preferences.category?.trim() || preferences.level || preferences.locationScope || preferences.targetParticipant);
   const recommendations = useMemo(() => {
     if (!account || !hasPreferences) return [];
     const scoredCompetitions = competitions
