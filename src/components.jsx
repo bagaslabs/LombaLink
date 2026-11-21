@@ -323,6 +323,10 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
   const [posterOpen, setPosterOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
   const [shareError, setShareError] = useState("");
+  const [sharingPoster, setSharingPoster] = useState(false);
+  const [posterPreparing, setPosterPreparing] = useState(false);
+  const [posterPreparationError, setPosterPreparationError] = useState("");
+  const [preparedPoster, setPreparedPoster] = useState(null);
   const [trackingError, setTrackingError] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState(reportReasons[0].value);
@@ -345,12 +349,45 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
   useEffect(() => {
     setShareNotice("");
     setShareError("");
+    setSharingPoster(false);
+    setPosterPreparationError("");
     setReportOpen(false);
     setReportReason(reportReasons[0].value);
     setReportDescription("");
     setReportError("");
     setReportNotice("");
   }, [item?.id]);
+
+  useEffect(() => {
+    let active = true;
+    setPreparedPoster(null);
+    setPosterPreparationError("");
+    if (!item?.coverUrl) {
+      setPosterPreparing(false);
+      return () => { active = false; };
+    }
+
+    setPosterPreparing(true);
+    fetch(item.coverUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Poster gagal diunduh (${response.status}).`);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (!blob.type.startsWith("image/")) throw new Error("Respons poster bukan berkas gambar.");
+        const extension = blob.type === "image/jpeg" ? "jpg" : blob.type.split("/")[1]?.split("+")[0] || "img";
+        const file = new File([blob], `poster-lombalink.${extension}`, { type: blob.type });
+        if (active) setPreparedPoster({ url: item.coverUrl, file });
+      })
+      .catch(() => {
+        if (active) setPosterPreparationError("Poster tidak dapat disiapkan untuk dibagikan sebagai gambar.");
+      })
+      .finally(() => {
+        if (active) setPosterPreparing(false);
+      });
+
+    return () => { active = false; };
+  }, [item?.id, item?.coverUrl]);
 
   if (!item) return null;
   const fees = Array.isArray(item.feeTiers) ? item.feeTiers : [];
@@ -367,16 +404,60 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
       }]
       : [];
   const competitionUrl = new URL(`/kompetisi/${encodeURIComponent(item.id)}`, window.location.origin).href;
-  const posterLink = item.coverUrl ? `Poster lomba: ${item.coverUrl}` : "";
+  const preparedPosterFile = preparedPoster?.url === item.coverUrl ? preparedPoster.file : null;
   const description = String(item.description || item.tagline || "").replace(/\s+/g, " ").trim();
   const descriptionPreview = description.length > 500 ? `${description.slice(0, 497).trimEnd()}...` : description;
-  const whatsappMessage = [
+  const shareCaption = [
     `🏆 ${item.title}`,
     descriptionPreview,
-    posterLink,
     `Lihat detail lomba di LombaLink: ${competitionUrl}`,
   ].filter(Boolean).join("\n\n");
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+  const sharePosterImage = async () => {
+    setShareNotice("");
+    setShareError("");
+
+    if (!item.coverUrl) {
+      setShareError("Poster lomba ini belum tersedia untuk dibagikan sebagai gambar.");
+      return;
+    }
+    if (!preparedPosterFile) {
+      setShareError(posterPreparationError || "Poster masih disiapkan. Coba lagi sebentar.");
+      return;
+    }
+    if (typeof navigator.share !== "function" || typeof navigator.canShare !== "function") {
+      setShareError("Browser atau perangkat ini belum mendukung berbagi gambar langsung. Coba dari browser di ponsel.");
+      return;
+    }
+
+    let supportsPosterSharing = false;
+    try {
+      supportsPosterSharing = navigator.canShare({ files: [preparedPosterFile] });
+    } catch {
+      supportsPosterSharing = false;
+    }
+    if (!supportsPosterSharing) {
+      setShareError("Browser ini belum mendukung berbagi file gambar. Coba dari browser di ponsel.");
+      return;
+    }
+
+    setSharingPoster(true);
+    try {
+      await navigator.share({
+        files: [preparedPosterFile],
+        title: item.title,
+        text: shareCaption,
+      });
+      setShareNotice("Poster berhasil dibagikan.");
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        setShareNotice("Berbagi poster dibatalkan.");
+      } else {
+        setShareError("Poster tidak dapat dikirim sebagai gambar. Periksa koneksi dan coba lagi.");
+      }
+    } finally {
+      setSharingPoster(false);
+    }
+  };
   const copyCompetitionLink = async () => {
     setShareNotice("");
     setShareError("");
@@ -427,10 +508,10 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
         <span className="eyebrow"><Trophy size={14} /> INFORMASI LOMBA</span>
         <div className="competition-detail-share-actions" aria-label="Bagikan lomba">
           <button className="button button-outline" type="button" onClick={copyCompetitionLink}><Link2 size={15} /> Salin tautan</button>
-          <a className="button competition-share-whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Bagikan lomba lewat WhatsApp"><MessageCircle size={16} /> WhatsApp</a>
+          <button className="button competition-share-whatsapp" type="button" onClick={sharePosterImage} disabled={sharingPoster || posterPreparing || Boolean(item.coverUrl && !preparedPosterFile && !posterPreparationError)} aria-label="Bagikan poster sebagai gambar"><MessageCircle size={16} />{sharingPoster || posterPreparing || Boolean(item.coverUrl && !preparedPosterFile && !posterPreparationError) ? "Menyiapkan poster..." : "Bagikan poster"}</button>
         </div>
         {shareNotice && <p className="competition-share-feedback" role="status">{shareNotice}</p>}
-        {shareError && <p className="competition-share-feedback is-error" role="alert">{shareError}</p>}
+        {(shareError || posterPreparationError) && <p className="competition-share-feedback is-error" role="alert">{shareError || posterPreparationError}</p>}
         {item.coverUrl && <button className="competition-detail-cover-button" type="button" aria-label={`Perbesar poster ${item.title}`} onClick={() => setPosterOpen(true)}><img className="competition-detail-cover" src={item.coverUrl} alt={`Poster ${item.title}`} /></button>}
         <h2 id="detail-title">{item.title}</h2>
         <p className="detail-organizer"><Building2 size={16} /> {item.organizer}</p>
