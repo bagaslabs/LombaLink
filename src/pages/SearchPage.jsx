@@ -16,9 +16,7 @@ function matchesEducationFilter(item, education) {
 }
 
 export default function SearchPage({
-  account,
   navigate,
-  onRequireAccount,
   competitions,
   competitionsLoading,
   competitionsError,
@@ -58,10 +56,6 @@ export default function SearchPage({
   }, [pageCount]);
 
   const search = () => {
-    if (!account) {
-      onRequireAccount(false, true);
-      return;
-    }
     setHasSearched(true);
   };
 
@@ -92,8 +86,6 @@ export default function SearchPage({
         filters={filters}
         setFilters={setFilters}
         onSearch={search}
-        onRequireAccount={onRequireAccount}
-        isLoggedIn={Boolean(account)}
         categoryOptions={categoryOptions}
         competitions={competitions}
       />

@@ -667,7 +667,6 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 }
 .card-art { position: relative; overflow: hidden; }
 .card-cover-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .8; }
-.card-cover-zoom { position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
 .competition-card-badges { position: absolute; z-index: 2; inset: 12px 12px auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; pointer-events: none; }
 .competition-card-fee-badge,.competition-card-registration-badge { display: inline-flex; align-items: center; gap: 4px; max-width: 65%; padding: 5px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
 .competition-card-fee-badge { color: #17233c; background: #fff; }
@@ -698,7 +697,7 @@ html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #
 .competition-recommendation-all { justify-self: start; min-height: 34px; font-size: 9px; }
 .competition-detail-main { padding: 22px; }
 .competition-detail-back { min-height: 32px; margin: 0 0 16px; font-size: 10px; }
-.competition-detail-main .competition-detail-content h2 { margin-top: 9px; font-size: 27px; }
+.competition-detail-main .competition-detail-content h2 { margin-top: 9px; font-size: 27px; font-weight: 800; }
 .competition-detail-state { display: grid; min-height: 60vh; place-items: center; padding: 28px; color: #7d89a0; text-align: center; }
 .competition-detail-state h1 { margin: 0 0 8px; color: #34415b; font: 800 22px Manrope,sans-serif; }
 .competition-detail-state p { margin: 0 0 16px; color: #8793a7; font-size: 11px; line-height: 1.6; }
@@ -1210,8 +1209,14 @@ html[data-theme="dark"] .competition-form-actions { background: #111b2d; }
 .competition-card-tagline { display: block; width: 100%; min-width: 0; margin: 0; color: #78859b; font-size: 13px; line-height: 1.65; white-space: normal; overflow-wrap: anywhere; }
 .competition-card .card-bottom { justify-content: flex-end; margin-top: 0; padding-top: 0; border-top: 0; }
 .competition-card-details-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 6px 11px; border: 1px solid #dfe5f2; border-radius: 8px; color: #526dc1; background: #f7f8fc; font-size: 10px; font-weight: 700; line-height: 1.2; }
-.competition-card-details-button:hover { border-color: #b7c7ff; background: #eff2ff; }
+.competition-card:hover .competition-card-details-button { border-color: #b7c7ff; background: #eff2ff; }
 .competition-detail-cover-button { display: block; width: fit-content; max-width: 100%; margin: 0 auto 17px; padding: 0; overflow: hidden; border: 0; border-radius: 12px; background: transparent; cursor: zoom-in; }
+.competition-card:focus-visible { outline: 3px solid #97b1ff; outline-offset: 3px; }
+.competition-detail-share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+.competition-share-whatsapp { border-color: #b6e3c2; color: #16803c; background: #f0fbf3; }
+.competition-share-whatsapp:hover { border-color: #78ca90; color: #116b31; background: #e5f8eb; }
+.competition-share-feedback { margin: -4px 0 12px; color: #41805a; font-size: 11px; }
+.competition-share-feedback.is-error { color: #a64e4e; }
 .competition-detail-cover { display: block; width: auto; max-width: 100%; max-height: min(65vh,720px); object-fit: contain; }
 .poster-lightbox { position: fixed; z-index: 120; inset: 0; display: grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items: center; overflow: auto; padding: 16px; background: #080d18ed; cursor: zoom-out; }
 .poster-lightbox img { display: block; width: auto; height: auto; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); object-fit: contain; box-shadow: 0 12px 50px #0008; }

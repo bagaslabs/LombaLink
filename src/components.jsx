@@ -14,6 +14,7 @@ import {
   FileText,
   Flag,
   Instagram,
+  Link2,
   MapPin,
   Mail,
   MessageCircle,
@@ -141,7 +142,6 @@ function PosterLightbox({ imageUrl, imageAlt, onClose }) {
 
 export function CompetitionCard({ item, onDetails }) {
   const [coverAspectRatio, setCoverAspectRatio] = useState("9 / 16");
-  const [posterOpen, setPosterOpen] = useState(false);
   const cardRef = useRef(null);
   const contentRef = useRef(null);
   const nearestBatch = getNearestRegistrationBatch(item);
@@ -191,23 +191,31 @@ export function CompetitionCard({ item, onDetails }) {
   }, [coverAspectRatio, item.coverUrl]);
 
   return (
-    <article className="competition-card" ref={cardRef}>
+    <a
+      className="competition-card"
+      href={`/kompetisi/${encodeURIComponent(item.id)}`}
+      aria-label={`Buka detail lomba ${item.title}`}
+      ref={cardRef}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onDetails(item);
+      }}
+    >
       <div
         className={`card-art ${item.color || "blue"}${item.coverUrl ? " has-cover" : ""}`}
         style={item.coverUrl ? { "--card-cover-aspect": coverAspectRatio } : undefined}
       >
         {item.coverUrl && (
-          <button className="card-cover-zoom" type="button" aria-label={`Perbesar poster ${item.title}`} onClick={() => setPosterOpen(true)}>
-            <img
-              className="card-cover-image"
-              src={item.coverUrl}
-              alt=""
-              onLoad={(event) => {
-                const { naturalWidth, naturalHeight } = event.currentTarget;
-                if (naturalWidth && naturalHeight) setCoverAspectRatio(`${naturalWidth} / ${naturalHeight}`);
-              }}
-            />
-          </button>
+          <img
+            className="card-cover-image"
+            src={item.coverUrl}
+            alt=""
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth && naturalHeight) setCoverAspectRatio(`${naturalWidth} / ${naturalHeight}`);
+            }}
+          />
         )}
         <div className="competition-card-badges">
           <span className={`competition-card-fee-badge${feeType === "Berbayar" ? " is-paid" : ""}`}>{feeType === "Berbayar" ? "Berbayar" : "Gratis"}</span>
@@ -240,13 +248,12 @@ export function CompetitionCard({ item, onDetails }) {
         </div>
         {item.tagline && <p className="competition-card-tagline">{item.tagline}</p>}
         <div className="card-bottom">
-          <button className="competition-card-details-button" type="button" onClick={() => onDetails(item)}>
+          <span className="competition-card-details-button">
             Detail selengkapnya <ArrowRight size={14} />
-          </button>
+          </span>
         </div>
       </div>
-      {posterOpen && <PosterLightbox imageUrl={item.coverUrl} imageAlt={`Poster ${item.title}`} onClose={() => setPosterOpen(false)} />}
-    </article>
+    </a>
   );
 }
 
@@ -314,6 +321,8 @@ function CompetitionDescription({ value }) {
 
 export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLoggedIn, onRequireLogin, moderationActions }) {
   const [posterOpen, setPosterOpen] = useState(false);
+  const [shareNotice, setShareNotice] = useState("");
+  const [shareError, setShareError] = useState("");
   const [trackingError, setTrackingError] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState(reportReasons[0].value);
@@ -334,6 +343,8 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
   }, [item?.id, onTrackEvent]);
 
   useEffect(() => {
+    setShareNotice("");
+    setShareError("");
     setReportOpen(false);
     setReportReason(reportReasons[0].value);
     setReportDescription("");
@@ -355,6 +366,28 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
         instagramUrl: "",
       }]
       : [];
+  const competitionUrl = new URL(`/kompetisi/${encodeURIComponent(item.id)}`, window.location.origin).href;
+  const posterLink = item.coverUrl ? `Poster lomba: ${item.coverUrl}` : "";
+  const description = String(item.description || item.tagline || "").replace(/\s+/g, " ").trim();
+  const descriptionPreview = description.length > 500 ? `${description.slice(0, 497).trimEnd()}...` : description;
+  const whatsappMessage = [
+    `🏆 ${item.title}`,
+    descriptionPreview,
+    posterLink,
+    `Lihat detail lomba di LombaLink: ${competitionUrl}`,
+  ].filter(Boolean).join("\n\n");
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
+  const copyCompetitionLink = async () => {
+    setShareNotice("");
+    setShareError("");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API tidak tersedia.");
+      await navigator.clipboard.writeText(competitionUrl);
+      setShareNotice("Tautan lomba berhasil disalin.");
+    } catch {
+      setShareError("Tautan tidak dapat disalin. Silakan salin alamat halaman ini dari browser.");
+    }
+  };
   const targetParticipants = Array.isArray(item.targetParticipants) && item.targetParticipants.length
     ? item.targetParticipants.join(", ")
     : item.audience || item.education;
@@ -392,6 +425,12 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
     <div className="competition-detail-content">
         {onClose && <button className="modal-close" onClick={onClose} aria-label="Tutup"><X size={19} /></button>}
         <span className="eyebrow"><Trophy size={14} /> INFORMASI LOMBA</span>
+        <div className="competition-detail-share-actions" aria-label="Bagikan lomba">
+          <button className="button button-outline" type="button" onClick={copyCompetitionLink}><Link2 size={15} /> Salin tautan</button>
+          <a className="button competition-share-whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Bagikan lomba lewat WhatsApp"><MessageCircle size={16} /> WhatsApp</a>
+        </div>
+        {shareNotice && <p className="competition-share-feedback" role="status">{shareNotice}</p>}
+        {shareError && <p className="competition-share-feedback is-error" role="alert">{shareError}</p>}
         {item.coverUrl && <button className="competition-detail-cover-button" type="button" aria-label={`Perbesar poster ${item.title}`} onClick={() => setPosterOpen(true)}><img className="competition-detail-cover" src={item.coverUrl} alt={`Poster ${item.title}`} /></button>}
         <h2 id="detail-title">{item.title}</h2>
         <p className="detail-organizer"><Building2 size={16} /> {item.organizer}</p>
@@ -509,7 +548,7 @@ export function CompetitionModal({ item, onClose, ...detailsProps }) {
   );
 }
 
-export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, isLoggedIn, categoryOptions, competitions = [] }) {
+export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, competitions = [] }) {
   const [categorySuggestionsOpen, setCategorySuggestionsOpen] = useState(false);
   const categoryCounts = new Map();
   competitions.forEach((item) => {
@@ -521,35 +560,17 @@ export function SearchPanel({ filters, setFilters, onSearch, onRequireAccount, i
     .filter((option) => !normalizedCategoryInput || option.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(normalizedCategoryInput.replace(/[^\p{L}\p{N}]/gu, "")))
     .slice(0, 8);
   const updateCategory = (value) => {
-    if (!isLoggedIn && value) {
-      onRequireAccount(false, true);
-      return;
-    }
     setFilters({ ...filters, category: value });
   };
   const update = (key) => (event) => {
     const value = event.target.value;
-    if (!isLoggedIn && value) {
-      onRequireAccount(false, true);
-      return;
-    }
     setFilters({ ...filters, [key]: value });
   };
   const updateScope = (event) => {
     const value = event.target.value;
-    if (!isLoggedIn && value) {
-      onRequireAccount(false, true);
-      return;
-    }
     setFilters({ ...filters, scope: value, location: "" });
   };
-  const search = () => {
-    if (!isLoggedIn) {
-      onRequireAccount(false, true);
-      return;
-    }
-    onSearch();
-  };
+  const search = () => onSearch();
 
   return (
     <div className="search-panel">

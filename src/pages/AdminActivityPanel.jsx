@@ -12,6 +12,7 @@ const actionLabels = {
   report_resolved: "Menandai laporan selesai",
   report_dismissed: "Mengabaikan laporan",
   report_reopened: "Membuka kembali laporan",
+  report_deleted: "Menghapus laporan",
   user_profile_updated: "Memperbarui profil pengguna",
   user_suspended: "Menangguhkan akun pengguna",
   user_banned: "Memberi ban sementara",
@@ -91,6 +92,11 @@ function getActivityDetails(log) {
     const after = statusLabels[details.after_status] || details.after_status;
     const reason = reportReasonLabels[details.reason] || details.reason;
     return `${before || "Menunggu"} → ${after || "—"}${reason ? ` · ${reason}` : ""}`;
+  }
+  if (log.action === "report_deleted") {
+    const reason = reportReasonLabels[details.reason] || details.reason;
+    const status = statusLabels[details.status] || details.status;
+    return `${status || "Laporan"}${reason ? ` · ${reason}` : ""}`;
   }
   if (log.action === "user_banned") {
     const duration = Number(details.duration_days);

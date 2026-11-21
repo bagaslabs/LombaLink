@@ -38,9 +38,7 @@ export default function LandingPage({
   return (
     <main>
       <SearchPage
-        account={account}
         navigate={navigate}
-        onRequireAccount={onRequireAccount}
         competitions={competitions}
         competitionsLoading={competitionsLoading}
         competitionsError={competitionsError}
