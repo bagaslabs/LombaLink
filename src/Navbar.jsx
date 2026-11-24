@@ -66,7 +66,7 @@ export default function Navbar({ account, route, navigate, onSubmit, onLogout, t
           ) : (
             <>
               <button className="button button-quiet button-small login-nav" data-guest-access onClick={() => goToPage("/login")}>Masuk</button>
-              <button className="button button-primary button-small" data-guest-access onClick={() => goToPage("/register")}>Daftar gratis <ArrowRight size={15} /></button>
+              <button className="button button-primary button-small header-register-button" data-guest-access onClick={() => goToPage("/register")}>Daftar gratis <ArrowRight size={15} /></button>
             </>
           )}
         </div>

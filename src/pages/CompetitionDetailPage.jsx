@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { ArrowLeft, ArrowRight, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, GraduationCap, LayoutGrid, Trophy, UsersRound } from "lucide-react";
 import { CompetitionDetails } from "../components.jsx";
 
 export default function CompetitionDetailPage({
@@ -35,7 +35,7 @@ export default function CompetitionDetailPage({
         <aside className="competition-recommendations" aria-labelledby="competition-recommendations-heading">
           <div className="competition-recommendations-heading">
             <span className="eyebrow">JELAJAHI PELUANG</span>
-            <h2 id="competition-recommendations-heading">Lomba lainnya</h2>
+            <h2 id="competition-recommendations-heading">Lomba <span>lainnya</span></h2>
             <p>Kesempatan lain yang mungkin cocok untukmu.</p>
           </div>
           {recommendations.length
@@ -47,15 +47,20 @@ export default function CompetitionDetailPage({
                   </span>
                   <span className="competition-recommendation-copy">
                     <strong>{competition.title}</strong>
-                    <small>{competition.category} · {competition.education}</small>
+                    <span className="competition-recommendation-meta">
+                      {competition.category && <span><GraduationCap size={17} />{competition.category}</span>}
+                      {competition.education && <span className="competition-recommendation-audience"><UsersRound size={17} />{competition.education}</span>}
+                    </span>
                   </span>
-                  <ArrowRight size={14} />
+                  <span className="competition-recommendation-arrow"><ArrowRight size={20} /></span>
                 </button>
               ))}
             </div>
             : <p className="competition-recommendation-empty">Belum ada lomba lainnya.</p>}
           <button className="button button-outline competition-recommendation-all" type="button" onClick={() => navigate("/cari")}>
-            Cari lomba lainnya <ArrowRight size={14} />
+            <LayoutGrid size={18} />
+            Cari lomba lainnya
+            <ArrowRight size={18} />
           </button>
         </aside>
 

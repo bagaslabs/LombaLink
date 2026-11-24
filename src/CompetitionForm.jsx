@@ -33,6 +33,7 @@ import {
   scopeOptions,
   targetParticipantOptions,
 } from "./data.js";
+import { getCompetitionTagIcon, getDisplayTagLabel } from "./competitionTagIcons.js";
 
 const popularKeywordTags = ["#pramuka", "#olimpiade", "#esai", "#sains", "#teknologi", "#seni", "#debat", "#pelajar", "#gratis"];
 const formSections = [
@@ -1603,8 +1604,9 @@ export default function CompetitionForm({
               <div className="competition-keyword-entry">
                 {form.keywords.map((tag) => (
                   <span className="competition-keyword-chip" key={tag}>
-                    {tag}
-                    <button type="button" aria-label={`Hapus tag ${tag}`} onClick={() => updateForm((current) => ({
+                    {React.createElement(getCompetitionTagIcon(tag), { size: 12, "aria-hidden": true })}
+                    {getDisplayTagLabel(tag)}
+                    <button type="button" aria-label={`Hapus tag ${getDisplayTagLabel(tag)}`} onClick={() => updateForm((current) => ({
                       ...current,
                       keywords: current.keywords.filter((keyword) => keyword !== tag),
                     }))}><X size={12} /></button>
@@ -1630,14 +1632,18 @@ export default function CompetitionForm({
               <p className="competition-form-helper">Pilih rekomendasi atau ketik tag sendiri, lalu tekan Enter.</p>
               {(keywordSuggestions.length > 0 || showCustomKeyword) && (
                 <div className="competition-keyword-suggestions" aria-label="Rekomendasi tag">
-                    {keywordSuggestions.map(({ tag, count }) => (
-                      <button type="button" key={tag} onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(tag)}>
-                        {tag}<small>{count} pengguna</small>
-                      </button>
-                  ))}
+                  {keywordSuggestions.map(({ tag, count }) => {
+                    const TagIcon = getCompetitionTagIcon(tag);
+                    return <button type="button" key={tag} onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(tag)}>
+                      <TagIcon size={12} aria-hidden="true" />
+                      <span>{getDisplayTagLabel(tag)}</span>
+                      <small>{count} pengguna</small>
+                    </button>;
+                  })}
                   {showCustomKeyword && (
                     <button type="button" className="competition-keyword-create" onMouseDown={(event) => event.preventDefault()} onClick={() => addKeywordTag(form.keywordInput)}>
-                      Tambahkan {normalizedKeywordInput}
+                      {React.createElement(getCompetitionTagIcon(normalizedKeywordInput), { size: 12, "aria-hidden": true })}
+                      Tambahkan {getDisplayTagLabel(normalizedKeywordInput)}
                     </button>
                   )}
                 </div>

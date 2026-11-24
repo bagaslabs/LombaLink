@@ -262,6 +262,7 @@ export default function App() {
     let persistTimeout;
     const persistScrollPosition = () => {
       window.clearTimeout(persistTimeout);
+      if (!scrollRestorationAttemptedRef.current) return;
       window.sessionStorage.setItem(scrollPositionStorageKey, JSON.stringify({
         route: `${window.location.pathname}${window.location.search}`,
         left: window.scrollX,

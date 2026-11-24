@@ -77,11 +77,6 @@ export default function SearchPage({
 
   const searchControls = (
     <div className="landing-search-block content-width" id="cari" aria-labelledby="search-heading">
-      <header className="discovery-heading">
-        <span className="eyebrow">JELAJAHI PELUANG</span>
-        <h2 id="search-heading">Cari lomba</h2>
-        <p>Gunakan kata kunci dan filter untuk menemukan kesempatan yang sesuai.</p>
-      </header>
       <SearchPanel
         filters={filters}
         setFilters={setFilters}
@@ -95,7 +90,13 @@ export default function SearchPage({
     <section className="discovery-page content-width landing-search-results" id="cari-hasil" aria-labelledby="search-results-heading">
       <header className="search-results-heading">
         <span className="eyebrow">DAFTAR PELUANG</span>
-        <h2 id="search-results-heading">Peluang untuk dijelajahi</h2>
+        <h2 id="search-results-heading">
+          Peluang untuk <span className="search-results-highlight">Dijelajahi
+            <svg className="search-results-spark" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 13 1.5 11.5M13 6 14 1.5M20 11l2.5-2.5" />
+            </svg>
+          </span>
+        </h2>
       </header>
       <section className="discovery-results" aria-live="polite">
         {!competitionsLoading && !competitionsError && <p className="discovery-result-count">{hasSearched ? `${matchingCompetitions.length} lomba ditemukan.` : `${competitions.length} lomba tersedia.`}</p>}

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowRight, Award, ChevronLeft, ChevronRight, Sparkles, Trophy, UserRoundPlus } from "lucide-react";
 import { CompetitionCard } from "../components.jsx";
 import { defaultPreferences } from "../data.js";
 import { hasRegistrationAvailable, matchesCompetitionLevel, matchesTargetParticipant, recommendationTopicScore } from "../recommendationMatching.js";
+import recommendationTrophy from "../assets/recommendation-trophy-transparent.png";
 
 const recommendationsPerPage = 4;
 
@@ -66,7 +67,24 @@ export default function RecommendationsPage({
   } else if (competitionsError) {
     results = <div className="empty-results" role="alert"><span><Sparkles size={23} /></span><h3>Rekomendasi tidak dapat dimuat</h3><p>{competitionsError}</p></div>;
   } else if (!account) {
-    results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Rekomendasi untukmu</h3><p>Masuk dan atur minatmu agar kami bisa mencarikan lomba yang sesuai.</p><button className="button button-primary" onClick={() => onRequireAccount(false, true)}>Masuk atau daftar <ArrowRight size={15} /></button></div>;
+    results = (
+      <div className="recommendations-guest-prompt">
+        <Award className="recommendations-guest-decoration recommendations-guest-decoration-left" size={76} aria-hidden="true" />
+        <Trophy className="recommendations-guest-decoration recommendations-guest-decoration-right" size={112} aria-hidden="true" />
+        <div className="recommendations-guest-content">
+          <div className="recommendations-trophy-art" aria-hidden="true">
+            <img src={recommendationTrophy} alt="" />
+          </div>
+          <h3>Rekomendasi untukmu</h3>
+          <p>Masuk atau daftar sekarang untuk mendapatkan rekomendasi lomba yang sesuai dengan minat, jenjang, dan profilmu.</p>
+          <button className="recommendations-login-button" type="button" onClick={() => onRequireAccount(true)}>
+            <UserRoundPlus size={21} />
+            <span>Masuk atau Daftar</span>
+            <ArrowRight size={22} />
+          </button>
+        </div>
+      </div>
+    );
   } else if (!hasPreferences) {
     results = <div className="empty-results"><span><Sparkles size={23} /></span><h3>Atur minat lombamu</h3><p>Pilih satu atau beberapa bidang minat dan tingkatan lomba untuk mendapatkan rekomendasi.</p><button className="button button-primary" onClick={() => navigate("/personalization")}>Atur personalisasi <ArrowRight size={15} /></button></div>;
   } else if (recommendations.length) {
@@ -78,9 +96,9 @@ export default function RecommendationsPage({
   return (
     <section className="discovery-page content-width" id="rekomendasi" aria-labelledby="recommendations-heading">
       <header className="discovery-heading">
-        <span className="eyebrow">SESUAI MINATMU</span>
-        <h2 id="recommendations-heading">Rekomendasi lomba</h2>
-        <p>Temukan kesempatan yang paling sesuai dengan preferensi pilihanmu.</p>
+        <span className="eyebrow recommendations-kicker">PILIHAN LOMBA</span>
+        <h2 id="recommendations-heading">Rekomendasi <span>Lomba</span><Sparkles className="recommendations-title-spark" size={25} aria-hidden="true" /></h2>
+        <p>Temukan kompetisi yang paling sesuai dengan minat dan profilmu.</p>
       </header>
       <section className="discovery-results">
         {account && hasPreferences && !competitionsLoading && !competitionsError && <p className="discovery-result-count">{recommendations.length} rekomendasi untukmu.</p>}
