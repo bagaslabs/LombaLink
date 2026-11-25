@@ -31,10 +31,15 @@ const competitionRefreshCooldown = 30_000;
 
 function useRoute() {
   const getCurrentRoute = () => `${window.location.pathname}${window.location.search}`;
+  const accountOverlayPaths = ["/personalization", "/profile", "/settings"];
   const [route, setRoute] = useState(getCurrentRoute);
+  const [backgroundRoute, setBackgroundRoute] = useState(() => window.history.state?.accountOverlayBackground || "");
 
   useEffect(() => {
-    const handlePopState = () => setRoute(getCurrentRoute());
+    const handlePopState = () => {
+      setRoute(getCurrentRoute());
+      setBackgroundRoute(window.history.state?.accountOverlayBackground || "");
+    };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
@@ -43,20 +48,27 @@ function useRoute() {
     const nextUrl = new URL(nextRoute, window.location.origin);
     const normalizedRoute = `${nextUrl.pathname}${nextUrl.search}`;
     if (getCurrentRoute() !== normalizedRoute) {
-      window.history.pushState({}, "", normalizedRoute);
+      const currentRoute = getCurrentRoute();
+      const currentPath = window.location.pathname;
+      const isAccountOverlay = accountOverlayPaths.includes(nextUrl.pathname);
+      const isClosingAccountOverlay = accountOverlayPaths.includes(currentPath) && normalizedRoute === backgroundRoute;
+      const nextBackgroundRoute = isAccountOverlay
+        ? accountOverlayPaths.includes(currentPath) ? backgroundRoute : currentRoute
+        : "";
+      window.history.pushState({ accountOverlayBackground: nextBackgroundRoute }, "", normalizedRoute);
+      setBackgroundRoute(nextBackgroundRoute);
       setRoute(normalizedRoute);
-      const preserveScrollRoutes = ["/personalization", "/profile", "/settings"];
-      if (!preserveScrollRoutes.includes(nextUrl.pathname)) {
+      if (!isAccountOverlay && !isClosingAccountOverlay) {
         window.scrollTo({ top: 0, behavior: getScrollBehavior() });
       }
     }
-  }, []);
+  }, [backgroundRoute]);
 
-  return [route, navigate];
+  return [route, navigate, backgroundRoute];
 }
 
 export default function App() {
-  const [route, navigate] = useRoute();
+  const [route, navigate, backgroundRoute] = useRoute();
   const routePath = route.split("?")[0];
   const [theme, setTheme] = useState("dark");
   const [account, setAccount] = useState(null);
@@ -77,6 +89,26 @@ export default function App() {
   const [promptRequired, setPromptRequired] = useState(false);
   const [encourageShare, setEncourageShare] = useState(false);
   const [postAfterProfile, setPostAfterProfile] = useState(false);
+  const accountOverlayRef = useRef(null);
+  const hasAccountOverlayBackground = ["/personalization", "/profile", "/settings"].includes(routePath) && Boolean(backgroundRoute);
+  const contentRoute = hasAccountOverlayBackground ? backgroundRoute : route;
+  const contentRoutePath = contentRoute.split("?")[0];
+
+  useEffect(() => {
+    if (!hasAccountOverlayBackground) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => accountOverlayRef.current?.focus({ preventScroll: true }));
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") navigate(backgroundRoute || "/");
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [backgroundRoute, hasAccountOverlayBackground, navigate]);
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -628,7 +660,7 @@ export default function App() {
 
       setAccount(accountFromUser(data.user, account.accountType));
       setAuthError("");
-      navigate(routePath === "/rekomendasi" ? "/rekomendasi" : "/");
+      navigate(backgroundRoute || (routePath === "/rekomendasi" ? "/rekomendasi" : "/"));
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : "Personalisasi gagal disimpan.";
@@ -688,7 +720,7 @@ export default function App() {
   if (routePath === "/admin/login") {
     return <AdminLoginPage navigate={navigate} onLogin={signInAsModerator} authConfigured={Boolean(supabaseClient)} authError={authError} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (routePath === "/profile") {
+  if (routePath === "/profile" && !hasAccountOverlayBackground) {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk mengatur profil." theme={theme} onToggleTheme={toggleTheme} />;
     }
@@ -701,13 +733,13 @@ export default function App() {
     if (account.role === "moderator") return null;
     return <RoleSelectionPage account={account} onSave={saveAccountType} theme={theme} onToggleTheme={toggleTheme} authError={authError} />;
   }
-  if (routePath === "/personalization") {
+  if (routePath === "/personalization" && !hasAccountOverlayBackground) {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk mengatur personalisasi." theme={theme} onToggleTheme={toggleTheme} />;
     }
     return <PersonalizationPage account={account} categoryOptions={categoryOptions} competitions={competitions} onSave={savePersonalization} onCancel={() => navigate("/")} theme={theme} onToggleTheme={toggleTheme} />;
   }
-  if (routePath === "/settings") {
+  if (routePath === "/settings" && !hasAccountOverlayBackground) {
     if (!account) {
       return <AuthPage mode="login" navigate={navigate} onGoogleSignIn={signInWithGoogle} authConfigured={Boolean(supabaseClient)} authError="Masuk dengan Google untuk membuka pengaturan." theme={theme} onToggleTheme={toggleTheme} />;
     }
@@ -746,13 +778,13 @@ export default function App() {
     />;
   }
 
-  const requestedSection = new URLSearchParams(route.split("?")[1] || "").get("section");
-  const requestedScroll = new URLSearchParams(route.split("?")[1] || "").get("scroll");
-  const initialSection = routePath === "/cari"
+  const requestedSection = new URLSearchParams(contentRoute.split("?")[1] || "").get("section");
+  const requestedScroll = new URLSearchParams(contentRoute.split("?")[1] || "").get("scroll");
+  const initialSection = contentRoutePath === "/cari"
     ? "cari"
-    : routePath === "/rekomendasi" ? "rekomendasi" : routePath === "/" ? requestedSection || "" : "";
-  const isCompetitionDetailRoute = routePath.startsWith("/kompetisi/");
-  const detailCompetitionId = isCompetitionDetailRoute ? routePath.slice("/kompetisi/".length) : "";
+    : contentRoutePath === "/rekomendasi" ? "rekomendasi" : contentRoutePath === "/" ? requestedSection || "" : "";
+  const isCompetitionDetailRoute = contentRoutePath.startsWith("/kompetisi/");
+  const detailCompetitionId = isCompetitionDetailRoute ? contentRoutePath.slice("/kompetisi/".length) : "";
   const detailCompetition = competitions.find((item) => item.id === detailCompetitionId);
   const publicPage = isCompetitionDetailRoute
     ? competitionsLoading
@@ -782,12 +814,27 @@ export default function App() {
       initialScrollBehavior={requestedScroll === "smooth" ? getScrollBehavior() : "instant"}
     />;
 
+  const accountOverlayPage = hasAccountOverlayBackground && account
+    ? routePath === "/profile"
+      ? <ProfilePage account={account} onSave={saveProfile} onCancel={() => { setPostAfterProfile(false); navigate(backgroundRoute || "/"); }} pendingPost={postAfterProfile} theme={theme} onToggleTheme={toggleTheme} />
+      : routePath === "/personalization"
+        ? <PersonalizationPage account={account} categoryOptions={categoryOptions} competitions={competitions} onSave={savePersonalization} onCancel={() => navigate(backgroundRoute || "/")} theme={theme} onToggleTheme={toggleTheme} />
+        : <SettingsPage account={account} onLogout={logout} onCancel={() => navigate(backgroundRoute || "/")} theme={theme} onToggleTheme={toggleTheme} />
+    : null;
+
   return (
     <>
-      <Navbar account={account} route={route} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
-      {authError && <div className="auth-error-banner" role="alert">{authError}<button onClick={() => setAuthError("")}>Tutup</button></div>}
-      {publicPage}
-      <SiteFooter navigate={navigate} account={account} />
+      <div className={hasAccountOverlayBackground ? "account-overlay-background is-blurred" : "account-overlay-background"} inert={hasAccountOverlayBackground} aria-hidden={hasAccountOverlayBackground || undefined}>
+        <Navbar account={account} route={route} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
+        {authError && <div className="auth-error-banner" role="alert">{authError}<button onClick={() => setAuthError("")}>Tutup</button></div>}
+        {publicPage}
+        <SiteFooter navigate={navigate} account={account} />
+      </div>
+      {accountOverlayPage && <div className="account-page-overlay" onMouseDown={(event) => event.target === event.currentTarget && navigate(backgroundRoute || "/")}>
+        <div ref={accountOverlayRef} className="account-page-overlay-dialog" role="dialog" aria-modal="true" aria-label={routePath === "/profile" ? "Profil" : routePath === "/personalization" ? "Personalisasi" : "Pengaturan"} tabIndex={-1}>
+          {accountOverlayPage}
+        </div>
+      </div>}
       {promptOpen && <AccountPrompt onClose={() => { setPromptRequired(false); setPromptOpen(false); }} navigate={navigate} encourageShare={encourageShare} required={promptRequired} />}
     </>
   );

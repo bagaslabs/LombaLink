@@ -10,7 +10,7 @@ export default function SettingsPage({ account, onLogout, onCancel, theme, onTog
   return (
     <main className="profile-page">
       <div className="mx-auto mb-4 flex w-full max-w-[620px] items-center justify-between gap-4">
-        <button className="auth-back" onClick={onCancel}><ArrowLeft size={17} /> Kembali ke beranda</button>
+        <button className="auth-back" onClick={onCancel}><ArrowLeft size={17} /> Kembali</button>
         <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
       </div>
       <section className="profile-card">
