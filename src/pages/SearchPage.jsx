@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { CompetitionCard, SearchPanel } from "../components.jsx";
+import { recommendationTopicScore } from "../recommendationMatching.js";
 
 const emptyFilters = { keyword: "", education: "", category: "", scope: "", organizerType: "", location: "", locationArea: "", participantType: "", mode: "" };
 const resultsPerPage = 4;
@@ -28,21 +29,31 @@ export default function SearchPage({
   const [page, setPage] = useState(() => Math.max(1, Number(window.history.state?.lombalinkSearchPage) || 1));
   const filtersInitialized = useRef(false);
 
-  const matchingCompetitions = useMemo(() => competitions.filter((item) => {
-    const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
-    return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
-      && matchesEducationFilter(item, filters.education)
-      && (!filters.category || String(item.category || "").trim().toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(filters.category.trim().toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "")))
-      && (!filters.scope || item.scope === filters.scope || (filters.scope === "Kabupaten/Kota" && item.scope === "Daerah"))
-      && (!filters.organizerType || item.organizerType === filters.organizerType)
-      && (!filters.location || String(item.location || "").toLowerCase().includes(filters.location.toLowerCase().trim()))
-      && (!filters.locationArea || String(item.location || "").toLowerCase().includes(filters.locationArea.toLowerCase().trim()))
-      && (!filters.participantType
-        || (filters.participantType === "Individu" && (item.participantType === "Individu" || item.participantType === "Individu dan Tim"))
-        || (filters.participantType === "Kelompok" && (item.participantType === "Tim" || item.participantType === "Individu dan Tim"))
-        || (filters.participantType === "Campuran" && item.participantType === "Individu dan Tim"))
-      && (!filters.mode || item.mode === filters.mode);
-  }), [competitions, filters]);
+  const matchingCompetitions = useMemo(() => competitions
+    .map((item, index) => ({
+      item,
+      index,
+      categoryScore: filters.category ? recommendationTopicScore(filters.category, item) : 0,
+    }))
+    .filter(({ item, categoryScore }) => {
+      const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
+      return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
+        && matchesEducationFilter(item, filters.education)
+        && (!filters.category || categoryScore > 0)
+        && (!filters.scope || item.scope === filters.scope || (filters.scope === "Kabupaten/Kota" && item.scope === "Daerah"))
+        && (!filters.organizerType || item.organizerType === filters.organizerType)
+        && (!filters.location || String(item.location || "").toLowerCase().includes(filters.location.toLowerCase().trim()))
+        && (!filters.locationArea || String(item.location || "").toLowerCase().includes(filters.locationArea.toLowerCase().trim()))
+        && (!filters.participantType
+          || (filters.participantType === "Individu" && (item.participantType === "Individu" || item.participantType === "Individu dan Tim"))
+          || (filters.participantType === "Kelompok" && (item.participantType === "Tim" || item.participantType === "Individu dan Tim"))
+          || (filters.participantType === "Campuran" && item.participantType === "Individu dan Tim"))
+        && (!filters.mode || item.mode === filters.mode);
+    })
+    .sort((left, right) => filters.category
+      ? right.categoryScore - left.categoryScore || left.index - right.index
+      : left.index - right.index)
+    .map(({ item }) => item), [competitions, filters]);
   const pageCount = Math.ceil(matchingCompetitions.length / resultsPerPage);
   const visibleCompetitions = matchingCompetitions.slice(
     (page - 1) * resultsPerPage,
