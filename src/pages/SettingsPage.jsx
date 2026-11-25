@@ -9,11 +9,11 @@ export default function SettingsPage({ account, onLogout, onCancel, theme, onTog
   };
   return (
     <main className="profile-page">
-      <div className="mx-auto mb-4 flex w-full max-w-[620px] items-center justify-between gap-4">
-        <button className="auth-back" onClick={onCancel}><ArrowLeft size={17} /> Kembali</button>
-        <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
-      </div>
       <section className="profile-card">
+        <div className="profile-page-actions">
+          <button className="auth-back" onClick={onCancel}><ArrowLeft size={17} /> Kembali</button>
+          <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
+        </div>
         <div className="profile-card-heading">
           <span className="profile-settings-icon"><Settings size={22} /></span>
           <span className="eyebrow">PENGATURAN</span>

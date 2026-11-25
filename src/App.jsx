@@ -825,7 +825,7 @@ export default function App() {
   return (
     <>
       <div className={hasAccountOverlayBackground ? "account-overlay-background is-blurred" : "account-overlay-background"} inert={hasAccountOverlayBackground} aria-hidden={hasAccountOverlayBackground || undefined}>
-        <Navbar account={account} route={route} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
+        <Navbar account={account} route={route} scrollRoute={contentRoute} navigate={navigate} onSubmit={requestSubmission} onLogout={logout} theme={theme} onToggleTheme={toggleTheme} />
         {authError && <div className="auth-error-banner" role="alert">{authError}<button onClick={() => setAuthError("")}>Tutup</button></div>}
         {publicPage}
         <SiteFooter navigate={navigate} account={account} />

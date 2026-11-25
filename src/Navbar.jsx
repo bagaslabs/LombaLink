@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
   LogOut,
@@ -10,12 +10,49 @@ import {
 import { Brand, ThemeToggle } from "./components.jsx";
 import { scrollToPageSection } from "./data.js";
 
-export default function Navbar({ account, route, navigate, onSubmit, onLogout, theme, onToggleTheme }) {
+export default function Navbar({ account, route, scrollRoute = route, navigate, onSubmit, onLogout, theme, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const routePath = route.split("?")[0];
+  const scrollRoutePath = scrollRoute.split("?")[0];
   const [activeSection, setActiveSection] = useState(() => (
-    routePath === "/cari" ? "cari" : routePath === "/rekomendasi" ? "rekomendasi" : ""
+    scrollRoutePath === "/cari" ? "cari" : scrollRoutePath === "/rekomendasi" ? "rekomendasi" : ""
   ));
+
+  useEffect(() => {
+    const isPublicPage = ["/", "/cari", "/rekomendasi"].includes(scrollRoutePath);
+    if (!isPublicPage) {
+      setActiveSection("");
+      return undefined;
+    }
+
+    let frame = 0;
+    const updateActiveSection = () => {
+      frame = 0;
+      const headerHeight = document.querySelector(".site-header")?.getBoundingClientRect().height || 0;
+      const activationLine = headerHeight + Math.min(180, window.innerHeight * 0.28);
+      const sectionIds = ["cari", "rekomendasi", "tentang"];
+      let nextActiveSection = "";
+      sectionIds.forEach((sectionId) => {
+        const section = document.getElementById(sectionId);
+        if (section && section.getBoundingClientRect().top <= activationLine) nextActiveSection = sectionId;
+      });
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4 && document.getElementById("tentang")) {
+        nextActiveSection = "tentang";
+      }
+      setActiveSection((current) => current === nextActiveSection ? current : nextActiveSection);
+    };
+    const scheduleUpdate = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateActiveSection);
+    };
+    updateActiveSection();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [scrollRoutePath]);
 
   const goToPage = (path) => {
     navigate(path);
