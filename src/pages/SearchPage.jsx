@@ -7,6 +7,17 @@ const emptyFilters = { keyword: "", education: "", category: "", scope: "", orga
 const resultsPerPage = 4;
 const openParticipantTargets = new Set(["umum", "semua jenjang", "semua tingkat", "terbuka untuk umum"]);
 
+function getNearestRegistrationDeadline(item) {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const deadlines = [
+    item.deadline,
+    ...(Array.isArray(item.registrationBatches) ? item.registrationBatches.map((batch) => batch?.endsAt) : []),
+  ].filter((date) => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= today);
+
+  return deadlines.sort()[0] || "9999-12-31";
+}
+
 function matchesEducationFilter(item, education) {
   if (!education) return true;
   const selected = education.trim().toLocaleLowerCase("id-ID");
@@ -36,7 +47,8 @@ export default function SearchPage({
       const categoryScore = filters.category ? recommendationTopicScore(filters.category, item) : 0;
       const relatedKeywordScore = keyword ? recommendationTopicScore(keyword, item) : 0;
       const keywordScore = Math.max(relatedKeywordScore, keyword && searchText.includes(keyword) ? 6 : 0);
-      return { item, index, categoryScore, keywordScore };
+      const nearestDeadline = getNearestRegistrationDeadline(item);
+      return { item, index, categoryScore, keywordScore, nearestDeadline };
     })
     .filter(({ item, categoryScore, keywordScore }) => {
       const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
@@ -55,8 +67,9 @@ export default function SearchPage({
         && (!filters.mode || item.mode === filters.mode);
     })
     .sort((left, right) => filters.category || filters.keyword.trim()
-      ? (right.categoryScore + right.keywordScore) - (left.categoryScore + left.keywordScore) || left.index - right.index
-      : left.index - right.index)
+      ? (right.categoryScore + right.keywordScore) - (left.categoryScore + left.keywordScore)
+        || left.nearestDeadline.localeCompare(right.nearestDeadline) || left.index - right.index
+      : left.nearestDeadline.localeCompare(right.nearestDeadline) || left.index - right.index)
     .map(({ item }) => item), [competitions, filters]);
   const pageCount = Math.ceil(matchingCompetitions.length / resultsPerPage);
   const visibleCompetitions = matchingCompetitions.slice(

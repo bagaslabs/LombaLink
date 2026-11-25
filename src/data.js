@@ -328,6 +328,7 @@ export function competitionFromRow(row) {
     status: row.status,
     submittedBy: row.submitted_by,
     submittedAt: row.submitted_at,
+    createdAt: row.created_at || "",
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
     rejectionNote: row.rejection_note || "",
