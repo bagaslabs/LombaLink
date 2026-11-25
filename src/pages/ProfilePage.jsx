@@ -202,6 +202,7 @@ export default function ProfilePage({ account, onSave, onCancel, pendingPost, th
             onProvinceChange={(value) => { setLocationValid(false); setForm((current) => ({ ...current, province: value, city: "" })); }}
             onCityChange={(value) => setForm((current) => ({ ...current, city: value }))}
             onValidityChange={setLocationValid}
+            searchable
           />
           <label>Tahun Lahir <span className="required-mark">*</span>
             <select value={form.birthYear} onChange={update("birthYear")} required>

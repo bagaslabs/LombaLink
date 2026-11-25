@@ -7,6 +7,7 @@ export default function CompetitionDetailPage({
   competitions,
   account,
   navigate,
+  onBack,
   onTrackEvent,
   onReport,
 }) {
@@ -65,7 +66,7 @@ export default function CompetitionDetailPage({
         </aside>
 
         <article className="competition-detail-main" aria-labelledby="detail-title">
-          <button className="button button-quiet competition-detail-back" type="button" onClick={() => navigate("/cari")}>
+          <button className="button button-quiet competition-detail-back" type="button" onClick={onBack || (() => navigate("/cari"))}>
             <ArrowLeft size={15} /> Semua lomba
           </button>
           <CompetitionDetails

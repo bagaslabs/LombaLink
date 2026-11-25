@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { CompetitionCard, SearchPanel } from "../components.jsx";
 
@@ -25,7 +25,8 @@ export default function SearchPage({
 }) {
   const [filters, setFilters] = useState(emptyFilters);
   const [hasSearched, setHasSearched] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => Math.max(1, Number(window.history.state?.lombalinkSearchPage) || 1));
+  const filtersInitialized = useRef(false);
 
   const matchingCompetitions = useMemo(() => competitions.filter((item) => {
     const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
@@ -49,12 +50,21 @@ export default function SearchPage({
   );
 
   useEffect(() => {
+    if (!filtersInitialized.current) {
+      filtersInitialized.current = true;
+      return;
+    }
     setPage(1);
   }, [filters]);
 
   useEffect(() => {
+    if (competitionsLoading) return;
     setPage((currentPage) => Math.min(currentPage, Math.max(pageCount, 1)));
-  }, [pageCount]);
+  }, [competitionsLoading, pageCount]);
+
+  useEffect(() => {
+    window.history.replaceState({ ...window.history.state, lombalinkSearchPage: page }, "", window.location.href);
+  }, [page]);
 
   const search = () => {
     setHasSearched(true);
@@ -62,6 +72,7 @@ export default function SearchPage({
 
   const goToPage = (nextPage) => {
     setPage(nextPage);
+    window.history.replaceState({ ...window.history.state, lombalinkSearchPage: nextPage }, "", window.location.href);
     document.getElementById("cari-hasil")?.scrollIntoView({ behavior: "auto", block: "start" });
   };
 

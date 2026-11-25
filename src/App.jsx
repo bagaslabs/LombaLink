@@ -55,7 +55,16 @@ function useRoute() {
       const nextBackgroundRoute = isAccountOverlay
         ? accountOverlayPaths.includes(currentPath) ? backgroundRoute : currentRoute
         : "";
-      window.history.pushState({ accountOverlayBackground: nextBackgroundRoute }, "", normalizedRoute);
+      const nextHistoryState = { accountOverlayBackground: nextBackgroundRoute };
+      const isCompetitionDetailRoute = nextUrl.pathname.startsWith("/kompetisi/");
+      if (isCompetitionDetailRoute) {
+        nextHistoryState.detailReturnRoute = isClosingAccountOverlay
+          ? window.history.state?.detailReturnRoute
+          : currentRoute;
+      } else if (accountOverlayPaths.includes(nextUrl.pathname) && window.history.state?.detailReturnRoute) {
+        nextHistoryState.detailReturnRoute = window.history.state.detailReturnRoute;
+      }
+      window.history.pushState(nextHistoryState, "", normalizedRoute);
       setBackgroundRoute(nextBackgroundRoute);
       setRoute(normalizedRoute);
       if (!isAccountOverlay && !isClosingAccountOverlay) {
@@ -64,11 +73,16 @@ function useRoute() {
     }
   }, [backgroundRoute]);
 
-  return [route, navigate, backgroundRoute];
+  const navigateBack = useCallback((fallbackRoute) => {
+    if (window.history.state?.detailReturnRoute) window.history.back();
+    else navigate(fallbackRoute);
+  }, [navigate]);
+
+  return [route, navigate, backgroundRoute, navigateBack];
 }
 
 export default function App() {
-  const [route, navigate, backgroundRoute] = useRoute();
+  const [route, navigate, backgroundRoute, navigateBack] = useRoute();
   const routePath = route.split("?")[0];
   const [theme, setTheme] = useState("dark");
   const [account, setAccount] = useState(null);
@@ -96,8 +110,11 @@ export default function App() {
 
   useEffect(() => {
     if (!hasAccountOverlayBackground) return undefined;
+    const scrollTop = window.scrollY;
     const previousOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     const focusFrame = window.requestAnimationFrame(() => accountOverlayRef.current?.focus({ preventScroll: true }));
     const handleKeyDown = (event) => {
       if (event.key === "Escape") navigate(backgroundRoute || "/");
@@ -107,6 +124,9 @@ export default function App() {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+      const currentRoute = `${window.location.pathname}${window.location.search}`;
+      if (currentRoute === backgroundRoute) window.scrollTo({ top: scrollTop, behavior: "instant" });
     };
   }, [backgroundRoute, hasAccountOverlayBackground, navigate]);
 
@@ -797,6 +817,7 @@ export default function App() {
             competitions={competitions}
             account={account}
             navigate={navigate}
+            onBack={() => navigateBack("/cari")}
             onTrackEvent={trackCompetitionEvent}
             onReport={submitCompetitionReport}
           />

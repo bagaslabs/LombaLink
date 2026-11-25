@@ -35,7 +35,7 @@ export default function RecommendationsPage({
   competitionsError,
   onShowAllCompetitions,
 }) {
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => Math.max(1, Number(window.history.state?.lombalinkRecommendationsPage) || 1));
   const preferences = account?.preferences || defaultPreferences;
   const hasPreferences = Boolean((preferences.categories || []).length || preferences.category?.trim() || preferences.level || preferences.locationScope || preferences.targetParticipant);
   const recommendations = useMemo(() => {
@@ -53,11 +53,17 @@ export default function RecommendationsPage({
   );
 
   useEffect(() => {
+    if (competitionsLoading) return;
     setPage((currentPage) => Math.min(currentPage, Math.max(pageCount, 1)));
-  }, [pageCount]);
+  }, [competitionsLoading, pageCount]);
+
+  useEffect(() => {
+    window.history.replaceState({ ...window.history.state, lombalinkRecommendationsPage: page }, "", window.location.href);
+  }, [page]);
 
   const goToPage = (nextPage) => {
     setPage(nextPage);
+    window.history.replaceState({ ...window.history.state, lombalinkRecommendationsPage: nextPage }, "", window.location.href);
     document.getElementById("rekomendasi")?.scrollIntoView({ behavior: "auto", block: "start" });
   };
 

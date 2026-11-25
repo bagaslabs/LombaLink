@@ -362,8 +362,8 @@ h1,h2,h3,p { margin-top: 0; }
 .profile-page { min-height: 100vh; padding: 25px max(18px,calc((100vw - 620px)/2)); background: #f5f7fc; }.profile-page .auth-back { margin-left: 0; }.profile-card { width: min(100%,620px); margin: 0 auto; padding: 29px 34px 25px; border: 1px solid #e7ebf3; border-radius: 17px; background: #fff; box-shadow: 0 14px 40px #34466d0c; }.profile-card-heading { text-align: center; }.profile-settings-icon { width: 48px; height: 48px; display: grid; place-items: center; margin: 0 auto 13px; border-radius: 15px; color: #5676e7; background: #edf2ff; }.profile-card-heading h1 { margin: 7px 0 6px; color: #26334c; font: 800 25px Manrope,sans-serif; letter-spacing: -.8px; }.profile-card-heading p { max-width: 430px; margin: 0 auto 21px; color: #8792a5; font-size: 11px; line-height: 1.65; }.profile-requirement { display: flex; align-items: center; gap: 8px; margin: 0 0 17px; padding: 11px 12px; border: 1px solid #e3eafe; border-radius: 9px; color: #5269af; background: #f4f7ff; font-size: 10px; }.profile-requirement svg { flex: 0 0 auto; }.profile-form label { display: block; color: #526079; font-size: 11px; font-weight: 700; }.profile-form input,.profile-form select { width: 100%; min-height: 42px; margin-top: 7px; padding: 0 11px; border: 1px solid #e5eaf2; border-radius: 8px; outline: none; color: #34415b; background: #fff; font-size: 11px; }.profile-form input:focus,.profile-form select:focus { border-color: #93aaff; box-shadow: 0 0 0 3px #ebefff; }.required-mark { color: #da6c6c; }.optional-mark { color: #9aa4b5; font-size: 9px; font-weight: 500; }.profile-account-email { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 16px 0 0; color: #9aa4b5; font-size: 9px; }
 .account-overlay-background { min-height: 100vh; }
 .account-overlay-background.is-blurred { filter: blur(5px); pointer-events: none; user-select: none; }
-.account-page-overlay { position: fixed; z-index: 110; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 24px; background: transparent; }
-.account-page-overlay-dialog { width: min(100%,800px); max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; border-radius: 18px; outline: none; overscroll-behavior: contain; }
+.account-page-overlay { position: fixed; z-index: 110; inset: 0; display: grid; place-items: center; overflow-x: hidden; overflow-y: auto; padding: 24px; background: transparent; }
+.account-page-overlay-dialog { box-sizing: border-box; width: min(100%,800px); max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-x: hidden; overflow-y: auto; border-radius: 18px; outline: none; overscroll-behavior: contain; }
 .account-page-overlay .profile-page { width: 100%; min-height: 0; padding: 18px; background: transparent; }
 .account-page-overlay .profile-card { width: 100%; max-width: 760px; margin-inline: auto; }
 .profile-page-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -794,9 +794,18 @@ html[data-theme="dark"] .profile-form input[readonly] { color: #9eabc0; backgrou
   .profile-photo-preview { width: 54px; height: 54px; flex-basis: 54px; }
 }
 .location-selects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; min-width: 0; }
-.location-selects label { display: grid; gap: 6px; min-width: 0; color: #526079; font-size: 11px; font-weight: 700; }
-.location-selects :is(select,input) { width: 100%; min-width: 0; min-height: 42px; margin-top: 1px; padding: 0 11px; border: 1px solid #e5eaf2; border-radius: 8px; color: #34415b; background: #fff; font-size: 11px; }
-.location-selects select:disabled { cursor: wait; opacity: .7; }
+.location-selects :is(label,.location-select-field) { display: grid; gap: 6px; min-width: 0; color: #526079; font-size: 11px; font-weight: 700; }
+.location-selects :is(select,input,.location-typeahead-trigger) { width: 100%; min-width: 0; min-height: 42px; margin-top: 1px; padding: 0 11px; border: 1px solid #e5eaf2; border-radius: 8px; color: #34415b; background: #fff; font-size: 11px; }
+.location-selects :is(select:disabled,.location-typeahead-trigger:disabled) { cursor: wait; opacity: .7; }
+.location-typeahead { position: relative; min-width: 0; }
+.location-typeahead-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; }
+.location-typeahead-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.location-typeahead-trigger > svg { width: 15px; height: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.location-typeahead-trigger:focus-visible { outline: 2px solid #5574e9; outline-offset: 2px; }
+.location-typeahead-list { z-index: 40; max-height: 220px; }
+.location-typeahead-list button { width: 100%; }
+.location-typeahead-list button.is-selected { color: #286fc5; background: #e8f2ff; }
+.location-typeahead-empty { padding: 9px; color: #72809a; font-size: 10px; }
 .location-select-note,.location-select-error { grid-column: 1 / -1; margin: -4px 0 0; font-size: 9px; line-height: 1.5; }
 .location-select-note { color: #8792a5; }
 .location-select-note a { color: #5574e9; text-decoration: underline; text-underline-offset: 2px; }
@@ -806,8 +815,10 @@ html[data-theme="dark"] .profile-form input[readonly] { color: #9eabc0; backgrou
 .admin-welcome-actions { display: flex; align-items: center; gap: 8px; }
 .admin-welcome-actions .button { min-height: 37px; font-size: 10px; }
 .admin-publish-notice { margin-bottom: 14px; }
-html[data-theme="dark"] .location-selects label { color: #aebbd0; }
-html[data-theme="dark"] .location-selects :is(select,input) { border-color: #2b3a56; background: #0c1525; color: #d3dcec; }
+html[data-theme="dark"] .location-selects :is(label,.location-select-field) { color: #aebbd0; }
+html[data-theme="dark"] .location-selects :is(select,input,.location-typeahead-trigger) { border-color: #2b3a56; background: #0c1525; color: #d3dcec; }
+html[data-theme="dark"] .location-typeahead-list button.is-selected { color: #c3ceff; background: #202c49; }
+html[data-theme="dark"] .location-typeahead-empty { color: #9eabc0; }
 html[data-theme="dark"] .location-select-note { color: #9eabc0; }
 html[data-theme="dark"] .location-select-mode-button { color: #94a9ff; }
 html[data-theme="dark"] .location-select-error { border-color: #613b3b; color: #e1aaaa; background: #2a1719; }
