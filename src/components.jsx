@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import lightBrandLogo from "../logo/themes-putih.png";
 import darkBrandLogo from "../logo/themes-gelap.png";
 import {
@@ -41,6 +41,7 @@ import { competitionModeOptions, formatDate, normalizePhoneNumber, organizerOpti
 import { getCompetitionTagIcon, getDisplayTagLabel } from "./competitionTagIcons.js";
 import { fetchPlaces, sameName } from "./locationData.js";
 import { reportReasons } from "./reporting.js";
+import { recommendationTopicScore } from "./recommendationMatching.js";
 
 function getExternalContactUrl(url, fallback = "") {
   try {
@@ -1031,15 +1032,23 @@ export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, co
   const [regenciesLoading, setRegenciesLoading] = useState(false);
   const [regenciesError, setRegenciesError] = useState("");
   const [regionRetryKey, setRegionRetryKey] = useState(0);
-  const categoryCounts = new Map();
-  competitions.forEach((item) => {
-    const key = String(item.category || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
-    if (key) categoryCounts.set(key, (categoryCounts.get(key) || 0) + 1);
-  });
+  const categoryCounts = useMemo(() => new Map(categoryOptions.map((option) => {
+    const key = option.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+    const count = competitions.filter((item) => recommendationTopicScore(option, item) > 0).length;
+    return [key, count];
+  })), [categoryOptions, competitions]);
   const normalizedCategoryInput = filters.category.trim().toLocaleLowerCase("id-ID");
-  const categorySuggestions = categoryOptions
-    .filter((option) => !normalizedCategoryInput || option.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(normalizedCategoryInput.replace(/[^\p{L}\p{N}]/gu, "")))
-    .slice(0, 8);
+  const categorySuggestions = categoryOptions.filter((option) => (
+    (categoryCounts.get(option.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "")) || 0) > 0
+    && (!normalizedCategoryInput
+    || option.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "").includes(normalizedCategoryInput.replace(/[^\p{L}\p{N}]/gu, ""))
+    )
+  ));
+  categorySuggestions.sort((left, right) => {
+    const leftKey = left.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+    const rightKey = right.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+    return categoryCounts.get(rightKey) - categoryCounts.get(leftKey) || left.localeCompare(right, "id-ID");
+  });
   const updateCategory = (value) => {
     setFilters({ ...filters, category: value });
   };

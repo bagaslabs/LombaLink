@@ -5,6 +5,7 @@ import Navbar from "./Navbar.jsx";
 import {
   accountFromUser,
   authErrorMessage,
+  competitionSearchCategoryOptions,
   competitionFromRow,
   getAnalyticsVisitorId,
   getCompetitionCoverUrl,
@@ -713,7 +714,10 @@ export default function App() {
 
   const categoryOptions = useMemo(
     () => {
-      const options = new Map();
+      const options = new Map(competitionSearchCategoryOptions.map((category) => [
+        category.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, ""),
+        category,
+      ]));
       competitions.forEach((item) => {
         const category = String(item.category || "").trim().replace(/\s+/g, " ");
         const key = category.toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");

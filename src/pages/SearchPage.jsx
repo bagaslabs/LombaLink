@@ -30,14 +30,18 @@ export default function SearchPage({
   const filtersInitialized = useRef(false);
 
   const matchingCompetitions = useMemo(() => competitions
-    .map((item, index) => ({
-      item,
-      index,
-      categoryScore: filters.category ? recommendationTopicScore(filters.category, item) : 0,
-    }))
-    .filter(({ item, categoryScore }) => {
+    .map((item, index) => {
+      const keyword = filters.keyword.trim().toLowerCase();
       const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
-      return (!filters.keyword || searchText.includes(filters.keyword.toLowerCase().trim()))
+      const categoryScore = filters.category ? recommendationTopicScore(filters.category, item) : 0;
+      const relatedKeywordScore = keyword ? recommendationTopicScore(keyword, item) : 0;
+      const keywordScore = Math.max(relatedKeywordScore, keyword && searchText.includes(keyword) ? 6 : 0);
+      return { item, index, categoryScore, keywordScore };
+    })
+    .filter(({ item, categoryScore, keywordScore }) => {
+      const searchText = `${item.title} ${item.tagline} ${item.organizer} ${item.category} ${item.competitionCategory || ""} ${item.competitionType || ""} ${item.location} ${(item.targetParticipants || []).join(" ")} ${(item.keywords || []).join(" ")}`.toLowerCase();
+      const keyword = filters.keyword.trim().toLowerCase();
+      return (!keyword || searchText.includes(keyword) || keywordScore > 0)
         && matchesEducationFilter(item, filters.education)
         && (!filters.category || categoryScore > 0)
         && (!filters.scope || item.scope === filters.scope || (filters.scope === "Kabupaten/Kota" && item.scope === "Daerah"))
@@ -50,8 +54,8 @@ export default function SearchPage({
           || (filters.participantType === "Campuran" && item.participantType === "Individu dan Tim"))
         && (!filters.mode || item.mode === filters.mode);
     })
-    .sort((left, right) => filters.category
-      ? right.categoryScore - left.categoryScore || left.index - right.index
+    .sort((left, right) => filters.category || filters.keyword.trim()
+      ? (right.categoryScore + right.keywordScore) - (left.categoryScore + left.keywordScore) || left.index - right.index
       : left.index - right.index)
     .map(({ item }) => item), [competitions, filters]);
   const pageCount = Math.ceil(matchingCompetitions.length / resultsPerPage);
