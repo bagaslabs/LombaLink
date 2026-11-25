@@ -41,7 +41,6 @@ import { competitionModeOptions, formatDate, normalizePhoneNumber, organizerOpti
 import { getCompetitionTagIcon, getDisplayTagLabel } from "./competitionTagIcons.js";
 import { fetchPlaces, sameName } from "./locationData.js";
 import { reportReasons } from "./reporting.js";
-import { recommendationTopicScore } from "./recommendationMatching.js";
 
 function getExternalContactUrl(url, fallback = "") {
   try {
@@ -1032,11 +1031,14 @@ export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, co
   const [regenciesLoading, setRegenciesLoading] = useState(false);
   const [regenciesError, setRegenciesError] = useState("");
   const [regionRetryKey, setRegionRetryKey] = useState(0);
-  const categoryCounts = useMemo(() => new Map(categoryOptions.map((option) => {
-    const key = option.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
-    const count = competitions.filter((item) => recommendationTopicScore(option, item) > 0).length;
-    return [key, count];
-  })), [categoryOptions, competitions]);
+  const categoryCounts = useMemo(() => {
+    const counts = new Map();
+    competitions.forEach((item) => {
+      const key = String(item.category || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
+      if (key) counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [competitions]);
   const normalizedCategoryInput = filters.category.trim().toLocaleLowerCase("id-ID");
   const categorySuggestions = categoryOptions.filter((option) => (
     (categoryCounts.get(option.trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "")) || 0) > 0
