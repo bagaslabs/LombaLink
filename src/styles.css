@@ -495,6 +495,7 @@ html[data-theme="dark"] .admin-competition-search { border-color: #2b3a56; color
 html[data-theme="dark"] .admin-competition-search input { color: #dce4f2; }
 html[data-theme="dark"] .admin-competition-search input::placeholder { color: #7f8da5; }
 html[data-theme="dark"] .admin-competition-search > button:hover { color: #c3ceff; background: #202c49; }
+html[data-theme="dark"] .account-page-overlay .profile-page { background: transparent; }
 html[data-theme="dark"] :is(.button-outline,.round-arrow,.modal-close,.submission-actions button) { background-color: #162239; border-color: #2b3a56; color: #c3cee0; }
 html[data-theme="dark"] .hero-actions .button-outline { border-color: #3a5275; background: transparent; color: #e4eaf5; }
 html[data-theme="dark"] .hero-actions .button-outline:hover { border-color: #7698d3; background: rgba(255,255,255,.04); color: #fff; }
