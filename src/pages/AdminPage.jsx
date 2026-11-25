@@ -16,7 +16,6 @@ import {
   Plus,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   Trophy,
   UsersRound,
@@ -463,7 +462,6 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
             </div>
             <div className="table-footer"><span>{loading ? "Memuat pengajuan..." : `Menampilkan ${visible.length} pengajuan`}</span><button onClick={() => setTab("all")}>Lihat semua pengajuan <ArrowRight size={14} /></button></div>
           </div>
-          <div className="admin-tip"><span><Sparkles size={17} /></span><p><strong>Tips moderasi:</strong> Pastikan tautan pendaftaran aktif dan informasi batas waktu terlihat jelas sebelum menyetujui lomba.</p></div>
           </>}
         </div>
       </section>

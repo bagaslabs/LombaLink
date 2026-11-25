@@ -46,6 +46,8 @@ html[data-theme="dark"] .brand-logo-dark { display: block; }
 .main-nav a:hover, .nav-link:hover, .main-nav a.is-active, .nav-link.is-active { color: #fff; background: #1b3d72; }
 .nav-link { border: 0; background: transparent; padding: 8px 16px; }
 .header-actions { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+.organizer-add-nav { flex: 0 0 auto; white-space: nowrap; }
+.theme-toggle-button,.settings-theme-row { display: none !important; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; padding: 0 17px; border-radius: 10px; border: 1px solid transparent; font-size: 13px; font-weight: 700; transition: transform .18s, box-shadow .18s, background .18s; }
 .button:hover { transform: translateY(-1px); }
 .button:disabled { cursor: wait; opacity: .7; transform: none; }
@@ -127,8 +129,11 @@ h1,h2,h3,p { margin-top: 0; }
 .filter-select-dropdown-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-select-dropdown-trigger > svg { flex: 0 0 auto; color: #aebfd8; }
 .filter-select-dropdown-trigger:focus-visible { outline: 2px solid #4a9eff; outline-offset: 2px; border-radius: 4px; }
+.filter-select.is-disabled { cursor: not-allowed; opacity: .5; }
+.filter-select-dropdown-trigger:disabled { cursor: not-allowed; }
 .search-filter-options button { width: 100%; }
 .search-filter-options button.is-selected { color: #286fc5; background: #e8f2ff; }
+.search-filter-empty { padding: 9px; color: #72809a; font-size: 10px; }
 .filter-select:focus-within { border-color: #4a9eff; box-shadow: 0 0 0 2px rgba(49,135,238,.15); }
 .category-filter-autocomplete { position: relative; }
 .category-filter-autocomplete input { height: 100%; }
@@ -415,7 +420,7 @@ h1,h2,h3,p { margin-top: 0; }
   .main-nav { display: none; position: absolute; top: 64px; right: 0; left: 0; flex-direction: column; align-items: stretch; gap: 0; padding: 7px 18px 13px; border-bottom: 1px solid #edf0f6; background: white; box-shadow: 0 10px 15px #25365a0e; margin: 0; }.main-nav.is-open { display: flex; }.main-nav a,.nav-link { padding: 12px 14px; text-align: left; }.main-nav .mobile-logout { display: block; }
   .header-actions { margin-left: auto; margin-right: 6px; gap: 4px; }.header-actions .button-small { min-height: 34px; padding-inline: 9px; font-size: 10px; }.profile-name,.profile-shield,.logout-button,.login-nav { display: none; }.profile-chip { padding: 0 4px; }.mobile-menu { display: grid; }
   .hero-section { padding: 41px 0 28px; }.hero-grid { min-height: 0; display: block; }.hero-copy { padding-bottom: 0; }.hero-copy h1 { margin-top: 15px; font-size: 44px; letter-spacing: -2.7px; }.hero-description { max-width: 430px; font-size: 12px; }.hero-actions .button { min-height: 38px; padding-inline: 12px; font-size: 10px; }
-  .hero-visual { height: 270px; margin-top: -3px; }.hero-trophy { width: 112px; height: 112px; border-radius: 35px; }.hero-trophy img { width: 96px; height: 96px; }.orbit-one { width: 310px; height: 150px; }.orbit-two { width: 230px; height: 200px; }.floating-card { gap: 7px; padding: 8px 9px; }.floating-card strong { font-size: 10px; }.floating-card small { font-size: 9px; }.floating-icon { width: 28px; height: 28px; }.floating-card-academic { top: 2%; left: 0; }.floating-card-non-academic { top: 40%; right: 0; }.floating-card-personalization { bottom: 2%; left: 0; }.visual-caption { bottom: 0; right: 28%; }
+  .hero-visual { height: 270px; margin-top: 8px; }.hero-trophy { width: 112px; height: 112px; border-radius: 35px; }.hero-trophy img { width: 96px; height: 96px; }.orbit-one { width: 310px; height: 150px; }.orbit-two { width: 230px; height: 200px; }.floating-card { gap: 5px; padding: 6px 7px; border-radius: 10px; }.floating-card strong { font-size: 9px; }.floating-card small { font-size: 8px; }.floating-icon { width: 24px; height: 24px; }.floating-card-academic { top: 2%; left: 0; }.floating-card-non-academic { top: 40%; right: 0; }.floating-card-personalization { bottom: 2%; left: 0; }.visual-caption { bottom: 0; right: 28%; }
   .search-shell { padding-bottom: 19px; }.search-panel { padding: 13px 12px; }.search-panel-heading { gap: 9px; margin-bottom: 12px; }.search-panel-heading-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }.search-panel-heading-icon svg { width: 19px; }.search-panel-heading h2 { font-size: 18px; }.search-panel-heading p { font-size: 9px; }.search-main-row { gap: 7px; }.search-keyword { gap: 7px; padding-inline: 9px; }.search-keyword svg { width: 17px; }.search-keyword input { font-size: 11px; }.search-button { min-width: 93px; min-height: 38px; padding-inline: 9px; font-size: 10px; }.filter-row { grid-template-columns: minmax(0,1fr); gap: 7px; }.filter-select { height: 34px; padding-inline: 7px; gap: 5px; }.filter-select select,.filter-select input,.filter-select-dropdown-trigger { font-size: 9px; }.location-filter { flex-basis: auto; }
   .category-section { padding-top: 33px; }.section-heading h2,.trust-intro h2 { font-size: 21px; }.compact-heading h2 { font-size: 18px; }.category-tile { gap: 8px; padding: 11px 9px; }.category-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }.category-text strong { font-size: 9px; }.category-text small { font-size: 8px; }.category-arrow { width: 14px; }
   .discovery-page { padding-top: 30px; padding-bottom: 42px; }.discovery-heading h2 { font-size: 23px; }.discovery-heading p { font-size: 10px; line-height: 1.6; }
@@ -1270,6 +1275,8 @@ html[data-theme="dark"] .competition-form-grid :is(input,select,textarea),
 html[data-theme="dark"] .competition-contact-grid input,
 html[data-theme="dark"] .competition-organizer-grid :is(input,select),
 html[data-theme="dark"] .organizer-search { border-color: #2b3a56; color: #d3dcec; background: #0c1525; }
+html[data-theme="dark"] .organizer-search input { color: #d3dcec; }
+html[data-theme="dark"] .organizer-search input::placeholder { color: #8796ad; }
 html[data-theme="dark"] .competition-contact-platform-toggle { border-color: #2b3a56; color: #c3cee0; background: #0c1525; }
 html[data-theme="dark"] .competition-contact-platform-toggle:hover { border-color: #435586; background: #162239; }
 html[data-theme="dark"] .competition-contact-platform-toggle[data-platform="tiktok"] svg { color: #d3dcec; }
@@ -1613,6 +1620,7 @@ html[data-theme="dark"] .competition-autocomplete-list button:hover { color: #c3
 html[data-theme="dark"] .competition-autocomplete-list button small { color: #95a2b7; }
 html[data-theme="dark"] .competition-autocomplete-list .competition-autocomplete-create { border-color: #293650; color: #c3ceff; }
 html[data-theme="dark"] .search-filter-options button.is-selected { color: #c3ceff; background: #202c49; }
+html[data-theme="dark"] .search-filter-empty { color: #9eabc0; }
 @media (max-width: 680px) {
   .competition-detail-layout { width: calc(100% - 30px); grid-template-columns: minmax(0,1fr); gap: 14px; }
   .competition-detail-main { order: 1; padding: 16px; }
@@ -2266,7 +2274,7 @@ html[data-theme="dark"] .site-footer > div button + button {
   html[data-theme="dark"] .banner-copy h2 { margin: 7px 0 6px; font-size: 19px; }
   html[data-theme="dark"] .banner-copy p { margin-bottom: 10px; font-size: 11px; }
   html[data-theme="dark"] .banner-opportunity-art {
-    grid-column: 2;
+    grid-column: 1 / -1;
     height: 94px;
   }
   html[data-theme="dark"] .banner-opportunity-card {
@@ -2298,6 +2306,16 @@ html[data-theme="dark"] .site-footer > div button + button {
   html[data-theme="dark"] .site-footer > span { font-size: 9px; }
   html[data-theme="dark"] .site-footer > div button { font-size: 10px; }
   html[data-theme="dark"] .site-footer > div button + button { margin-left: 9px; padding-left: 9px; }
+}
+
+@media (max-width: 380px) {
+  html[data-theme="dark"] .community-banner {
+    grid-template-columns: 52px minmax(0,1fr);
+    gap: 8px 10px;
+    padding: 18px 14px;
+  }
+  html[data-theme="dark"] .banner-art { width: 52px; height: 64px; flex-basis: 52px; }
+  html[data-theme="dark"] .banner-trophy-illustration { width: 64px; height: 58px; }
 }
 
 .modal-backdrop-access {

@@ -18,9 +18,9 @@ export default function SettingsPage({ account, onLogout, onCancel, theme, onTog
           <span className="profile-settings-icon"><Settings size={22} /></span>
           <span className="eyebrow">PENGATURAN</span>
           <h1>Pengaturan akun</h1>
-          <p>Kelola tampilan dan sesi akun LombaLink kamu.</p>
+          <p>Kelola sesi akun LombaLink kamu.</p>
         </div>
-        <div className="settings-row">
+        <div className="settings-row settings-theme-row">
           <div><strong>Tampilan</strong><p>Gunakan tema {theme === "dark" ? "gelap" : "terang"}.</p></div>
           <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
         </div>

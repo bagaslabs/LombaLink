@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { AccountPrompt, SiteFooter } from "./components.jsx";
 import Navbar from "./Navbar.jsx";
@@ -55,11 +55,7 @@ function useRoute() {
 export default function App() {
   const [route, navigate] = useRoute();
   const routePath = route.split("?")[0];
-  const [theme, setTheme] = useState(() => {
-    const savedTheme = localStorage.getItem("lombalink.theme");
-    if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
+  const [theme, setTheme] = useState("dark");
   const [account, setAccount] = useState(null);
   const authAccountIdRef = useRef(null);
   const [accountRoleReady, setAccountRoleReady] = useState(false);
@@ -79,7 +75,7 @@ export default function App() {
   const [encourageShare, setEncourageShare] = useState(false);
   const [postAfterProfile, setPostAfterProfile] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("lombalink.theme", theme);
   }, [theme]);

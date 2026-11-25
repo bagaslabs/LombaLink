@@ -37,8 +37,9 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { competitionModeOptions, formatDate, organizerOptions, provinceOptions, scopeOptions, targetParticipantOptions } from "./data.js";
+import { competitionModeOptions, formatDate, normalizePhoneNumber, organizerOptions, provinceOptions, scopeOptions, targetParticipantOptions } from "./data.js";
 import { getCompetitionTagIcon, getDisplayTagLabel } from "./competitionTagIcons.js";
+import { fetchPlaces, sameName } from "./locationData.js";
 import { reportReasons } from "./reporting.js";
 
 function getExternalContactUrl(url, fallback = "") {
@@ -84,7 +85,7 @@ export function ThemeToggle({ theme, onToggleTheme }) {
   const nextTheme = theme === "dark" ? "light" : "dark";
   return (
     <button
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-amber-300 dark:hover:bg-slate-800"
+      className="theme-toggle-button inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-amber-300 dark:hover:bg-slate-800"
       type="button"
       data-guest-access
       aria-label={`Aktifkan tema ${nextTheme}`}
@@ -831,6 +832,7 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
             ? `https://www.tiktok.com/@${encodeURIComponent(tiktokUsername)}`
             : "");
           const whatsappEnabled = contact.contactMethods?.includes("whatsapp") || contact.whatsappUrl;
+          const whatsappNumber = normalizePhoneNumber(contact.phone, "+62");
           const phoneDigits = String(contact.phone || "").replace(/\D/g, "");
           const whatsappUrl = whatsappEnabled
             ? getExternalContactUrl(contact.whatsappUrl, phoneDigits ? `https://wa.me/${phoneDigits}` : "")
@@ -842,7 +844,7 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
                 {contact.email && <a className="competition-detail-contact-method is-email" href={`mailto:${encodeURIComponent(contact.email)}`} aria-label={`Email ${contact.name || "penyelenggara"}`}><span className="competition-detail-contact-icon"><Mail size={18} aria-hidden="true" /></span><span className="competition-detail-contact-value"><span>Email</span><strong>{contact.email}</strong></span></a>}
                 {instagramUrl && <a className="competition-detail-contact-method is-instagram" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Buka Instagram"><span className="competition-detail-contact-icon"><Instagram size={18} aria-hidden="true" /></span><span className="competition-detail-contact-value"><span>Instagram</span><strong>{instagramUsername ? `@${instagramUsername}` : "Instagram"}</strong></span></a>}
                 {tiktokUrl && <a className="competition-detail-contact-method is-tiktok" href={tiktokUrl} target="_blank" rel="noreferrer" aria-label="Buka TikTok"><span className="competition-detail-contact-icon"><Music2 size={18} aria-hidden="true" /></span><span className="competition-detail-contact-value"><span>TikTok</span><strong>{tiktokUsername ? `@${tiktokUsername}` : "TikTok"}</strong></span></a>}
-                {whatsappUrl && <a className="competition-detail-contact-method is-whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Buka WhatsApp"><span className="competition-detail-contact-icon"><MessageCircle size={18} aria-hidden="true" /></span><span className="competition-detail-contact-value"><span>WhatsApp</span><strong>WhatsApp</strong></span></a>}
+                {whatsappUrl && <a className="competition-detail-contact-method is-whatsapp" href={whatsappUrl} target="_blank" rel="noreferrer" aria-label="Buka WhatsApp"><span className="competition-detail-contact-icon"><MessageCircle size={18} aria-hidden="true" /></span><span className="competition-detail-contact-value"><span>WhatsApp</span><strong>{whatsappNumber || "Nomor belum tersedia"}</strong></span></a>}
               </div>
             </div>
           );
@@ -902,19 +904,22 @@ export function CompetitionModal({ item, onClose, ...detailsProps }) {
   );
 }
 
-function makeSearchFilterOptions(defaultLabel, options) {
-  return [
-    { label: defaultLabel, value: "" },
-    ...options.map((option) => typeof option === "string" ? { label: option, value: option } : option),
-  ];
+function makeSearchFilterOptions(defaultLabel, options, defaultAtEnd = false) {
+  const defaultOption = { label: defaultLabel, value: "" };
+  const filterOptions = options.map((option) => typeof option === "string" ? { label: option, value: option } : option);
+  return defaultAtEnd ? [...filterOptions, defaultOption] : [defaultOption, ...filterOptions];
 }
 
-function SearchFilterDropdown({ label, Icon, value, options, onChange, className = "" }) {
+function SearchFilterDropdown({ label, Icon, value, options, onChange, className = "", disabled = false, searchable = false }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [typeaheadQuery, setTypeaheadQuery] = useState("");
   const triggerRef = useRef(null);
   const optionRefs = useRef([]);
   const listboxId = `search-filter-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   const selectedOption = options.find((option) => option.value === value) || options[0];
+  const visibleOptions = searchable && typeaheadQuery
+    ? options.filter((option) => option.label.toLocaleLowerCase("id").includes(typeaheadQuery.toLocaleLowerCase("id")))
+    : options;
   const focusOption = (index) => optionRefs.current[index]?.focus();
   const closeMenu = () => {
     setIsOpen(false);
@@ -927,18 +932,26 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
   const handleTriggerKeyDown = (event) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      const selectedIndex = options.findIndex((option) => option.value === value);
-      const index = selectedIndex >= 0 ? selectedIndex : event.key === "ArrowDown" ? 0 : options.length - 1;
+      const selectedIndex = visibleOptions.findIndex((option) => option.value === value);
+      const index = selectedIndex >= 0 ? selectedIndex : event.key === "ArrowDown" ? 0 : visibleOptions.length - 1;
       openMenuAt(index);
     } else if (event.key === "Escape" && isOpen) {
       event.preventDefault();
       closeMenu();
+    } else if (searchable && event.key === "Backspace" && typeaheadQuery) {
+      event.preventDefault();
+      setTypeaheadQuery((current) => current.slice(0, -1));
+      setIsOpen(true);
+    } else if (searchable && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      setTypeaheadQuery((current) => `${current}${event.key}`);
+      setIsOpen(true);
     }
   };
   const handleOptionKeyDown = (event, index) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      focusOption(Math.min(index + 1, options.length - 1));
+      focusOption(Math.min(index + 1, visibleOptions.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       focusOption(Math.max(index - 1, 0));
@@ -947,7 +960,7 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
       focusOption(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      focusOption(options.length - 1);
+      focusOption(visibleOptions.length - 1);
     } else if (event.key === "Escape") {
       event.preventDefault();
       closeMenu();
@@ -956,7 +969,7 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
 
   return (
     <div
-      className={`filter-select filter-select-dropdown ${className}`}
+      className={`filter-select filter-select-dropdown ${className}${disabled ? " is-disabled" : ""}`}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
       }}
@@ -966,11 +979,15 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
         className="filter-select-dropdown-trigger"
         ref={triggerRef}
         type="button"
+        disabled={disabled}
         aria-label={`${label}: ${selectedOption.label}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => {
+          setTypeaheadQuery("");
+          setIsOpen((current) => !current);
+        }}
         onKeyDown={handleTriggerKeyDown}
       >
         <span>{selectedOption.label}</span>
@@ -978,7 +995,7 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
       </button>
       {isOpen && (
         <div id={listboxId} className="competition-autocomplete-list search-filter-options" role="listbox" aria-label={`Pilihan ${label}`}>
-          {options.map((option, index) => (
+          {visibleOptions.length ? visibleOptions.map((option, index) => (
             <button
               key={option.value || "all"}
               ref={(element) => { optionRefs.current[index] = element; }}
@@ -992,13 +1009,14 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
               onClick={() => {
                 onChange(option.value);
                 setIsOpen(false);
+                setTypeaheadQuery("");
                 triggerRef.current?.focus();
               }}
             >
               <span>{option.label}</span>
               {option.value === value && <Check size={14} aria-hidden="true" />}
             </button>
-          ))}
+          )) : <div className="search-filter-empty" role="status">Tidak ada kabupaten/kota yang cocok.</div>}
         </div>
       )}
     </div>
@@ -1007,6 +1025,13 @@ function SearchFilterDropdown({ label, Icon, value, options, onChange, className
 
 export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, competitions = [] }) {
   const [categorySuggestionsOpen, setCategorySuggestionsOpen] = useState(false);
+  const [regionProvinces, setRegionProvinces] = useState([]);
+  const [regionProvincesLoading, setRegionProvincesLoading] = useState(true);
+  const [regionProvincesError, setRegionProvincesError] = useState("");
+  const [regencies, setRegencies] = useState([]);
+  const [regenciesLoading, setRegenciesLoading] = useState(false);
+  const [regenciesError, setRegenciesError] = useState("");
+  const [regionRetryKey, setRegionRetryKey] = useState(0);
   const categoryCounts = new Map();
   competitions.forEach((item) => {
     const key = String(item.category || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("id-ID").replace(/[^\p{L}\p{N}]/gu, "");
@@ -1024,11 +1049,70 @@ export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, co
     setFilters({ ...filters, [key]: value });
   };
   const updateFilter = (key) => (value) => {
-    setFilters({ ...filters, [key]: value });
+    setFilters((current) => ({ ...current, [key]: value }));
   };
   const updateScope = (value) => {
-    setFilters({ ...filters, scope: value, location: "" });
+    setFilters((current) => ({ ...current, scope: value, location: "", locationArea: "" }));
   };
+  const updateProvince = (value) => {
+    setFilters((current) => ({ ...current, location: value, locationArea: "" }));
+  };
+  const provinceFilterEnabled = filters.scope === "Provinsi" || filters.scope === "Kabupaten/Kota";
+  const cityFilterEnabled = filters.scope === "Kabupaten/Kota" && Boolean(filters.location);
+  const selectedRegionProvince = regionProvinces.find((item) => sameName(item.name, filters.location));
+  const missingRegionProvince = cityFilterEnabled
+    && !regionProvincesLoading
+    && !regionProvincesError
+    && !selectedRegionProvince;
+  const cityFilterError = regionProvincesError || regenciesError
+    || (missingRegionProvince ? "Daftar kabupaten/kota untuk provinsi ini tidak ditemukan." : "");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setRegionProvincesLoading(true);
+    setRegionProvincesError("");
+
+    fetchPlaces("provinces.json", controller.signal)
+      .then(setRegionProvinces)
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setRegionProvincesError(error instanceof Error ? error.message : "Daftar provinsi gagal dimuat.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRegionProvincesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [regionRetryKey]);
+
+  useEffect(() => {
+    if (!cityFilterEnabled || !selectedRegionProvince) {
+      setRegencies([]);
+      setRegenciesError("");
+      setRegenciesLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setRegencies([]);
+    setRegenciesLoading(true);
+    setRegenciesError("");
+
+    fetchPlaces(`regencies/${encodeURIComponent(selectedRegionProvince.id)}.json`, controller.signal)
+      .then(setRegencies)
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setRegenciesError(error instanceof Error ? error.message : "Daftar kabupaten/kota gagal dimuat.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRegenciesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [cityFilterEnabled, regionRetryKey, selectedRegionProvince?.id]);
+
   const search = () => onSearch();
   const CategoryIcon = filters.category ? getCompetitionTagIcon(filters.category) : Trophy;
 
@@ -1088,14 +1172,11 @@ export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, co
           )}
         </div>
         <SearchFilterDropdown
-          label="Cakupan lomba"
-          Icon={Globe2}
-          value={filters.scope}
-          options={makeSearchFilterOptions("Semua cakupan", [
-            { label: "Daerah (data lama)", value: "Daerah" },
-            ...scopeOptions,
-          ])}
-          onChange={updateScope}
+          label="Jenis penyelenggara"
+          Icon={Building2}
+          value={filters.organizerType}
+          options={makeSearchFilterOptions("Semua penyelenggara", organizerOptions)}
+          onChange={updateFilter("organizerType")}
         />
         <SearchFilterDropdown
           label="Jenis partisipasi"
@@ -1112,20 +1193,47 @@ export function SearchPanel({ filters, setFilters, onSearch, categoryOptions, co
           onChange={updateFilter("mode")}
         />
         <SearchFilterDropdown
-          label="Jenis penyelenggara"
-          Icon={Building2}
-          value={filters.organizerType}
-          options={makeSearchFilterOptions("Semua penyelenggara", organizerOptions)}
-          onChange={updateFilter("organizerType")}
+          label="Cakupan lomba"
+          Icon={Globe2}
+          value={filters.scope}
+          options={makeSearchFilterOptions("Semua cakupan", scopeOptions, true)}
+          onChange={updateScope}
         />
         <SearchFilterDropdown
           className="location-filter"
           label="Provinsi"
           Icon={MapPin}
           value={filters.location}
-          options={makeSearchFilterOptions("Pilih provinsi", provinceOptions)}
-          onChange={updateFilter("location")}
+          options={makeSearchFilterOptions("Pilih Provinsi", provinceOptions)}
+          onChange={updateProvince}
+          disabled={!provinceFilterEnabled}
+          searchable
         />
+        <SearchFilterDropdown
+          className="location-filter location-area-filter"
+          label="Kabupaten/Kota"
+          Icon={MapPin}
+          value={filters.locationArea}
+          options={makeSearchFilterOptions(
+            !cityFilterEnabled ? "Pilih Kabupaten/Kota"
+              : regionProvincesLoading ? "Memuat daftar wilayah..."
+                : regenciesLoading ? "Memuat kabupaten/kota..."
+                  : cityFilterError ? "Daftar kota tidak tersedia"
+                    : "Pilih Kabupaten/Kota",
+            regencies.map((item) => ({ label: item.name, value: item.name })),
+          )}
+          onChange={updateFilter("locationArea")}
+          disabled={!cityFilterEnabled || regionProvincesLoading || Boolean(cityFilterError) || regenciesLoading}
+          searchable
+        />
+        {cityFilterEnabled && cityFilterError && (
+          <div className="location-filter-error" role="alert">
+            <span>{cityFilterError}</span>
+            {(regionProvincesError || regenciesError) && (
+              <button type="button" onClick={() => setRegionRetryKey((current) => current + 1)}>Coba lagi</button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

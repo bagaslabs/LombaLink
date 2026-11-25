@@ -258,7 +258,7 @@ export default function AdminUsersPanel({ supabaseClient, moderatorId }) {
                   return (
                     <tr key={user.id}>
                       <td><div className="admin-user-identity"><span className="admin-user-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <UserRound size={17} />}</span><span><strong>{user.fullName || "Nama belum diisi"}</strong><small>{user.username ? `@${user.username}` : "Username belum diisi"}</small><small>{user.email}</small>{user.role === "moderator" ? <em><ShieldCheck size={12} /> Moderator</em> : <small>Role: {user.accountType === "organizer" ? "Penyelenggara" : user.accountType === "participant" ? "Peserta" : "Belum dipilih"}</small>}</span></div></td>
-                      <td><div className="admin-user-profile">{user.phone && <span>{user.phone}</span>}<span><MapPin size={13} /> {user.region || "Daerah belum diisi"}</span>{user.institution && <span><Building2 size={13} /> {user.institution}</span>}</div></td>
+                      <td><div className="admin-user-profile">{user.phone && <span>{user.phone}</span>}<span><MapPin size={13} /> {user.region || "Profil belum diisi"}</span>{user.institution && <span><Building2 size={13} /> {user.institution}</span>}</div></td>
                       <td>
                         <span className={`admin-user-status status-${statusClass}`}>{statusLabel}</span>
                         {user.status !== "active" && user.sanctionReason && <small className="admin-user-sanction-reason">{user.sanctionReason}{user.bannedUntil ? ` · sampai ${formatCreatedAt(user.bannedUntil)}` : ""}</small>}

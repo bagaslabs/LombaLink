@@ -687,11 +687,15 @@ export default function CompetitionForm({
   };
   const updateLocationProvince = (event) => {
     const locationProvince = event.target.value;
-    updateForm((current) => ({
-      ...current,
-      locationProvince,
-      location: combineCompetitionLocation(current.scope, current.locationArea, locationProvince, current.location),
-    }));
+    updateForm((current) => {
+      const locationArea = current.locationProvince === locationProvince ? current.locationArea : "";
+      return {
+        ...current,
+        locationProvince,
+        locationArea,
+        location: combineCompetitionLocation(current.scope, locationArea, locationProvince, current.location),
+      };
+    });
   };
 
   const updateContactPerson = (index, key, value) => {
@@ -1518,7 +1522,7 @@ export default function CompetitionForm({
                   disabled={!isProvinceScope && !isCityScope}
                   required={isProvinceScope || isCityScope}
                 >
-                  <option value="">Pilih provinsi</option>
+                  <option value="">Pilih Provinsi</option>
                   {form.locationProvince && !provinceOptions.includes(form.locationProvince) && <option value={form.locationProvince}>{form.locationProvince} (data tersimpan)</option>}
                   {provinceOptions.map((province) => <option key={province}>{province}</option>)}
                 </select>
@@ -1528,8 +1532,8 @@ export default function CompetitionForm({
                   value={form.locationArea}
                   onChange={updateLocationArea}
                   maxLength={120}
-                  placeholder="Contoh: Jember"
-                  disabled={!isCityScope}
+                  placeholder="Pilih Kabupaten/Kota"
+                  disabled={!isCityScope || !form.locationProvince}
                   required={isCityScope}
                 />
               </label>

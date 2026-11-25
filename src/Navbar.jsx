@@ -55,7 +55,7 @@ export default function Navbar({ account, route, navigate, onSubmit, onLogout, t
           <ThemeToggle theme={theme} onToggleTheme={onToggleTheme} />
           {account ? (
             <>
-              {account.role === "organizer" && <button className="button button-outline button-small" onClick={onSubmit}><Plus size={16} /> Tambah Lomba</button>}
+              {account.role === "organizer" && <button className="button button-outline button-small organizer-add-nav" onClick={onSubmit}><Plus size={16} /> Tambah Lomba</button>}
               <button className="profile-chip" aria-label="Buka profil" onClick={() => goToPage("/profile")}>
                 <span className="avatar">{account.avatarUrl ? <img src={account.avatarUrl} alt="" /> : account.name.slice(0, 1).toUpperCase()}</span>
                 <span className="profile-name">{account.name.split(" ")[0]}</span>
