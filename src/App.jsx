@@ -45,7 +45,10 @@ function useRoute() {
     if (getCurrentRoute() !== normalizedRoute) {
       window.history.pushState({}, "", normalizedRoute);
       setRoute(normalizedRoute);
-      window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+      const preserveScrollRoutes = ["/personalization", "/profile", "/settings"];
+      if (!preserveScrollRoutes.includes(nextUrl.pathname)) {
+        window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+      }
     }
   }, []);
 

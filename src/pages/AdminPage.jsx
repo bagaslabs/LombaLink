@@ -14,6 +14,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  Search,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
@@ -33,7 +34,10 @@ import AdminReportsPanel from "./AdminReportsPanel.jsx";
 import AdminActivityPanel from "./AdminActivityPanel.jsx";
 
 export default function AdminPage({ routePath = "/admin", account, supabaseClient, navigate, onLogout, onCompetitionsChanged, theme, onToggleTheme, suggestedKeywords = [] }) {
+  const pageSize = 15;
   const [tab, setTab] = useState("pending");
+  const [competitionSearch, setCompetitionSearch] = useState("");
+  const [competitionPage, setCompetitionPage] = useState(1);
   const [section, setSection] = useState("overview");
   const [competitions, setCompetitions] = useState([]);
   const [stats, setStats] = useState(null);
@@ -50,6 +54,8 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
   const [deleteError, setDeleteError] = useState("");
   const [rejectItem, setRejectItem] = useState(null);
   const [rejectionNote, setRejectionNote] = useState("");
+  const competitionsLoadedRef = React.useRef(false);
+  const editReturnScrollRef = React.useRef(0);
   const isCreatePage = routePath === "/admin/tambahkan-lomba";
   const moderatorName = account?.name || "Moderator";
   const tabDescriptions = {
@@ -59,11 +65,20 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     archived: "Lomba yang disembunyikan dari publik; arsip tidak selalu draft.",
     all: "Semua lomba beserta status pengajuan dan arsipnya.",
   };
-  const visible = useMemo(() => competitions.filter((item) => {
-    if (item.status === "draft") return false;
-    return tab === "all"
-      || (tab === "archived" ? Boolean(item.archivedAt) : !item.archivedAt && item.status === tab);
-  }), [competitions, tab]);
+  const visible = useMemo(() => {
+    const query = competitionSearch.trim().toLocaleLowerCase("id-ID");
+    return competitions.filter((item) => {
+      if (item.status === "draft") return false;
+      const matchesTab = tab === "all"
+        || (tab === "archived" ? Boolean(item.archivedAt) : !item.archivedAt && item.status === tab);
+      if (!matchesTab) return false;
+      if (!query) return true;
+      return [item.title, item.organizer, item.category, item.education, item.submittedBy]
+        .some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(query));
+    });
+  }, [competitions, competitionSearch, tab]);
+  const competitionPageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+  const pageItems = visible.slice((competitionPage - 1) * pageSize, competitionPage * pageSize);
   const sectionLabel = isCreatePage
     ? "Tambah lomba"
     : section === "users"
@@ -80,8 +95,16 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         }[tab] || "Ringkasan");
 
   useEffect(() => {
+    setCompetitionPage(1);
+  }, [tab, competitionSearch]);
+
+  useEffect(() => {
+    if (competitionPage > competitionPageCount) setCompetitionPage(competitionPageCount);
+  }, [competitionPage, competitionPageCount]);
+
+  useEffect(() => {
     let active = true;
-    setLoading(true);
+    if (!competitionsLoadedRef.current) setLoading(true);
     setError("");
 
     if (!supabaseClient) {
@@ -129,7 +152,10 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
         setError(loadError instanceof Error ? loadError.message : "Data moderator gagal dimuat.");
       }
     }).finally(() => {
-      if (active) setLoading(false);
+      if (active) {
+        competitionsLoadedRef.current = true;
+        setLoading(false);
+      }
     });
 
     return () => { active = false; };
@@ -334,6 +360,11 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
     setCreateNotice("");
     navigate("/admin/tambahkan-lomba");
   };
+  const closeEditingItem = () => {
+    const scrollTop = editReturnScrollRef.current;
+    setEditingItem(null);
+    window.requestAnimationFrame(() => window.scrollTo({ top: scrollTop, behavior: "instant" }));
+  };
   const showAdminSection = (nextSection, nextTab) => {
     setSection(nextSection);
     if (nextTab) setTab(nextTab);
@@ -407,7 +438,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
             <div className="admin-stat"><span className="stat-icon stat-blue"><UsersRound size={19} /></span><span className="stat-label">Profil pengguna</span><strong>{stats ? stats.profiles.toLocaleString("id-ID") : "—"}</strong><small>Data dari database</small></div>
           </div>
           <div className="admin-table-card">
-            <div className="table-heading"><div><h2>Pengajuan lomba</h2><p>{tabDescriptions[tab]}</p></div><button className="button button-outline button-small" onClick={() => setTab("all")}><SlidersHorizontal size={15} /> Semua</button></div>
+            <div className="table-heading"><div><h2>Daftar lomba</h2><p>{tabDescriptions[tab]}</p></div><button className="button button-outline button-small" onClick={() => setTab("all")}><SlidersHorizontal size={15} /> Semua</button></div>
             <div className="table-tabs">
               <button className={tab === "pending" ? "selected" : ""} title="Sudah dikirim, belum ditinjau" onClick={() => setTab("pending")}>Menunggu <span>{stats ? stats.pending.toLocaleString("id-ID") : "—"}</span></button>
               <button className={tab === "approved" ? "selected" : ""} title="Sudah disetujui dan dapat dilihat publik" onClick={() => setTab("approved")}>Disetujui</button>
@@ -415,9 +446,25 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
               <button className={tab === "archived" ? "selected" : ""} title="Disembunyikan dari publik, status sebelumnya tetap dipertahankan" onClick={() => setTab("archived")}>Arsip <small>disembunyikan</small></button>
               <button className={tab === "all" ? "selected" : ""} onClick={() => setTab("all")}>Semua</button>
             </div>
+            <div className="admin-competition-search">
+              <label className="sr-only" htmlFor="admin-competition-search-input">Cari lomba berdasarkan nama atau penyelenggara</label>
+              <Search size={16} aria-hidden="true" />
+              <input
+                id="admin-competition-search-input"
+                type="search"
+                value={competitionSearch}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setCompetitionSearch(value);
+                  if (value.trim()) setTab("all");
+                }}
+                placeholder="Cari semua lomba berdasarkan nama atau penyelenggara..."
+              />
+              {competitionSearch && <button type="button" onClick={() => setCompetitionSearch("")} aria-label="Hapus pencarian"><X size={15} /></button>}
+            </div>
             {actionError && <div className="admin-users-error" role="alert">{actionError}<button onClick={() => setActionError("")}>Tutup</button></div>}
             <div className="submission-list">
-              {loading ? <div className="admin-empty"><LoaderCircle size={20} className="loading-icon" /><strong>Memuat data lomba...</strong></div> : visible.length ? visible.map((item) => <article className="submission-row" key={item.id}>
+              {loading ? <div className="admin-empty"><LoaderCircle size={20} className="loading-icon" /><strong>Memuat data lomba...</strong></div> : visible.length ? pageItems.map((item) => <article className="submission-row" key={item.id}>
                 <span className="submission-logo"><Trophy size={20} /></span>
                 <div className="submission-info"><button className="submission-title-button" onClick={() => setReviewItem(item)}>{item.title}</button><span>{item.organizer} <i>·</i> {item.category} <i>·</i> {item.education}</span><small>Diajukan oleh {item.submittedBy} · {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.submittedAt))}</small></div>
                 <span
@@ -446,6 +493,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
                     disabled={Boolean(actionId)}
                     onClick={() => {
                       setReviewItem(null);
+                      editReturnScrollRef.current = window.scrollY;
                       setEditingItem(item);
                     }}
                   ><Pencil size={15} /></button>
@@ -460,7 +508,14 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
                 </div>
               </article>) : <div className="admin-empty"><CheckCircle2 size={22} /><strong>Tidak ada pengajuan di sini</strong><span>Tidak ada lomba dengan status ini di database.</span></div>}
             </div>
-            <div className="table-footer"><span>{loading ? "Memuat pengajuan..." : `Menampilkan ${visible.length} pengajuan`}</span><button onClick={() => setTab("all")}>Lihat semua pengajuan <ArrowRight size={14} /></button></div>
+            <div className="table-footer">
+              <span>{loading ? "Memuat pengajuan..." : visible.length ? `Menampilkan ${(competitionPage - 1) * pageSize + 1}–${Math.min(competitionPage * pageSize, visible.length)} dari ${visible.length} lomba` : "Tidak ada lomba yang cocok"}</span>
+              <div className="admin-pagination" aria-label="Halaman lomba">
+                <button type="button" aria-label="Halaman sebelumnya" disabled={competitionPage <= 1} onClick={() => setCompetitionPage((current) => Math.max(1, current - 1))}><ArrowLeft size={14} /> Sebelumnya</button>
+                <span>{competitionPage} / {competitionPageCount}</span>
+                <button type="button" aria-label="Halaman berikutnya" disabled={competitionPage >= competitionPageCount} onClick={() => setCompetitionPage((current) => Math.min(competitionPageCount, current + 1))}>Berikutnya <ArrowRight size={14} /></button>
+              </div>
+            </div>
           </div>
           </>}
         </div>
@@ -490,7 +545,7 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
           <section className="admin-competition-edit-dialog" role="dialog" aria-modal="true" aria-label={`Edit lomba ${editingItem.title}`}>
             <div className="admin-competition-edit-toolbar">
               <span className="eyebrow">EDIT LOMBA</span>
-              <button type="button" className="admin-competition-edit-close" aria-label="Tutup pengeditan" onClick={() => setEditingItem(null)}>
+              <button type="button" className="admin-competition-edit-close" aria-label="Tutup pengeditan" onClick={closeEditingItem}>
                 <X size={18} />
               </button>
             </div>
@@ -501,8 +556,8 @@ export default function AdminPage({ routePath = "/admin", account, supabaseClien
               suggestedCompetitions={competitions}
               persistenceKey={`lombalink.competition-form.v1.${account.id}.moderator-edit.${editingItem.id}`}
               onSubmit={updateModeratedCompetition}
-              onCancel={() => setEditingItem(null)}
-              onSuccess={() => setEditingItem(null)}
+              onCancel={closeEditingItem}
+              onSuccess={closeEditingItem}
             />
           </section>
         </div>

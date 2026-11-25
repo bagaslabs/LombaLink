@@ -403,6 +403,16 @@ h1,h2,h3,p { margin-top: 0; }
 .admin-table-card { overflow: hidden; border: 1px solid #e8ecf3; border-radius: 12px; background: #fff; }.table-heading { display: flex; align-items: center; justify-content: space-between; padding: 19px 19px 15px; }.table-heading h2 { margin: 0 0 5px; color: #34415a; font: 700 14px Manrope,sans-serif; }.table-heading p { margin: 0; color: #939daf; font-size: 10px; }.table-heading .button { min-height: 32px; font-size: 10px; }
 .table-tabs { display: flex; gap: 20px; padding: 0 19px; border-bottom: 1px solid #eef0f5; }.table-tabs button { position: relative; display: flex; gap: 6px; align-items: center; padding: 11px 0; border: 0; background: transparent; color: #8792a5; font-size: 10px; font-weight: 600; }.table-tabs button.selected { color: #4e6ee3; }.table-tabs button.selected::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: #5474ec; border-radius: 2px; }.table-tabs button span { min-width: 17px; padding: 2px 4px; border-radius: 5px; background: #fff2df; color: #c68235; font-size: 8px; text-align: center; }
 .table-tabs button small { color: #9aa4b5; font-size: 8px; font-weight: 500; }
+.admin-competition-search { display: flex; align-items: center; gap: 9px; min-height: 38px; margin: 12px 19px; padding: 0 11px; border: 1px solid #e5eaf2; border-radius: 8px; color: #8995a8; background: #fff; }
+.admin-competition-search:focus-within { border-color: #7895e8; box-shadow: 0 0 0 3px #5574e51a; }
+.admin-competition-search input { flex: 1; min-width: 0; border: 0; outline: 0; color: #34415a; background: transparent; font: inherit; font-size: 10px; }
+.admin-competition-search input::placeholder { color: #9aa5b5; }
+.admin-competition-search > button { display: grid; width: 24px; height: 24px; place-items: center; padding: 0; border: 0; border-radius: 6px; color: #8995a8; background: transparent; }
+.admin-competition-search > button:hover { color: #4e6ee3; background: #eff3ff; }
+.admin-pagination { display: flex; align-items: center; gap: 10px; }
+.admin-pagination > span { color: #748099; font-size: 9px; font-weight: 600; white-space: nowrap; }
+.table-footer .admin-pagination button { min-height: 30px; padding: 0 8px; border: 1px solid #e5eaf2; border-radius: 7px; color: #5874de; }
+.table-footer .admin-pagination button:disabled { cursor: not-allowed; opacity: .45; }
 .submission-row { display: flex; align-items: center; gap: 14px; min-height: 84px; padding: 14px 20px; border-bottom: 1px solid #f0f2f6; transition: background-color .18s ease; }.submission-row:hover { background: #f8faff; }.submission-logo { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; border-radius: 12px; color: #6984e3; background: #eef2ff; }.submission-info { min-width: 0; flex: 1; }.submission-info strong,.submission-info span,.submission-info small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.submission-info strong { color: #3a4760; font-size: 10px; }.submission-info span { margin-top: 4px; color: #7f8ba0; font-size: 10px; }.submission-info span i { padding: 0 3px; color: #bdc5d2; font-style: normal; }.submission-info small { margin-top: 4px; color: #8995a8; font-size: 9px; }.status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 20px; white-space: nowrap; font-size: 9px; font-weight: 700; }.status-pending { color: #c4893e; background: #fff5e7; }.status-pending i { width: 5px; height: 5px; border-radius: 50%; background: #e8a34c; }.status-approved { color: #448e6c; background: #eaf7f0; }.status-rejected { color: #bc6565; background: #fff0f0; }.status-draft { color: #687994; background: #eef2f8; }.submission-actions { display: flex; gap: 6px; margin-left: 3px; }.submission-actions button { width: 31px; height: 31px; display: grid; place-items: center; border: 1px solid #e9edf3; border-radius: 8px; background: #fff; transition: border-color .16s ease,color .16s ease,background-color .16s ease; }.reject-action { color: #d07575; }.reject-action:hover { background: #fff1f1; }.approve-action { border-color: #dcefe5 !important; color: #4d9b75; background: #f2faf6 !important; }.approve-action:hover { background: #e5f6ed !important; }.archive-action { color: #77839a; }.archive-action:hover { background: #f3f5f8; }.edit-action { color: #526fd8; }.edit-action:hover { border-color: #c7d2ff !important; color: #3c5fd1; background: #eff3ff !important; }.delete-action { color: #bb5c5c; }.delete-action:hover { border-color: #f0d7d7; background: #fff2f2; }.submission-actions button:disabled { cursor: wait; opacity: .55; }.reviewed-label { color: #78859b; font-size: 10px; }.table-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 19px; color: #9aa4b3; font-size: 9px; }.table-footer button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #5874de; font-size: 9px; font-weight: 700; }.admin-empty { min-height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; color: #9aa5b7; }.admin-empty svg { margin-bottom: 4px; color: #65aa86; }.admin-empty strong { color: #59667e; font-size: 11px; }.admin-empty span { font-size: 9px; }.admin-tip { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; border: 1px solid #e8edff; border-radius: 9px; background: #f4f6ff; }.admin-tip > span { color: #7389e2; }.admin-tip p { margin: 0; color: #77849b; font-size: 9px; line-height: 1.6; }.admin-tip strong { color: #566aaf; }
 
 @media (max-width: 900px) {
@@ -473,6 +483,10 @@ html[data-theme="dark"] :is(.location-filter input,.submission-form input,.submi
   background-color: #0c1525;
   border-color: #2b3a56;
 }
+html[data-theme="dark"] .admin-competition-search { border-color: #2b3a56; color: #95a2b7; background: #0c1525; }
+html[data-theme="dark"] .admin-competition-search input { color: #dce4f2; }
+html[data-theme="dark"] .admin-competition-search input::placeholder { color: #7f8da5; }
+html[data-theme="dark"] .admin-competition-search > button:hover { color: #c3ceff; background: #202c49; }
 html[data-theme="dark"] :is(.button-outline,.round-arrow,.modal-close,.submission-actions button) { background-color: #162239; border-color: #2b3a56; color: #c3cee0; }
 html[data-theme="dark"] .hero-actions .button-outline { border-color: #3a5275; background: transparent; color: #e4eaf5; }
 html[data-theme="dark"] .hero-actions .button-outline:hover { border-color: #7698d3; background: rgba(255,255,255,.04); color: #fff; }
@@ -514,6 +528,8 @@ html[data-theme="dark"] .admin-breadcrumb strong { color: #dce4f2; }
 html[data-theme="dark"] :is(.table-heading,.table-footer) { border-color: #293650; }
 html[data-theme="dark"] .table-footer { color: #95a2b7; }
 html[data-theme="dark"] .table-footer button { color: #b7c5ff; }
+html[data-theme="dark"] .table-footer .admin-pagination button { border-color: #2b3a56; background: #162239; }
+html[data-theme="dark"] .admin-pagination > span { color: #95a2b7; }
 html[data-theme="dark"] .table-tabs button small { color: #95a2b7; }
 html[data-theme="dark"] .submission-row { background: #111b2d; }
 html[data-theme="dark"] .submission-row:hover { background: #162239; }
@@ -2348,4 +2364,10 @@ html[data-theme="dark"] .prompt-modal-access .modal-close {
   .prompt-modal-access > p:not(.eyebrow) { font-size: 14px; }
   .prompt-access-cta { min-height: 46px; font-size: 15px; }
   .prompt-modal-access .prompt-login { font-size: 11px; }
+}
+
+@media (max-width: 680px) {
+  .table-footer { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .admin-pagination { width: 100%; justify-content: space-between; }
+  .admin-competition-search { margin-inline: 12px; }
 }

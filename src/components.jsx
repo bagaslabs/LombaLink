@@ -578,18 +578,17 @@ export function CompetitionDetails({ item, onClose, onTrackEvent, onReport, isLo
   const competitionUrl = new URL(`/kompetisi/${encodeURIComponent(item.id)}`, window.location.origin).href;
   const preparedPosterFile = preparedPoster?.url === item.coverUrl ? preparedPoster.file : null;
   const description = String(item.description || item.tagline || "").replace(/\s+/g, " ").trim();
-  const descriptionPreview = description.length > 500 ? `${description.slice(0, 497).trimEnd()}...` : description;
   const organizerSource = item.organizerLevel || item.organizerType;
+  const shareCaption = [
+    `🏆 ${item.title}`,
+    item.organizer && `Penyelenggara: ${item.organizer}`,
+    `Detail lomba: ${competitionUrl}`,
+  ].filter(Boolean).join("\n\n");
   const overviewDescription = description
     .replace(/\[\[\/?justify\]\]/g, "")
     .replace(/[*_`#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  const shareCaption = [
-    `🏆 ${item.title}`,
-    descriptionPreview,
-    `Lihat detail lomba di LombaLink: ${competitionUrl}`,
-  ].filter(Boolean).join("\n\n");
   const sharePosterImage = async () => {
     setShareNotice("");
     setShareError("");
